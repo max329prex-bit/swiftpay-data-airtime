@@ -5,6 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Auth from "./pages/Auth.tsx";
+import { AppShell } from "./components/swift/AppShell.tsx";
+import Dashboard from "./pages/app/Dashboard.tsx";
+import Airtime from "./pages/app/Airtime.tsx";
+import Data from "./pages/app/Data.tsx";
+import Wallet from "./pages/app/Wallet.tsx";
+import History from "./pages/app/History.tsx";
+import Success from "./pages/app/Success.tsx";
 
 const queryClient = new QueryClient();
 
@@ -12,11 +20,19 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner theme="dark" />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/app" element={<AppShell />}>
+            <Route index element={<Dashboard />} />
+            <Route path="airtime" element={<Airtime />} />
+            <Route path="data" element={<Data />} />
+            <Route path="wallet" element={<Wallet />} />
+            <Route path="history" element={<History />} />
+            <Route path="success" element={<Success />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
