@@ -13,6 +13,23 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['"Space Grotesk"', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-mint': 'var(--gradient-mint)',
+        'gradient-card': 'var(--gradient-card)',
+        'gradient-aurora': 'var(--gradient-aurora)',
+        'gradient-hero': 'var(--gradient-hero)',
+      },
+      boxShadow: {
+        glow: 'var(--shadow-glow)',
+        mint: 'var(--shadow-mint)',
+        card: 'var(--shadow-card)',
+        soft: 'var(--shadow-soft)',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -22,6 +39,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          glow: "hsl(var(--primary-glow))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -38,6 +56,14 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+        },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        network: {
+          mtn: "hsl(var(--mtn))",
+          glo: "hsl(var(--glo))",
+          airtel: "hsl(var(--airtel))",
+          nine: "hsl(var(--nine))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
