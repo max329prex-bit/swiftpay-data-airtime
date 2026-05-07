@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { naira } from "@/lib/networks";
@@ -49,10 +49,7 @@ export default function Dashboard() {
             <Plus className="h-4 w-4 text-white" />
           </Link>
         </div>
-        <div className="relative mt-6 flex items-center gap-2 text-xs text-white/80">
-          <Sparkles className="h-3 w-3" />
-          You earn 2.5% cashback on every purchase
-        </div>
+        <div className="relative mt-6 text-xs text-white/80">Tap + to fund your wallet instantly.</div>
       </motion.div>
 
       {/* Quick actions */}
@@ -60,21 +57,14 @@ export default function Dashboard() {
         {[
           { i: Zap, l: "Airtime", to: "/app/airtime" },
           { i: Wifi, l: "Data", to: "/app/data" },
-          { i: Plus, l: "Top up", to: "/app/wallet" },
-          { i: ArrowUpRight, l: "History", to: "/app/history" },
+          { i: BatteryCharging, l: "Electric", to: "/app/electricity" },
+          { i: Tv, l: "Cable TV", to: "/app/cable" },
         ].map(a => (
           <Link key={a.l} to={a.to} className="glass flex flex-col items-center gap-2 rounded-2xl p-3 hover:border-primary/40 transition">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-primary"><a.i className="h-4 w-4 text-white" /></span>
             <span className="text-[11px] font-medium">{a.l}</span>
           </Link>
         ))}
-      </div>
-
-      {/* Promo */}
-      <div className="relative overflow-hidden rounded-3xl border border-accent/30 bg-gradient-to-br from-accent/15 to-primary/10 p-5">
-        <Sparkles className="absolute right-4 top-4 h-5 w-5 text-accent" />
-        <div className="font-display text-lg font-semibold">Earn ₦500 free 🎁</div>
-        <p className="mt-1 text-xs text-muted-foreground">Refer a friend who tops up their first ₦1,000.</p>
       </div>
 
       {/* Recent */}
