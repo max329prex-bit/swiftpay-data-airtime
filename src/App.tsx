@@ -13,6 +13,7 @@ import Data from "./pages/app/Data.tsx";
 import Wallet from "./pages/app/Wallet.tsx";
 import History from "./pages/app/History.tsx";
 import Success from "./pages/app/Success.tsx";
+import Electricity from "./pages/app/Electricity.tsx";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route index element={<Dashboard />} />
             <Route path="airtime" element={<Airtime />} />
             <Route path="data" element={<Data />} />
+            <Route path="electricity" element={<Electricity />} />
             <Route path="wallet" element={<Wallet />} />
             <Route path="history" element={<History />} />
             <Route path="success" element={<Success />} />
