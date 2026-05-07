@@ -14,7 +14,6 @@ export function SiteNav() {
           <nav className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
             <a href="#how" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How it works</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Cashback</a>
             <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
           </nav>
           <div className="flex items-center gap-2">
