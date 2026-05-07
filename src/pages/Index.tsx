@@ -66,7 +66,7 @@ export default function Index() {
             </motion.h1>
             <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }}
               className="mt-6 max-w-lg text-lg text-muted-foreground">
-              SwiftPay is the smartest way to top up any Nigerian network. Earn cashback on every purchase, schedule top-ups, and pay friends in two taps.
+              SwiftPay is the smartest way to top up any Nigerian network and pay your bills — airtime, data, electricity and cable TV, all in one wallet.
             </motion.p>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.4 }}
               className="mt-8 flex flex-wrap items-center gap-3">
