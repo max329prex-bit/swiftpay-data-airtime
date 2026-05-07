@@ -41,6 +41,9 @@ export default function Data() {
     if (!bundle || bundle.price > balance) return toast.error("Insufficient balance");
     setBusy(true);
     try {
+      const ok = await supabase.rpc("verify_transaction_pin", { _pin: pin });
+      if (ok.error) throw ok.error;
+      if (!ok.data) throw new Error("Incorrect PIN");
       const { data, error } = await supabase.rpc("purchase_vtu", {
         _type: "data", _network: network, _phone: phone,
         _amount: bundle.price, _meta: { bundle: bundle.name, size: bundle.size },
