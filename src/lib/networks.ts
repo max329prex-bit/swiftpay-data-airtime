@@ -1,10 +1,14 @@
 export type NetworkId = "MTN" | "GLO" | "AIRTEL" | "9MOBILE";
 
-export const NETWORKS: { id: NetworkId; name: string; color: string; bg: string; prefixes: string[] }[] = [
-  { id: "MTN", name: "MTN", color: "text-black", bg: "bg-[hsl(var(--mtn))]", prefixes: ["0803","0806","0703","0706","0813","0816","0810","0814","0903","0906","0913","0916"] },
-  { id: "GLO", name: "Glo", color: "text-white", bg: "bg-[hsl(var(--glo))]", prefixes: ["0805","0807","0705","0815","0811","0905","0915"] },
-  { id: "AIRTEL", name: "Airtel", color: "text-white", bg: "bg-[hsl(var(--airtel))]", prefixes: ["0802","0808","0708","0812","0701","0902","0901","0907","0912"] },
-  { id: "9MOBILE", name: "9mobile", color: "text-white", bg: "bg-[hsl(var(--nine))]", prefixes: ["0809","0817","0818","0908","0909"] },
+export const NETWORKS: { id: NetworkId; name: string; color: string; bg: string; prefixes: string[]; logo: string }[] = [
+  { id: "MTN", name: "MTN", color: "text-black", bg: "bg-yellow-400", logo: "MTN",
+    prefixes: ["0803","0806","0703","0706","0813","0816","0810","0814","0903","0906","0913","0916"] },
+  { id: "AIRTEL", name: "Airtel", color: "text-white", bg: "bg-red-600", logo: "Airtel",
+    prefixes: ["0802","0808","0708","0812","0701","0902","0901","0907","0912"] },
+  { id: "GLO", name: "Glo", color: "text-white", bg: "bg-green-600", logo: "Glo",
+    prefixes: ["0805","0807","0705","0815","0811","0905","0915"] },
+  { id: "9MOBILE", name: "9mobile", color: "text-white", bg: "bg-green-500", logo: "9M",
+    prefixes: ["0809","0817","0818","0908","0909"] },
 ];
 
 export function detectNetwork(phone: string): NetworkId | null {
@@ -14,34 +18,64 @@ export function detectNetwork(phone: string): NetworkId | null {
   return NETWORKS.find(n => n.prefixes.includes(prefix))?.id ?? null;
 }
 
-export const DATA_BUNDLES: Record<NetworkId, { id: string; name: string; size: string; validity: string; price: number; tag?: string }[]> = {
+export type DataBundle = { id: string; name: string; size: string; validity: string; buyPrice: number; price: number; };
+
+export const DATA_BUNDLES_VTU: Record<NetworkId, DataBundle[]> = {
   MTN: [
-    { id: "mtn-1", name: "Daily Plan", size: "75MB", validity: "1 day", price: 75 },
-    { id: "mtn-2", name: "AWUF Daily", size: "200MB", validity: "1 day", price: 200, tag: "Hot" },
-    { id: "mtn-3", name: "Weekly Plan", size: "1GB", validity: "7 days", price: 800 },
-    { id: "mtn-4", name: "Monthly", size: "2GB", validity: "30 days", price: 1500 },
-    { id: "mtn-5", name: "Mega", size: "6GB", validity: "30 days", price: 3000, tag: "Best value" },
-    { id: "mtn-6", name: "XtraValue", size: "20GB", validity: "30 days", price: 7500 },
-  ],
-  GLO: [
-    { id: "glo-1", name: "Daily", size: "100MB", validity: "1 day", price: 100 },
-    { id: "glo-2", name: "Weekly", size: "1.35GB", validity: "7 days", price: 750 },
-    { id: "glo-3", name: "Monthly", size: "5.8GB", validity: "30 days", price: 2500, tag: "Popular" },
-    { id: "glo-4", name: "Mega Plan", size: "13.25GB", validity: "30 days", price: 5000 },
+    { id: "mtn-500mb", name: "500MB", size: "500MB", validity: "30 days", buyPrice: 185, price: 230 },
+    { id: "mtn-1gb", name: "1GB", size: "1GB", validity: "30 days", buyPrice: 245, price: 280 },
+    { id: "mtn-2gb", name: "2GB", size: "2GB", validity: "30 days", buyPrice: 490, price: 540 },
+    { id: "mtn-3gb", name: "3GB", size: "3GB", validity: "30 days", buyPrice: 735, price: 800 },
+    { id: "mtn-5gb", name: "5GB", size: "5GB", validity: "30 days", buyPrice: 1260, price: 1350 },
+    { id: "mtn-8gb", name: "8GB", size: "8GB", validity: "30 days", buyPrice: 2025, price: 2150 },
+    { id: "mtn-10gb", name: "10GB", size: "10GB", validity: "30 days", buyPrice: 2550, price: 2700 },
+    { id: "mtn-15gb", name: "15GB", size: "15GB", validity: "30 days", buyPrice: 3800, price: 4000 },
+    { id: "mtn-20gb", name: "20GB", size: "20GB", validity: "30 days", buyPrice: 5050, price: 5300 },
   ],
   AIRTEL: [
-    { id: "air-1", name: "Daily", size: "100MB", validity: "1 day", price: 100 },
-    { id: "air-2", name: "Weekly", size: "1GB", validity: "7 days", price: 800 },
-    { id: "air-3", name: "Monthly", size: "3GB", validity: "30 days", price: 1500, tag: "Hot" },
-    { id: "air-4", name: "Mega", size: "10GB", validity: "30 days", price: 4000 },
+    { id: "airt-75mb", name: "75MB", size: "75MB", validity: "1 day", buyPrice: 485, price: 540 },
+    { id: "airt-1gb", name: "1GB", size: "1GB", validity: "30 days", buyPrice: 960, price: 1020 },
+    { id: "airt-2gb", name: "2GB", size: "2GB", validity: "30 days", buyPrice: 1150, price: 1220 },
+    { id: "airt-3gb", name: "3GB", size: "3GB", validity: "30 days", buyPrice: 1430, price: 1520 },
+    { id: "airt-4gb", name: "4GB", size: "4GB", validity: "30 days", buyPrice: 1910, price: 2000 },
+    { id: "airt-6gb", name: "6GB", size: "6GB", validity: "30 days", buyPrice: 2385, price: 2500 },
+    { id: "airt-8gb", name: "8GB", size: "8GB", validity: "30 days", buyPrice: 2860, price: 3000 },
+    { id: "airt-11gb", name: "11GB", size: "11GB", validity: "30 days", buyPrice: 3810, price: 4000 },
+  ],
+  GLO: [
+    { id: "glo_1gb", name: "1GB", size: "1GB", validity: "30 days", buyPrice: 430, price: 490 },
+    { id: "glo_2gb", name: "2GB", size: "2GB", validity: "30 days", buyPrice: 860, price: 940 },
+    { id: "glo_4gb", name: "4GB", size: "4GB", validity: "30 days", buyPrice: 1300, price: 1400 },
+    { id: "glo_5gb", name: "5GB", size: "5GB", validity: "30 days", buyPrice: 1750, price: 1870 },
+    { id: "glo_10gb", name: "10GB", size: "10GB", validity: "30 days", buyPrice: 2600, price: 2750 },
+    { id: "glo_18gb", name: "18GB", size: "18GB", validity: "30 days", buyPrice: 4300, price: 4550 },
   ],
   "9MOBILE": [
-    { id: "9m-1", name: "Daily", size: "100MB", validity: "1 day", price: 100 },
-    { id: "9m-2", name: "Weekly", size: "1GB", validity: "7 days", price: 1000 },
-    { id: "9m-3", name: "Monthly", size: "4.5GB", validity: "30 days", price: 2000 },
+    { id: "9m_500mb", name: "500MB", size: "500MB", validity: "30 days", buyPrice: 460, price: 520 },
+    { id: "9m_1gb", name: "1GB", size: "1GB", validity: "30 days", buyPrice: 910, price: 980 },
+    { id: "9m_2gb", name: "2GB", size: "2GB", validity: "30 days", buyPrice: 1090, price: 1180 },
+    { id: "9m_3gb", name: "3GB", size: "3GB", validity: "30 days", buyPrice: 1360, price: 1470 },
+    { id: "9m_4gb", name: "4GB", size: "4GB", validity: "30 days", buyPrice: 1810, price: 1950 },
+    { id: "9m_11gb", name: "11GB", size: "11GB", validity: "30 days", buyPrice: 3610, price: 3820 },
   ],
 };
+
+// Keep backwards compatibility
+export const DATA_BUNDLES = DATA_BUNDLES_VTU;
 
 export function naira(n: number) {
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(n);
 }
+
+export const ELECTRICITY_PROVIDERS = [
+  { id: "EKEDC", name: "Eko Electric (EKEDC)", location: "Lagos South" },
+  { id: "IKEDC", name: "Ikeja Electric (IKEDC)", location: "Lagos North" },
+  { id: "IBEDC", name: "Ibadan Electric (IBEDC)", location: "Oyo/Ogun/Osun/Kwara" },
+  { id: "AEDC", name: "Abuja Electric (AEDC)", location: "FCT/Niger/Nassarawa/Kogi" },
+  { id: "KEDCO", name: "Kano Electric (KEDCO)", location: "Kano/Jigawa/Katsina" },
+  { id: "BEDC", name: "Benin Electric (BEDC)", location: "Edo/Delta/Ondo/Ekiti" },
+  { id: "PHED", name: "Port Harcourt Electric (PHED)", location: "Rivers/Bayelsa" },
+  { id: "JED", name: "Jos Electric (JED)", location: "Plateau/Benue/Nasarawa" },
+  { id: "ENUGU", name: "Enugu Electric (EEDC)", location: "Enugu/Ebonyi/Abia/Imo" },
+  { id: "KAEDCO", name: "Kaduna Electric (KAEDCO)", location: "Kaduna/Sokoto/Kebbi" },
+];
