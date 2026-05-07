@@ -170,6 +170,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_transaction_pin: { Args: never; Returns: boolean }
       purchase_vtu: {
         Args: {
           _amount: number
@@ -197,6 +198,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_transaction_pin: { Args: { _pin: string }; Returns: boolean }
       topup_wallet: {
         Args: { _amount: number; _method: string }
         Returns: {
@@ -218,11 +220,12 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      verify_transaction_pin: { Args: { _pin: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
       tx_status: "pending" | "success" | "failed"
-      tx_type: "airtime" | "data" | "wallet_topup"
+      tx_type: "airtime" | "data" | "wallet_topup" | "electricity" | "cable"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -352,7 +355,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       tx_status: ["pending", "success", "failed"],
-      tx_type: ["airtime", "data", "wallet_topup"],
+      tx_type: ["airtime", "data", "wallet_topup", "electricity", "cable"],
     },
   },
 } as const

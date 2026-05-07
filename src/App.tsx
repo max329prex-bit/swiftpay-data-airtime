@@ -14,6 +14,8 @@ import Wallet from "./pages/app/Wallet.tsx";
 import History from "./pages/app/History.tsx";
 import Success from "./pages/app/Success.tsx";
 import Electricity from "./pages/app/Electricity.tsx";
+import Cable from "./pages/app/Cable.tsx";
+import PinSetup from "./pages/app/PinSetup.tsx";
 
 const queryClient = new QueryClient();
 
@@ -26,11 +28,13 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/app/setup-pin" element={<PinSetup />} />
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Dashboard />} />
             <Route path="airtime" element={<Airtime />} />
             <Route path="data" element={<Data />} />
             <Route path="electricity" element={<Electricity />} />
+            <Route path="cable" element={<Cable />} />
             <Route path="wallet" element={<Wallet />} />
             <Route path="history" element={<History />} />
             <Route path="success" element={<Success />} />

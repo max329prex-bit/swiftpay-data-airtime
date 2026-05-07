@@ -79,3 +79,41 @@ export const ELECTRICITY_PROVIDERS = [
   { id: "ENUGU", name: "Enugu Electric (EEDC)", location: "Enugu/Ebonyi/Abia/Imo" },
   { id: "KAEDCO", name: "Kaduna Electric (KAEDCO)", location: "Kaduna/Sokoto/Kebbi" },
 ];
+
+export const CABLE_PROVIDERS = [
+  { id: "DSTV", name: "DStv", color: "bg-blue-600" },
+  { id: "GOTV", name: "GOtv", color: "bg-green-600" },
+  { id: "STARTIMES", name: "StarTimes", color: "bg-orange-500" },
+  { id: "SHOWMAX", name: "Showmax", color: "bg-purple-600" },
+];
+
+export const CABLE_PACKAGES: Record<string, { id: string; name: string; price: number }[]> = {
+  DSTV: [
+    { id: "dstv-padi", name: "DStv Padi", price: 4400 },
+    { id: "dstv-yanga", name: "DStv Yanga", price: 6000 },
+    { id: "dstv-confam", name: "DStv Confam", price: 11000 },
+    { id: "dstv-compact", name: "DStv Compact", price: 19000 },
+    { id: "dstv-compact-plus", name: "DStv Compact Plus", price: 30000 },
+    { id: "dstv-premium", name: "DStv Premium", price: 44500 },
+  ],
+  GOTV: [
+    { id: "gotv-smallie", name: "GOtv Smallie", price: 1900 },
+    { id: "gotv-jinja", name: "GOtv Jinja", price: 3900 },
+    { id: "gotv-jolli", name: "GOtv Jolli", price: 5800 },
+    { id: "gotv-max", name: "GOtv Max", price: 8500 },
+    { id: "gotv-supa", name: "GOtv Supa", price: 11400 },
+    { id: "gotv-supa-plus", name: "GOtv Supa Plus", price: 16800 },
+  ],
+  STARTIMES: [
+    { id: "st-nova", name: "Nova (Daily)", price: 150 },
+    { id: "st-basic", name: "Basic (Weekly)", price: 700 },
+    { id: "st-smart", name: "Smart (Monthly)", price: 3800 },
+    { id: "st-classic", name: "Classic (Monthly)", price: 4500 },
+    { id: "st-super", name: "Super (Monthly)", price: 7500 },
+  ],
+  SHOWMAX: [
+    { id: "shx-mobile", name: "Mobile", price: 1600 },
+    { id: "shx-entertainment", name: "Entertainment", price: 3200 },
+    { id: "shx-premier", name: "Premier", price: 6300 },
+  ],
+};
