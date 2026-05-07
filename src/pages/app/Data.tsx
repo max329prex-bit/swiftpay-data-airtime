@@ -178,14 +178,14 @@ export default function Data() {
       <AnimatePresence>
         {step === "pin" && <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/60" onClick={() => setStep("form")} />
-          <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: “100%” }} transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#13171f] border-t border-white/10 p6">
+          <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#13171f] border-t border-white/10 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-display text-lg font-bold">Authorization Screen</h2>
               <button onClick={() => setStep("form")} className="grid h-8 w-8 place-items-center rounded-full glass"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3 mb-6">
-              {[({ label: "Product", value: `${net.name} Data / ${bundle?.size} (${bundle?.validity})` },
+              {[{ label: "Product", value: `${net.name} Data / ${bundle?.size} (${bundle?.validity})` },
                 { label: "Recipient", value: phone, accent: true },
                 { label: "Amount", value: naira(bundle?.price ?? 0) },
                 { label: "Total Payable", value: naira(bundle?.price ?? 0), bold: true },
