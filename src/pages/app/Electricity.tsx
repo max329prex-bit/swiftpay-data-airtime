@@ -24,7 +24,14 @@ export default function Electricity() {
   async function pay() {
     if (pin.length < 4) return toast.error("Enter 4-digit PIN"); if (amount < 1000) return toast.error("Min N1,000"); if (amount > balance) return toast.error("Insufficient balance");
     setBusy(true);
-    try { const { data, error } = await supabase.rpc("purchase_vtu", { _type: "electricity", _network: provider.id, _phone: meter, _amount: amount, _meta: { provider: provider.name, meterType, customerName, pin } }); if (error) throw error; refresh(); nav(`/app/success?ref=${(data as any).reference}&type=electricity&amount=${amount}&network=${provider.id}`); } catch (e: any) { toast.error(e.message ?? "Failed"); } finally { setBusy(false); }
+    try {
+      const ok = await supabase.rpc("verify_transaction_pin", { _pin: pin });
+      if (ok.error) throw ok.error;
+      if (!ok.data) throw new Error("Incorrect PIN");
+      const { data, error } = await supabase.rpc("purchase_vtu", { _type: "electricity", _network: provider.id, _phone: meter, _amount: amount, _meta: { provider: provider.name, meterType, customerName } });
+      if (error) throw error; refresh();
+      nav(`/app/success?ref=${(data as any).reference}&type=electricity&amount=${amount}&network=${provider.id}`);
+    } catch (e: any) { toast.error(e.message ?? "Failed"); } finally { setBusy(false); }
   }
   return (
     <div className="space-y-4 pb-10">
