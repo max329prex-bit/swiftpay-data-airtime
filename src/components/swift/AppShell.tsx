@@ -1,22 +1,22 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Wallet, Receipt, LogOut, BatteryCharging, Tv } from "lucide-react";
+import { Home, Wallet as WalletIcon, Receipt, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "./Logo";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const TABS = [
   { to: "/app", icon: Home, label: "Home", end: true },
-  { to: "/app/electricity", icon: BatteryCharging, label: "Electric" },
-  { to: "/app/cable", icon: Tv, label: "Cable TV" },
-  { to: "/app/wallet", icon: Wallet, label: "Wallet" },
-  { to: "/app/history", icon: Receipt, label: "History" },
+  { to: "/app/wallet", icon: WalletIcon, label: "Deposit" },
+  { to: "/app/bills", icon: Receipt, label: "Bills" },
 ];
 
 export function AppShell() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
-  const [pinChecked, setPinChecked] = useState(false);
+  const [, setPinChecked] = useState(false);
+  usePushNotifications();
 
   useEffect(() => {
     if (!loading && !user) nav("/auth", { replace: true });
@@ -36,28 +36,41 @@ export function AppShell() {
   if (!user) return null;
 
   return (
-    <div className="relative mx-auto min-h-screen max-w-md pb-28">
-      <header className="sticky top-0 z-20 flex items-center justify-between px-5 pt-4 pb-3 backdrop-blur-xl bg-background/70">
-        <Logo />
-        <button onClick={async () => { await supabase.auth.signOut(); nav("/"); }} className="grid h-9 w-9 place-items-center rounded-full glass">
-          <LogOut className="h-4 w-4" />
-        </button>
-      </header>
-      <main className="px-5"><Outlet /></main>
-
-      <nav className="fixed bottom-4 left-1/2 z-30 w-[min(96vw,420px)] -translate-x-1/2">
-        <div className="gloss-strong flex items-center justify-around rounded-full px-2 py-2 shadow-card">
-          {TABS.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 rounded-full px-1.5 py-2 text-[9px] font-medium transition-all min-w-0 ${
-                isActive ? "bg-gradient-primary text-white shadow-glow" : "text-muted-foreground hover:text-foreground"
-              }`}>
-              <t.icon className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate w-full text-center">{t.label}</span>
-            </NavLink>
-          ))}
+    <div className="relative mx-auto min-h-screen max-w-md pb-10">
+      <header className="sticky top-0 z-20 backdrop-blur-xl bg-background/80 border-b border-white/5">
+        <div className="flex items-center justify-between px-5 pt-4 pb-3">
+          <Logo />
+          <button onClick={async () => { await supabase.auth.signOut(); nav("/"); }} className="grid h-9 w-9 place-items-center rounded-full glass">
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
-      </nav>
+
+        {/* Top dash navigation */}
+        <nav className="px-5 pb-3">
+          <div className="flex items-center justify-between gap-2">
+            {TABS.map((t) => (
+              <NavLink
+                key={t.to}
+                to={t.to}
+                end={t.end}
+                className="group flex flex-1 flex-col items-center gap-2"
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold transition ${isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/80"}`}>
+                      <t.icon className="h-3.5 w-3.5" />
+                      <span>{t.label}</span>
+                    </div>
+                    <div className={`h-1 w-full rounded-full transition-all ${isActive ? "bg-gradient-primary shadow-glow" : "bg-white/10 group-hover:bg-white/20"}`} />
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
+      </header>
+
+      <main className="px-5 pt-5"><Outlet /></main>
     </div>
   );
 }
