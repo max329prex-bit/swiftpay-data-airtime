@@ -8,7 +8,7 @@ export function Logo({ className = "" }: { className?: string }) {
         <Zap className="h-5 w-5 text-white" strokeWidth={2.5} fill="white" />
       </span>
       <span className="font-display text-xl font-bold tracking-tight">
-        Swift<span className="text-gradient">Pay</span>
+        Swiftly<span className="text-gradient">Pay</span>
       </span>
     </Link>
   );
