@@ -48,6 +48,7 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          swift_points: number
           transaction_pin: string | null
           updated_at: string
           user_id: string
@@ -58,6 +59,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          swift_points?: number
           transaction_pin?: string | null
           updated_at?: string
           user_id: string
@@ -68,6 +70,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          swift_points?: number
           transaction_pin?: string | null
           updated_at?: string
           user_id?: string
@@ -179,6 +182,27 @@ export type Database = {
           _phone: string
           _type: Database["public"]["Enums"]["tx_type"]
         }
+        Returns: {
+          amount: number
+          created_at: string
+          id: string
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          reference: string
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      redeem_swift_points: {
+        Args: { _network: string; _phone: string }
         Returns: {
           amount: number
           created_at: string
