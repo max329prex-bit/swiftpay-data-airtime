@@ -36,7 +36,7 @@ const TIERS = [
 ];
 
 const FAQS = [
-  { q: "Is SwiftPay free?", a: "Yes. Creating an account, topping up your wallet, and buying airtime or data costs nothing extra. We make money from network commissions and pass the savings back to you as cashback." },
+  { q: "Is SwiftlyPay free?", a: "Yes. Creating an account, topping up your wallet, and buying airtime or data costs nothing extra. We make money from network commissions and pass the savings back to you as cashback." },
   { q: "Which networks are supported?", a: "All four major Nigerian networks — MTN, Glo, Airtel, and 9mobile — for both airtime and data." },
   { q: "How long does delivery take?", a: "Airtime is typically delivered in under 5 seconds. Data bundles activate within 30 seconds." },
   { q: "Is my money safe?", a: "Your wallet balance is held in a regulated escrow account. Every transaction is PIN-protected and we never store your card details." },
@@ -66,7 +66,7 @@ export default function Index() {
             </motion.h1>
             <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }}
               className="mt-6 max-w-lg text-lg text-muted-foreground">
-              SwiftPay is the smartest way to top up any Nigerian network and pay your bills — airtime, data, electricity and cable TV, all in one wallet.
+              SwiftlyPay is the smartest way to top up any Nigerian network and pay your bills — airtime, data, electricity and cable TV, all in one wallet.
             </motion.p>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.4 }}
               className="mt-8 flex flex-wrap items-center gap-3">
@@ -161,7 +161,7 @@ export default function Index() {
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-4xl font-bold sm:text-5xl">Get paid to top up.</h2>
-            <p className="mt-4 text-muted-foreground">The more you use SwiftPay, the more you earn. Cashback is credited instantly to your wallet.</p>
+            <p className="mt-4 text-muted-foreground">The more you use SwiftlyPay, the more you earn. Cashback is credited instantly to your wallet.</p>
           </div>
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             {TIERS.map((t) => (
@@ -213,7 +213,7 @@ export default function Index() {
       <footer className="border-t border-border/40 px-4 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <Logo />
-          <div className="text-xs text-muted-foreground">© {new Date().getFullYear()} SwiftPay. All rights reserved.</div>
+          <div className="text-xs text-muted-foreground">© {new Date().getFullYear()} SwiftlyPay. All rights reserved.</div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Lock className="h-3 w-3" /> Secured with bank-grade encryption</div>
         </div>
       </footer>
