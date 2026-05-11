@@ -187,7 +187,7 @@ export default function Data() {
                     <div className={"h-10 w-10 rounded-xl " + NC[network] + " flex items-center justify-center font-bold text-xs flex-shrink-0"}>{net.name}</div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm">{net.name} {b.size} — {b.validity}</div>
-                      <div className="text-xs text-muted-foreground">{naira(b.price)}</div>
+                      <div className="text-xs text-muted-foreground">{naira(b.price)} · <span className="text-accent">+{Math.max(1, Math.floor(b.price/250)*5)} SwiftPoints</span></div>
                     </div>
                     <div className={"h-5 w-5 rounded-full border-2 flex-shrink-0 transition " + (bundle && bundle.id === b.id ? "border-primary bg-primary" : "border-white/20")} />
                   </button>
