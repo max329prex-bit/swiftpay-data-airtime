@@ -5,6 +5,7 @@ import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv, Sparkl
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useSwiftPoints } from "@/hooks/useSwiftPoints";
+import { useHideBalance } from "@/hooks/useHideBalance";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { balance } = useWallet();
   const { points, refresh: refreshPts } = useSwiftPoints();
-  const [hide, setHide] = useState(false);
+  const { hide, toggle: toggleHide } = useHideBalance();
   const [name, setName] = useState("");
   const [recent, setRecent] = useState<any[]>([]);
   const [showRedeem, setShowRedeem] = useState(false);
@@ -63,7 +64,7 @@ export default function Dashboard() {
             <div className="text-xs font-medium uppercase tracking-widest text-white/70">Wallet balance</div>
             <div className="mt-1 flex items-center gap-2">
               <div className="font-display text-4xl font-bold text-white">{hide ? "₦ ••••••" : naira(balance)}</div>
-              <button onClick={() => setHide(!hide)} className="text-white/70 hover:text-white">
+              <button onClick={toggleHide} className="text-white/70 hover:text-white">
                 {hide ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
             </div>
