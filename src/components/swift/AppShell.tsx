@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "./Logo";
+import { BoltLoader } from "./BoltLoader";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const TABS = [
