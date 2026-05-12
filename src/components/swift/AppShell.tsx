@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "./Logo";
+import { BoltLoader } from "./BoltLoader";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const TABS = [
@@ -32,7 +33,7 @@ export function AppShell() {
     });
   }, [user, nav]);
 
-  if (loading) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="grid min-h-screen place-items-center"><BoltLoader size={72} label="Loading..." /></div>;
   if (!user) return null;
 
   return (
