@@ -72,7 +72,7 @@ export default function Index() {
               className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/auth?mode=signup"><Button variant="hero" size="xl">Start free <ArrowRight /></Button></Link>
               <a href="#how"><Button variant="glass" size="xl">See how it works</Button></a>
-              <a href="/app"><Button variant="glass" size="xl"><Download /> Download App Now</Button></a>
+              <a href="/downloads/swiftlypay.apk" download><Button variant="glass" size="xl"><Download /> Download App Now</Button></a>
             </motion.div>
             <div className="mt-10 flex items-center gap-6">
               <div>
