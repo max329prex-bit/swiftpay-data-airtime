@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { naira } from "@/lib/networks";
 import { Receipt } from "lucide-react";
+import { BoltLoader } from "@/components/swift/BoltLoader";
 
 export default function History() {
   const { user } = useAuth();
