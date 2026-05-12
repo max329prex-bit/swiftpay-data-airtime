@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Wallet as WalletIcon, Receipt, LogOut } from "lucide-react";
+import { Home, Wallet as WalletIcon, Receipt, Settings as SettingsIcon, Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,8 +9,9 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const TABS = [
   { to: "/app", icon: Home, label: "Home", end: true },
-  { to: "/app/wallet", icon: WalletIcon, label: "Deposit" },
   { to: "/app/bills", icon: Receipt, label: "Bills" },
+  { to: "/app/wallet", icon: WalletIcon, label: "Deposit" },
+  { to: "/app/settings", icon: SettingsIcon, label: "Settings" },
 ];
 
 export function AppShell() {
@@ -37,41 +38,42 @@ export function AppShell() {
   if (!user) return null;
 
   return (
-    <div className="relative mx-auto min-h-screen max-w-md pb-10">
-      <header className="sticky top-0 z-20 backdrop-blur-xl bg-background/80 border-b border-white/5">
+    <div className="relative mx-auto min-h-screen max-w-md pb-28">
+      {/* Minimal app header — distinct from website */}
+      <header className="sticky top-0 z-20 backdrop-blur-xl bg-background/70 border-b border-white/5">
         <div className="flex items-center justify-between px-5 pt-4 pb-3">
           <Logo />
-          <button onClick={async () => { await supabase.auth.signOut(); nav("/"); }} className="grid h-9 w-9 place-items-center rounded-full glass">
-            <LogOut className="h-4 w-4" />
-          </button>
+          <NavLink to="/app/settings" className="relative grid h-9 w-9 place-items-center rounded-full glass">
+            <Bell className="h-4 w-4" />
+            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-accent shadow-glow" />
+          </NavLink>
         </div>
-
-        {/* Top dash navigation */}
-        <nav className="px-5 pb-3">
-          <div className="flex items-center justify-between gap-2">
-            {TABS.map((t) => (
-              <NavLink
-                key={t.to}
-                to={t.to}
-                end={t.end}
-                className="group flex flex-1 flex-col items-center gap-2"
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className={`flex items-center gap-1.5 text-xs font-semibold transition ${isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/80"}`}>
-                      <t.icon className="h-3.5 w-3.5" />
-                      <span>{t.label}</span>
-                    </div>
-                    <div className={`h-1 w-full rounded-full transition-all ${isActive ? "bg-gradient-primary shadow-glow" : "bg-white/10 group-hover:bg-white/20"}`} />
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        </nav>
       </header>
 
       <main className="px-5 pt-5"><Outlet /></main>
+
+      {/* Floating bottom navigation */}
+      <nav className="fixed bottom-4 left-1/2 z-30 w-[92%] max-w-sm -translate-x-1/2">
+        <div className="glass flex items-center justify-around rounded-3xl border border-white/10 px-2 py-2 shadow-glow backdrop-blur-2xl">
+          {TABS.map((t) => (
+            <NavLink
+              key={t.to}
+              to={t.to}
+              end={t.end}
+              className="group relative flex flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2"
+            >
+              {({ isActive }) => (
+                <>
+                  <span className={`grid h-9 w-9 place-items-center rounded-xl transition-all ${isActive ? "bg-gradient-primary text-white shadow-glow scale-110" : "text-muted-foreground group-hover:text-foreground"}`}>
+                    <t.icon className="h-4 w-4" />
+                  </span>
+                  <span className={`text-[10px] font-semibold transition ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{t.label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }
