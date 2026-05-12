@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Zap, Wifi, ShieldCheck, Sparkles, Wallet, Clock, Gift, Lock, Smartphone } from "lucide-react";
+import { ArrowRight, Zap, Wifi, ShieldCheck, Sparkles, Wallet, Clock, Gift, Lock, Smartphone, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { SiteNav } from "@/components/swift/SiteNav";
@@ -72,6 +72,7 @@ export default function Index() {
               className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/auth?mode=signup"><Button variant="hero" size="xl">Start free <ArrowRight /></Button></Link>
               <a href="#how"><Button variant="glass" size="xl">See how it works</Button></a>
+              <a href="/app"><Button variant="glass" size="xl"><Download /> Download App Now</Button></a>
             </motion.div>
             <div className="mt-10 flex items-center gap-6">
               <div>
