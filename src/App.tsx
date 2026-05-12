@@ -17,6 +17,7 @@ import Electricity from "./pages/app/Electricity.tsx";
 import Cable from "./pages/app/Cable.tsx";
 import PinSetup from "./pages/app/PinSetup.tsx";
 import Bills from "./pages/app/Bills.tsx";
+import Settings from "./pages/app/Settings.tsx";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Dashboard />} />
             <Route path="bills" element={<Bills />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="airtime" element={<Airtime />} />
             <Route path="data" element={<Data />} />
             <Route path="electricity" element={<Electricity />} />
