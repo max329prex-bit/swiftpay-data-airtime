@@ -18,7 +18,7 @@ export default function History() {
   return (
     <div className="space-y-5 pb-10">
       <h1 className="font-display text-2xl font-semibold">History</h1>
-      {loading ? <div className="text-sm text-muted-foreground">Loading…</div> :
+      {loading ? <div className="py-10 grid place-items-center"><BoltLoader size={56} label="Loading…" /></div> :
        items.length === 0 ? (
         <div className="glass grid place-items-center gap-3 rounded-3xl p-10 text-center">
           <Receipt className="h-8 w-8 text-muted-foreground" />
