@@ -32,7 +32,7 @@ export function AppShell() {
     });
   }, [user, nav]);
 
-  if (loading) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="grid min-h-screen place-items-center"><BoltLoader size={72} label="Loading..." /></div>;
   if (!user) return null;
 
   return (
