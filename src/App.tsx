@@ -18,6 +18,7 @@ import Cable from "./pages/app/Cable.tsx";
 import PinSetup from "./pages/app/PinSetup.tsx";
 import Bills from "./pages/app/Bills.tsx";
 import Settings from "./pages/app/Settings.tsx";
+import Support from "./pages/app/Support.tsx";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Dashboard />} />
             <Route path="bills" element={<Bills />} />
+            <Route path="support" element={<Support />} />
             <Route path="settings" element={<Settings />} />
             <Route path="airtime" element={<Airtime />} />
             <Route path="data" element={<Data />} />
