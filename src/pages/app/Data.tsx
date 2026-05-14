@@ -41,16 +41,13 @@ export default function Data() {
     if (!bundle || bundle.price > balance) return toast.error("Insufficient balance");
     setBusy(true);
     try {
-      const ok = await supabase.rpc("verify_transaction_pin", { _pin: pin });
-      if (ok.error) throw ok.error;
-      if (!ok.data) throw new Error("Incorrect PIN");
-      const { data, error } = await supabase.rpc("purchase_vtu", {
-        _type: "data", _network: network, _phone: phone,
-        _amount: bundle.price, _meta: { bundle: bundle.name, size: bundle.size },
+      const { data, error } = await supabase.functions.invoke("vtu-purchase", {
+        body: { type: "data", network, phone, amount: bundle.price, pin, bundle: bundle.package_code, provider: bundle.provider_code },
       });
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Purchase failed");
       refresh();
-      nav("/app/success?ref=" + (data as any).reference + "&type=data&amount=" + bundle.price + "&network=" + network + "&bundle=" + encodeURIComponent(bundle.size));
+      nav("/app/success?ref=" + data.reference + "&type=data&amount=" + bundle.price + "&network=" + network + "&bundle=" + encodeURIComponent(bundle.size));
     } catch (e: any) { toast.error(e.message || "Failed"); }
     finally { setBusy(false); }
   }
