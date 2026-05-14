@@ -24,11 +24,29 @@ export default function Data() {
   const [search, setSearch] = useState("");
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
+  const [apiPackages, setApiPackages] = useState<any[]>([]);
+  const [loadingBundles, setLoadingBundles] = useState(false);
   const { balance, refresh } = useWallet();
   const nav = useNavigate();
-  const bundles = DATA_BUNDLES[network] || [];
+  const bundles = apiPackages.length > 0 ? apiPackages : (DATA_BUNDLES[network] || []);
   const net = NETWORKS.find((n) => n.id === network)!;
   const filtered = useMemo(() => bundles.filter((b) => b.size.toLowerCase().includes(search.toLowerCase())), [bundles, search]);
+
+  // Fetch live availability from get-packages edge function
+  useEffect(() => {
+    setBundle(null);
+    setLoadingBundles(true);
+    supabase.functions.invoke("get-packages")
+      .then(({ data, error }) => {
+        if (!error && data?.packages?.[network]) {
+          setApiPackages(data.packages[network]);
+        } else {
+          setApiPackages(DATA_BUNDLES[network] || []);
+        }
+      })
+      .catch(() => setApiPackages(DATA_BUNDLES[network] || []))
+      .finally(() => setLoadingBundles(false));
+  }, [network]);
 
   useEffect(() => {
     const d = detectNetwork(phone);
@@ -45,7 +63,18 @@ export default function Data() {
         body: { type: "data", network, phone, amount: bundle.price, pin, bundle: bundle.package_code, provider: bundle.provider_code },
       });
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Purchase failed");
+      if (!data?.success) {
+        if (data?.code === "BUNDLE_UNAVAILABLE") {
+          // Mark this bundle as unavailable locally & go back to plan selection
+          setApiPackages(prev => prev.map((p: any) =>
+            p.package_code === bundle.package_code ? { ...p, available: false } : p
+          ));
+          setBundle(null);
+          setStep("form");
+          throw new Error("This plan is temporarily unavailable. No payment was taken — please choose another plan.");
+        }
+        throw new Error(data?.error || "Purchase failed");
+      }
       refresh();
       nav("/app/success?ref=" + data.reference + "&type=data&amount=" + bundle.price + "&network=" + network + "&bundle=" + encodeURIComponent(bundle.size));
     } catch (e: any) { toast.error(e.message || "Failed"); }
@@ -141,12 +170,23 @@ export default function Data() {
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </button>
           <div className="flex flex-wrap gap-2">
-            {bundles.slice(0, 7).map((b) => (
-              <button key={b.id} onClick={() => setBundle(b)} type="button"
-                className={"rounded-xl border px-3 py-2 text-xs font-semibold transition " + (bundle && bundle.id === b.id ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/[0.03] text-muted-foreground")}>
-                {b.size}
-              </button>
-            ))}
+            {loadingBundles ? (
+              <div className="text-xs text-muted-foreground py-2">Loading available plans…</div>
+            ) : bundles.slice(0, 7).map((b) => {
+              const unavail = b.available === false;
+              return (
+                <button key={b.id} onClick={() => !unavail && setBundle(b)} type="button"
+                  disabled={unavail}
+                  title={unavail ? "Temporarily unavailable" : undefined}
+                  className={"rounded-xl border px-3 py-2 text-xs font-semibold transition " +
+                    (unavail ? "border-red-900/40 bg-red-900/10 text-red-400/60 cursor-not-allowed opacity-60" :
+                     bundle && bundle.id === b.id ? "border-primary bg-primary/10 text-primary" :
+                     "border-white/10 bg-white/[0.03] text-muted-foreground")}>
+                  {b.size}
+                  {unavail && <span className="block text-[8px] leading-none mt-0.5 text-red-400">unavail.</span>}
+                </button>
+              );
+            })}
           </div>
           {bundle && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass flex items-center justify-between rounded-2xl p-4">
@@ -179,8 +219,11 @@ export default function Data() {
               </div>
               <div className="overflow-y-auto space-y-1 flex-1">
                 {filtered.map((b) => (
-                  <button key={b.id} onClick={() => { setBundle(b); setShowSheet(false); setSearch(""); }} type="button"
-                    className="flex w-full items-center gap-3 rounded-2xl p-3 hover:bg-white/5 transition text-left">
+                  <button key={b.id}
+                    onClick={() => { if (b.available === false) return; setBundle(b); setShowSheet(false); setSearch(""); }}
+                    disabled={b.available === false}
+                    type="button"
+                    className={"flex w-full items-center gap-3 rounded-2xl p-3 transition text-left " + (b.available === false ? "opacity-50 cursor-not-allowed" : "hover:bg-white/5")}>
                     <div className={"h-10 w-10 rounded-xl " + NC[network] + " flex items-center justify-center font-bold text-xs flex-shrink-0"}>{net.name}</div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm">{net.name} {b.size} — {b.validity}</div>
