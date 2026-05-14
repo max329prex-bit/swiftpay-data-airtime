@@ -10,6 +10,12 @@ import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, X, Tv } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
+const CABLE_COLORS: Record<string, string> = {
+  dstv: "bg-blue-700",
+  gotv: "bg-orange-600",
+  startimes: "bg-red-700",
+};
+
 export default function Cable() {
   const [provider, setProvider] = useState(CABLE_PROVIDERS[0]);
   const [smartcard, setSmartcard] = useState("");
@@ -41,16 +47,13 @@ export default function Cable() {
     if (pkg.price > balance) return toast.error("Insufficient balance");
     setBusy(true);
     try {
-      const ok = await supabase.rpc("verify_transaction_pin", { _pin: pin });
-      if (ok.error) throw ok.error;
-      if (!ok.data) throw new Error("Incorrect PIN");
-      const { data, error } = await supabase.rpc("purchase_vtu", {
-        _type: "cable", _network: provider.id, _phone: smartcard, _amount: pkg.price,
-        _meta: { provider: provider.name, package: pkg.name, customer },
+      const { data, error } = await supabase.functions.invoke("vtu-purchase", {
+        body: { type: "cable", network: provider.aidapay_code, phone: smartcard, amount: pkg.price, pin, packageCode: pkg.aidapay_code, customerName: customer },
       });
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Purchase failed");
       refresh();
-      nav(`/app/success?ref=${(data as any).reference}&type=cable&amount=${pkg.price}&network=${provider.id}`);
+      nav(`/app/success?ref=${data.reference}&type=cable&amount=${pkg.price}&network=${provider.id}`);
     } catch (e: any) { toast.error(e.message ?? "Failed"); }
     finally { setBusy(false); }
   }
@@ -76,7 +79,7 @@ export default function Cable() {
             return (
               <button key={p.id} type="button" onClick={() => { setProvider(p); setPkg(null); }}
                 className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all ${active ? "border-primary bg-primary/10 shadow-glow" : "border-white/10 bg-white/[0.03]"}`}>
-                <span className={`grid h-9 w-9 place-items-center rounded-xl ${p.color} text-white text-[10px] font-bold`}>{p.id.slice(0, 3)}</span>
+                <span className={`grid h-9 w-9 place-items-center rounded-xl ${CABLE_COLORS[p.id] ?? "bg-slate-600"} text-white text-[10px] font-bold`}>{p.id.slice(0, 3)}</span>
                 <span className="text-[10px] font-medium">{p.name}</span>
               </button>
             );
