@@ -162,36 +162,58 @@ export default function Data() {
       {phoneOk && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
           <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Select Package</div>
-          <button onClick={() => setShowSheet(true)} type="button"
-            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-secondary/40 px-4 h-14 text-sm">
-            <span className={bundle ? "text-foreground font-semibold" : "text-muted-foreground"}>
-              {bundle ? bundle.size + " — " + naira(bundle.price) : "Select Package"}
-            </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </button>
-          <div className="flex flex-wrap gap-2">
-            {loadingBundles ? (
-              <div className="text-xs text-muted-foreground py-2">Loading available plans…</div>
-            ) : bundles.slice(0, 7).map((b) => {
-              const unavail = b.available === false;
-              return (
-                <button key={b.id} onClick={() => !unavail && setBundle(b)} type="button"
-                  disabled={unavail}
-                  title={unavail ? "Temporarily unavailable" : undefined}
-                  className={"rounded-xl border px-3 py-2 text-xs font-semibold transition " +
-                    (unavail ? "border-red-900/40 bg-red-900/10 text-red-400/60 cursor-not-allowed opacity-60" :
-                     bundle && bundle.id === b.id ? "border-primary bg-primary/10 text-primary" :
-                     "border-white/10 bg-white/[0.03] text-muted-foreground")}>
-                  {b.size}
-                  {unavail && <span className="block text-[8px] leading-none mt-0.5 text-red-400">unavail.</span>}
-                </button>
-              );
-            })}
-          </div>
+          {loadingBundles ? (
+            <div className="text-xs text-muted-foreground text-center py-6 glass rounded-2xl">Loading available plans…</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {bundles.map((b) => {
+                const unavail = b.available === false;
+                const comingSoon = b.coming_soon === true;
+                const blocked = unavail || comingSoon;
+                const pts = Math.max(1, Math.floor(b.price / 250) * 5);
+                const rate = typeof b.success_rate === "number" ? b.success_rate : 95;
+                const selected = bundle?.id === b.id;
+                return (
+                  <button key={b.id}
+                    onClick={() => !blocked && setBundle(b)}
+                    disabled={blocked}
+                    type="button"
+                    className={"relative flex flex-col items-center gap-0.5 rounded-2xl border p-3 transition text-center overflow-hidden " +
+                      (comingSoon ? "cursor-not-allowed border-amber-900/30 bg-amber-900/5" :
+                       blocked ? "opacity-50 cursor-not-allowed border-white/5 bg-white/[0.02]" :
+                       selected ? "border-primary bg-primary/10 shadow-glow" :
+                       "border-white/10 bg-white/[0.03] hover:bg-white/5 active:scale-95")}>
+                    {/* Success rate bar — thin stripe at very top */}
+                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/5 rounded-t-2xl">
+                      <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all"
+                        style={{ width: rate + "%" }} />
+                    </div>
+                    {/* Data size — most prominent */}
+                    <div className="font-display text-xl font-bold leading-none mt-2 text-foreground">{b.size}</div>
+                    {/* Validity */}
+                    <div className="text-[10px] text-muted-foreground leading-none mt-0.5">{b.validity}</div>
+                    {/* Price */}
+                    <div className="text-sm font-semibold mt-1.5">{naira(b.price)}</div>
+                    {/* SwiftPoints */}
+                    <div className="text-[10px] text-accent font-semibold mt-0.5">+{pts} pts</div>
+                    {/* Status badges */}
+                    {comingSoon && (
+                      <div className="text-[9px] text-amber-400 font-bold mt-1 px-1.5 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/20">
+                        Coming Soon
+                      </div>
+                    )}
+                    {unavail && !comingSoon && (
+                      <div className="text-[9px] text-red-400 mt-1">Unavailable</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {bundle && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass flex items-center justify-between rounded-2xl p-4">
-              <div className="text-sm text-muted-foreground">Amount</div>
-              <div className="font-display text-lg font-bold">{naira(bundle.price)}</div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass flex items-center justify-between rounded-2xl p-3">
+              <div className="text-xs text-muted-foreground">Selected · {bundle.size} · {bundle.validity}</div>
+              <div className="font-display text-base font-bold">{naira(bundle.price)}</div>
             </motion.div>
           )}
         </motion.div>
