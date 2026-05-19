@@ -32,7 +32,7 @@ const TIERS = [
 ];
 
 const FAQS = [
-  { q: "Is SwiftlyPay free?", a: "Yes. Creating an account, topping up your wallet, and buying airtime or data costs nothing extra. We make money from network commissions and pass the savings back to you as cashback." },
+  { q: "Is BlitzPay free?", a: "Yes. Creating an account, topping up your wallet, and buying airtime or data costs nothing extra. We make money from network commissions and pass the savings back to you as cashback." },
   { q: "Which networks are supported?", a: "All four major Nigerian networks — MTN, Glo, Airtel, and 9mobile — for both airtime and data." },
   { q: "How long does delivery take?", a: "Airtime is typically delivered in under 5 seconds. Data bundles activate within 30 seconds." },
   { q: "Is my money safe?", a: "Your wallet balance is held in a regulated escrow account. Every transaction is PIN-protected and we never store your card details." },
@@ -154,12 +154,12 @@ export default function Index() {
               <span className="text-blue-600">in a swipe.</span>
             </h1>
             <p className="mt-6 max-w-lg text-lg text-slate-500">
-              SwiftlyPay is the smartest way to top up any Nigerian network and pay your bills — airtime, data, electricity and cable TV, all in one wallet.
+              BlitzPay is the smartest way to top up any Nigerian network and pay your bills — airtime, data, electricity and cable TV, all in one wallet.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/auth?mode=signup"><Button size="lg" className="bg-slate-900 hover:bg-slate-800 text-white rounded-full px-6">Start free <ArrowRight className="ml-1 h-4 w-4" /></Button></Link>
               <a href="#how"><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-200">See how it works</Button></a>
-              <a href="/downloads/swiftlypay.apk" download><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-200"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
+              <a href="/downloads/blitzpay.apk" download><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-200"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
             </div>
             <div className="mt-10 flex items-center gap-6">
               <div>
@@ -245,7 +245,7 @@ export default function Index() {
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Get paid to top up.</h2>
-            <p className="mt-4 text-slate-500">The more you use SwiftlyPay, the more you earn. Cashback is credited instantly to your wallet.</p>
+            <p className="mt-4 text-slate-500">The more you use BlitzPay, the more you earn. Cashback is credited instantly to your wallet.</p>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {TIERS.map((t) => (
@@ -273,7 +273,7 @@ export default function Index() {
             <p className="mx-auto mt-4 max-w-xl text-slate-300">Join 120,000+ Nigerians who never type a USSD code anymore.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link to="/auth?mode=signup"><Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6">Create free account <ArrowRight className="ml-1 h-4 w-4" /></Button></Link>
-              <a href="/downloads/swiftlypay.apk" download><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-600 text-white hover:bg-slate-800 hover:text-white"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
+              <a href="/downloads/blitzpay.apk" download><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-600 text-white hover:bg-slate-800 hover:text-white"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
             </div>
           </div>
         </div>
@@ -303,9 +303,9 @@ export default function Index() {
             <span className="grid h-7 w-7 place-items-center rounded-md bg-slate-900">
               <Zap className="h-3.5 w-3.5 text-white" fill="white" />
             </span>
-            <span className="text-sm font-bold text-slate-900">SwiftlyPay</span>
+            <span className="text-sm font-bold text-slate-900">BlitzPay</span>
           </div>
-          <div className="text-xs text-slate-400">© {new Date().getFullYear()} SwiftlyPay. All rights reserved.</div>
+          <div className="text-xs text-slate-400">© {new Date().getFullYear()} BlitzPay. All rights reserved.</div>
           <div className="flex items-center gap-2 text-xs text-slate-400"><Lock className="h-3 w-3" /> Secured with bank-grade encryption</div>
         </div>
       </footer>
