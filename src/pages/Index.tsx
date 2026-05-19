@@ -49,7 +49,7 @@ function SiteNav() {
               <Zap className="h-4 w-4 text-white" fill="white" />
             </span>
             <span className="text-xl font-bold tracking-tight text-slate-900">
-              Swiftly<span className="text-blue-600">Pay</span>
+              Blitz<span className="text-blue-600">Pay</span>
             </span>
           </Link>
           <nav className="hidden items-center gap-8 md:flex">
