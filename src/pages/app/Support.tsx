@@ -15,7 +15,7 @@ const STARTERS = [
 
 export default function Support() {
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: "Hi! I\'m Swift, your SwiftlyPay AI assistant. Ask me anything about your wallet, bills, rewards or account." },
+    { role: "assistant", content: "Hi! I\'m Swift, your BlitzPay AI assistant. Ask me anything about your wallet, bills, rewards or account." },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
