@@ -9,7 +9,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 const STARTERS = [
   "How do I top up my wallet?",
   "Why did my airtime fail?",
-  "How do I earn SwiftPoints?",
+  "How do I earn BlitzPoints?",
   "How do I change my PIN?",
 ];
 
@@ -58,7 +58,7 @@ export default function Support() {
 
       if (!resp.ok || !resp.body) {
         if (resp.status === 429) toast.error("Too many requests. Try again in a moment.");
-        else toast.error("Couldn\'t reach Swift right now.");
+        else toast.error("Couldn\'t reach Blitzi right now.");
         setLoading(false);
         return;
       }
@@ -99,7 +99,7 @@ export default function Support() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-accent" /> AI Support
         </div>
-        <div className="font-display text-2xl font-semibold">Meet Swift, your assistant</div>
+        <div className="font-display text-2xl font-semibold">Meet Blitzi, your assistant</div>
       </motion.div>
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pb-3 scrollbar-hide">
@@ -125,7 +125,7 @@ export default function Support() {
           <div className="flex justify-start">
             <div className="glass flex items-center gap-2 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-              Swift is thinking…
+              Blitzi is thinking…
             </div>
           </div>
         )}
@@ -150,7 +150,7 @@ export default function Support() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Ask Swift anything…"
+          placeholder="Ask Blitzi anything…"
           className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
         />
         <Button
