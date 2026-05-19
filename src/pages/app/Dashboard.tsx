@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv, Sparkles, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
-import { useSwiftPoints } from "@/hooks/useSwiftPoints";
+import { useBlitzPoints } from "@/hooks/useBlitzPoints";
 import { useHideBalance } from "@/hooks/useHideBalance";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 export default function Dashboard() {
   const { user } = useAuth();
   const { balance } = useWallet();
-  const { points, refresh: refreshPts } = useSwiftPoints();
+  const { points, refresh: refreshPts } = useBlitzPoints();
   const { hide, toggle: toggleHide } = useHideBalance();
   const [name, setName] = useState("");
   const [recent, setRecent] = useState<any[]>([]);
@@ -84,7 +84,7 @@ export default function Dashboard() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-accent" />
-              <div className="text-xs font-semibold uppercase tracking-widest text-accent">SwiftPoints</div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-accent">BlitzPoints</div>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <div className="font-display text-3xl font-bold">{points}</div>
@@ -156,7 +156,7 @@ export default function Dashboard() {
               <Gift className="h-5 w-5 text-accent" />
               <h2 className="font-display text-lg font-bold">Redeem 1GB Free Data</h2>
             </div>
-            <p className="text-xs text-muted-foreground">100 SwiftPoints will be deducted. Reward is non-transferable and cannot be converted to cash.</p>
+            <p className="text-xs text-muted-foreground">100 BlitzPoints will be deducted. Reward is non-transferable and cannot be converted to cash.</p>
             <div>
               <div className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Network</div>
               <div className="grid grid-cols-4 gap-2">
