@@ -61,7 +61,7 @@ export default function Settings() {
         <Row icon={LogOut} label="Sign out" danger onClick={async () => { await supabase.auth.signOut(); nav("/"); }} chevron />
       </Section>
 
-      <div className="pt-2 text-center text-[11px] text-muted-foreground">SwiftlyPay · v1.0.0</div>
+      <div className="pt-2 text-center text-[11px] text-muted-foreground">BlitzPay · v1.0.0</div>
     </div>
   );
 }
