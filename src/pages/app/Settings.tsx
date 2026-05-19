@@ -52,7 +52,7 @@ export default function Settings() {
           <Switch checked={notif} onCheckedChange={(v) => { setNotif(v); localStorage.setItem("swiftly:notif", v ? "1" : "0"); toast.success(v ? "Notifications on" : "Notifications off"); }} />
         </Row>
         <Row icon={Moon} label="Theme" desc="Dark (default)" />
-        <Row icon={Sparkles} label="SwiftPoints info" desc="Earn points on every purchase" />
+        <Row icon={Sparkles} label="BlitzPoints info" desc="Earn points on every purchase" />
       </Section>
 
       {/* Account */}
