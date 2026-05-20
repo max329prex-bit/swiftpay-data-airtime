@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv, Sparkles, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
-import { useBlitzPoints } from "@/hooks/useSwiftPoints";
+import { useSwiftPoints } from "@/hooks/useSwiftPoints";
 import { useHideBalance } from "@/hooks/useHideBalance";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 export default function Dashboard() {
   const { user } = useAuth();
   const { balance } = useWallet();
-  const { points, refresh: refreshPts } = useBlitzPoints();
+  const { points, refresh: refreshPts } = useSwiftPoints();
   const { hide, toggle: toggleHide } = useHideBalance();
   const [name, setName] = useState("");
   const [recent, setRecent] = useState<any[]>([]);
