@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv, Sparkles, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
-import { useBlitzPoints } from "@/hooks/useBlitzPoints";
+import { useBlitzPoints } from "@/hooks/useSwiftPoints";
 import { useHideBalance } from "@/hooks/useHideBalance";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,7 +76,7 @@ export default function Dashboard() {
         <div className="relative mt-6 text-xs text-white/80">Tap + to fund your wallet instantly.</div>
       </motion.div>
 
-      {/* SwiftPoint rewards card */}
+      {/* BlitzPoint rewards card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-accent/20 via-primary/10 to-background p-5">
         <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-accent/20 blur-2xl" />
