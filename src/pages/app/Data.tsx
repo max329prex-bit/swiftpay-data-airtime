@@ -135,10 +135,41 @@ export default function Data() {
   const [busy, setBusy] = useState(false);
   const [duration, setDuration] = useState<Duration>("daily");
   const [showMore, setShowMore] = useState(false);
+  const [liveRates, setLiveRates] = useState<Record<string, number>>({});
 
   const { balance, refresh } = useWallet();
   const nav = useNavigate();
   const net = NETWORKS.find(n => n.id === network)!;
+
+  // Fetch live success rates from bundle_status (once on mount, cached)
+  useEffect(() => {
+    const cacheKey = "blitzpay_bundle_rates";
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const { data: d, ts } = JSON.parse(cached);
+        if (Date.now() - ts < 10 * 60 * 1000) { setLiveRates(d); return; } // 10min cache
+      } catch {}
+    }
+    supabase.from("bundle_status")
+      .select("package_code, success_count, fail_count")
+      .then(({ data: rows }) => {
+        if (!rows) return;
+        const rates: Record<string, number> = {};
+        for (const s of rows) {
+          const total = (s.success_count || 0) + (s.fail_count || 0);
+          if (total > 5) rates[s.package_code] = Math.round((s.success_count / total) * 100);
+        }
+        setLiveRates(rates);
+        localStorage.setItem(cacheKey, JSON.stringify({ data: rates, ts: Date.now() }));
+      });
+  }, []);
+
+  // Annotate plan with real success rate from bundle_status
+  const annotate = (p: DataPlan): DataPlan => ({
+    ...p,
+    success_rate: liveRates[p.id] !== undefined ? liveRates[p.id] : (p.success_rate ?? 92),
+  });
 
   // Phone auto-detect
   useEffect(() => {
@@ -155,7 +186,7 @@ export default function Data() {
     setDuration("daily");
   }, [network]);
 
-  const safeNet = (["MTN", "AIRTEL", "GLO"] as Network[]).includes(network as Network)
+  const safeNet = (["MTN", "AIRTEL", "GLO", "9MOBILE"] as Network[]).includes(network as Network)
     ? (network as Network)
     : "MTN" as Network;
 
@@ -206,7 +237,7 @@ export default function Data() {
 
       <div className="grid grid-cols-2 gap-3">
         {NETWORKS.map(n => {
-          const isSupported = ["MTN", "AIRTEL", "GLO"].includes(n.id);
+          const isSupported = ["MTN", "AIRTEL", "GLO", "9MOBILE"].includes(n.id);
           const planCount = isSupported
             ? DATA_PLANS[n.id as Network].filter(p => p.available).length
             : 0;
@@ -319,7 +350,7 @@ export default function Data() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {primePlans.map(p => (
-                  <PrimeCard key={p.id} plan={p} selected={plan?.id === p.id} onSelect={pp => { setPlan(pp); setDuration(pp.duration); }} />
+                  <PrimeCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id} onSelect={pp => { setPlan(pp); setDuration(pp.duration); }} />
                 ))}
               </div>
             </div>
@@ -353,7 +384,7 @@ export default function Data() {
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {tabPlans.slice(0, showMore ? tabPlans.length : Math.min(6, tabPlans.length)).map(p => (
-                  <PlanCard key={p.id} plan={p} selected={plan?.id === p.id} onSelect={pp => { setPlan(pp); }} />
+                  <PlanCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id} onSelect={pp => { setPlan(pp); }} />
                 ))}
               </div>
             )}
@@ -383,7 +414,7 @@ export default function Data() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Plan Availability
+                  Success Rate
                 </span>
                 <span
                   className={`text-base font-black tabular-nums ${
