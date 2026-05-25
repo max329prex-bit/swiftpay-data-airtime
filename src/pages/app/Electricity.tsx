@@ -13,8 +13,19 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 const QUICK_AMOUNTS = [1000, 2000, 3000, 5000, 10000, 20000];
 type Step = "form" | "pin";
 
-// AidaPay electricity is temporarily unavailable – flip this to true when live
+// AidaPay electricity is live
 const ELECTRICITY_LIVE = true;
+
+/** Extract a human-readable error from Supabase FunctionsHttpError or any thrown error */
+async function extractError(e: unknown, fallback = "Service temporarily unavailable. Please try again."): Promise<string> {
+  if (!e) return fallback;
+  try {
+    const body = await (e as any).context?.json?.().catch(() => null);
+    if (body?.error) return body.error;
+    if (body?.message) return body.message;
+  } catch {}
+  return (e as any).message || fallback;
+}
 
 export default function Electricity() {
   const [provider, setProvider] = useState(ELECTRICITY_PROVIDERS[0]);
@@ -45,16 +56,8 @@ export default function Electricity() {
           <div className="font-display text-2xl font-bold mb-2">Electricity Payment</div>
           <div className="font-display text-base font-semibold text-amber-400 mb-2">Coming Soon</div>
           <p className="text-sm text-muted-foreground max-w-xs">
-            We are activating electricity payments for all DISCOs. Check back shortly — it will be ready very soon!
+            We are activating electricity payments for all DISCOs. Check back shortly!
           </p>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="glass rounded-2xl p-4 text-xs text-muted-foreground max-w-xs"
-        >
-          Airtime and data purchases are available right now. 💡
         </motion.div>
         <Button variant="hero" onClick={() => nav("/app")} className="mt-2">
           Back to Dashboard
@@ -70,13 +73,16 @@ export default function Electricity() {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
         body: { type: "electricity_verify", provider: provider.code, meter_number: meter, meter_type: meterType }
       });
-      if (error) throw error;
+      if (error) {
+        const msg = await extractError(error, "Meter verification failed — please try again");
+        throw new Error(msg);
+      }
       if (data?.customer_name) {
         setCustomerName(data.customer_name);
         setVerified(true);
         toast.success("Meter verified!");
       } else {
-        throw new Error(data?.error || "Could not verify meter");
+        throw new Error(data?.error || data?.message || "Could not verify meter — check the number and try again");
       }
     } catch (e: any) {
       toast.error(e.message || "Verification failed");
@@ -87,15 +93,18 @@ export default function Electricity() {
 
   async function pay() {
     if (pin.length < 4) return toast.error("Enter 4-digit PIN");
-    if (amount < 1000) return toast.error("Min ₦1,000");
+    if (amount < 1000) return toast.error("Min \u20a61,000");
     if (amount > balance) return toast.error("Insufficient balance");
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
         body: { type: "electricity", provider: provider.code, meter, meter_type: meterType, amount, pin }
       });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Payment failed");
+      if (error) {
+        const msg = await extractError(error, "Payment failed — please try again");
+        throw new Error(msg);
+      }
+      if (!data?.success) throw new Error(data?.error || data?.message || "Payment failed");
       refresh();
       nav(`/app/success?ref=${data.reference}&type=electricity&amount=${amount}&network=${provider.name}`);
     } catch (e: any) {
@@ -156,7 +165,7 @@ export default function Electricity() {
             className="h-14 rounded-2xl bg-secondary/40 text-base flex-1" />
           <Button onClick={verifyMeter} disabled={verifying || meter.length < 10} variant="hero"
             className="h-14 rounded-2xl px-5">
-            {verifying ? "…" : "Verify"}
+            {verifying ? "\u2026" : "Verify"}
           </Button>
         </div>
         {verified && customerName && (
