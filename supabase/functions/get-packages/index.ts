@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const [pkgsR, statusR] = await Promise.all([
-      fetch(`${SUPA_URL}/rest/v1/packages?select=network,name,size,validity,price,provider_code,package_code,sort_order,coming_soon&is_active=eq.true&order=sort_order`, { headers: rh }),
+      fetch(`${SUPA_URL}/rest/v1/packages?select=network,name,size,validity,price,provider_code,package_code,sort_order,coming_soon,bp_value&is_active=eq.true&order=sort_order`, { headers: rh }),
       fetch(`${SUPA_URL}/rest/v1/bundle_status?select=package_code,is_available,fail_count,success_count,last_error,last_checked_at`, { headers: rh })
     ]);
 
@@ -49,6 +49,7 @@ serve(async (req) => {
         sell_price: pkg.price,
         provider_code: pkg.provider_code,
         package_code: pkg.package_code,
+        bp_value: pkg.bp_value ?? 1,
         coming_soon: comingSoon,
         available,
         success_rate,
