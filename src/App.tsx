@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,33 +24,35 @@ import Support from "./pages/app/Support.tsx";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner theme="dark" />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/app/setup-pin" element={<PinSetup />} />
-          <Route path="/app" element={<AppShell />}>
-            <Route index element={<Dashboard />} />
-            <Route path="bills" element={<Bills />} />
-            <Route path="support" element={<Support />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="airtime" element={<Airtime />} />
-            <Route path="data" element={<Data />} />
-            <Route path="electricity" element={<Electricity />} />
-            <Route path="cable" element={<Cable />} />
-            <Route path="wallet" element={<Wallet />} />
-            <Route path="history" element={<History />} />
-            <Route path="success" element={<Success />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner theme="dark" />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/app/setup-pin" element={<PinSetup />} />
+            <Route path="/app" element={<AppShell />}>
+              <Route index element={<Dashboard />} />
+              <Route path="bills" element={<Bills />} />
+              <Route path="support" element={<Support />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="airtime" element={<Airtime />} />
+              <Route path="data" element={<Data />} />
+              <Route path="electricity" element={<Electricity />} />
+              <Route path="cable" element={<Cable />} />
+              <Route path="wallet" element={<Wallet />} />
+              <Route path="history" element={<History />} />
+              <Route path="success" element={<Success />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;
