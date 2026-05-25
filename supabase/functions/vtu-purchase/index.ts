@@ -11,6 +11,9 @@ const SUPA_SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SYNC_SECRET = Deno.env.get("SYNC_ADMIN_SECRET") ?? "";
 const BSPLUG_BASE = "https://bsplug.net/api";
 const BSPLUG_TOKEN = Deno.env.get("BSPLUG_TOKEN") ?? "";
+const IACAFE_BASE = "https://iacafe.com.ng/devapi/v1";
+const IACAFE_TOKEN = Deno.env.get("IACAFE_TOKEN") ?? "";
+
 
 
 const AIRTIME_MAP: Record<string,string> = { MTN:"mtn-airtime", AIRTEL:"airtel-airtime", GLO:"glo-airtime", "9MOBILE":"9mobile-airtime" };
@@ -65,6 +68,25 @@ async function bsplugFetch(path: string, options: RequestInit = {}) {
     catch { return { ok: false, status: r.status, data: { success: false, error: [`BSPlug error ${r.status}`] } }; }
   } catch (e) {
     return { ok: false, status: 0, data: { success: false, error: ["Cannot reach BSPlug"] } };
+  }
+}
+
+
+async function iacafeFetch(path: string, options: RequestInit = {}) {
+  const url = `${IACAFE_BASE}${path}`;
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    Authorization: `Bearer ${IACAFE_TOKEN}`,
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string> || {})
+  };
+  try {
+    const r = await fetch(url, { ...options, headers });
+    const text = await r.text();
+    try { return { ok: r.ok, status: r.status, data: JSON.parse(text) }; }
+    catch { return { ok: false, status: r.status, data: { success: false, message: `IA Café error ${r.status}` } }; }
+  } catch (e) {
+    return { ok: false, status: 0, data: { success: false, message: "Cannot reach IA Café" } };
   }
 }
 
@@ -164,6 +186,34 @@ serve(async (req) => {
     const { data: pinValid, error: pe } = await userClient.rpc("verify_transaction_pin", { _pin: pin });
     if (pe || !pinValid) return new Response(JSON.stringify({ error: "Incorrect PIN" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
 
+
+
+    // ── IA Café data purchase ─────────────────────────────────
+    if (type === "data" && prvCode === "iacafe") {
+      if (!IACAFE_TOKEN) throw new Error("IA Café not configured");
+      const planId = parseInt((pkgCode || "").replace("IAC-", ""), 10);
+      if (!planId) throw new Error("Invalid IA Café plan ID");
+      const reqId  = `IAC-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+      const iacRes = await iacafeFetch("/budget-data", {
+        method: "POST",
+        body: JSON.stringify({ request_id: reqId, phone, data_plan: planId })
+      });
+      const iacData = iacRes.data;
+      const adminClient = createClient(SUPA_URL, SUPA_SVC);
+
+      if (!iacRes.ok || iacData?.code === "error" || iacData?.success === false) {
+        const errMsg = iacData?.error?.message || iacData?.message || "IA Café purchase failed";
+        return new Response(JSON.stringify({ error: errMsg, code: "PURCHASE_FAILED", balance_credited: false }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+      }
+
+      const iacRef = `SP-IAC-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      const txMeta: Record<string, unknown> = { ...meta, iacafe_plan: planId, iacafe_request_id: reqId, provider_code: prvCode, package_code: pkgCode, iacafe_order_id: iacData?.data?.order_id || null };
+      const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: "data", _network: network, _phone: phone || "", _amount: Number(amount || 0), _aidapay_hash: null, _meta: txMeta });
+      if (te) console.error("iacafe tx error:", te);
+
+      return new Response(JSON.stringify({ success: true, reference: (tx as any)?.reference || iacRef, status: iacData?.data?.status || "Processing", provider: "iacafe" }), { headers: { ...cors, "Content-Type": "application/json" } });
+    }
 
     // ── BSPlug data purchase ──────────────────────────────────
     if (type === "data" && prvCode?.startsWith("bsplug")) {
