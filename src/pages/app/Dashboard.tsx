@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv, Sparkles, Gift, Bot, ChevronRight } from "lucide-react";
+import { Eye, EyeOff, Plus, Zap, Wifi, BatteryCharging, Tv, Sparkles, Gift, Mail, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useSwiftPoints } from "@/hooks/useSwiftPoints";
@@ -26,8 +26,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle().then(({ data }) => setName(data?.full_name ?? ""));
-    supabase.from("transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(4)
+    supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => setName(data?.full_name ?? ""));
+    supabase.from("transactions").select("*").eq("user_id", user.id)
+      .order("created_at", { ascending: false }).limit(4)
       .then(({ data }) => setRecent(data ?? []));
   }, [user, balance]);
 
@@ -50,7 +52,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-5">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="text-sm text-muted-foreground">Hi {first} \uD83D\uDC4B</div>
+        <div className="text-sm text-muted-foreground">Hi {first} 👋</div>
         <div className="font-display text-2xl font-semibold">Let's get you topped up.</div>
       </motion.div>
 
@@ -63,7 +65,7 @@ export default function Dashboard() {
           <div>
             <div className="text-xs font-medium uppercase tracking-widest text-white/70">Wallet balance</div>
             <div className="mt-1 flex items-center gap-2">
-              <div className="font-display text-4xl font-bold text-white">{hide ? "\u20A6 \u2022\u2022\u2022\u2022\u2022\u2022" : naira(balance)}</div>
+              <div className="font-display text-4xl font-bold text-white">{hide ? "₦ ••••••" : naira(balance)}</div>
               <button onClick={toggleHide} className="text-white/70 hover:text-white">
                 {hide ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
@@ -76,7 +78,7 @@ export default function Dashboard() {
         <div className="relative mt-6 text-xs text-white/80">Tap + to fund your wallet instantly.</div>
       </motion.div>
 
-      {/* BlitzPoint rewards card */}
+      {/* BlitzPoints card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-accent/20 via-primary/10 to-background p-5">
         <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-accent/20 blur-2xl" />
@@ -95,7 +97,7 @@ export default function Dashboard() {
                 className="h-full rounded-full bg-gradient-to-r from-primary to-accent" />
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              {points >= 100 ? "\uD83C\uDF89 Reward unlocked! Redeem 1GB free." : `${100 - points} pts to your free 1GB data reward`}
+              {points >= 100 ? "🎉 Reward unlocked! Redeem 1GB free." : `${100 - points} pts to your free 1GB data reward`}
             </div>
           </div>
           <button onClick={() => setShowRedeem(true)} disabled={points < 100}
@@ -122,21 +124,21 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Swift AI Support bar */}
+      {/* Support bar — email contact */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-        <Link
-          to="/app/support"
+        <a
+          href="mailto:blitzpaysup@gmail.com"
           className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 hover:bg-primary/10 transition group"
         >
           <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-primary/20 group-hover:bg-primary/30 transition">
-            <Bot className="h-5 w-5 text-primary" />
+            <Mail className="h-5 w-5 text-primary" />
           </span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold">Chat with Blitzi</div>
-            <div className="text-xs text-muted-foreground">AI support \u2014 instant answers, anytime</div>
+            <div className="text-sm font-semibold">Get instant support</div>
+            <div className="text-xs text-muted-foreground">blitzpaysup@gmail.com</div>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition flex-shrink-0" />
-        </Link>
+        </a>
       </motion.div>
 
       {/* Recent */}
@@ -146,13 +148,13 @@ export default function Dashboard() {
           <Link to="/app/history" className="text-xs text-primary">See all</Link>
         </div>
         {recent.length === 0 ? (
-          <div className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">No transactions yet \u2014 your first top-up will appear here.</div>
+          <div className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">No transactions yet — your first top-up will appear here.</div>
         ) : (
           <div className="space-y-2">
             {recent.map(t => (
               <div key={t.id} className="glass flex items-center justify-between rounded-2xl p-4">
                 <div>
-                  <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` \u00b7 ${t.network}` : ""}</div>
+                  <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` · ${t.network}` : ""}</div>
                   <div className="text-[11px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
                 <div className={`text-sm font-semibold ${t.type === "wallet_topup" ? "text-accent" : ""}`}>
@@ -173,7 +175,7 @@ export default function Dashboard() {
               <Gift className="h-5 w-5 text-accent" />
               <h2 className="font-display text-lg font-bold">Redeem 1GB Free Data</h2>
             </div>
-            <p className="text-xs text-muted-foreground">100 BlitzPoints will be deducted. Reward is non-transferable and cannot be converted to cash.</p>
+            <p className="text-xs text-muted-foreground">100 BlitzPoints will be deducted. Reward is non-transferable.</p>
             <div>
               <div className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Network</div>
               <div className="grid grid-cols-4 gap-2">
