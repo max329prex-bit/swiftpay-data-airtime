@@ -94,6 +94,16 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "PK-MTN-TBKX", name: "75GB – Monthly", size: "75GB", validity: "30 Days",
       sell_price: 18080, cost_price: 17730, profit: 350, provider_code: "mtn-sme",
       duration: "monthly", is_blitz_prime: false, available: true, success_rate: 92 },
+    // ─── BSPlug MTN (alternative provider — network_id=1) ────
+    { id: "BSP-755", name: "1GB – 8 Days", size: "1GB", validity: "8 Days",
+      sell_price: 450, cost_price: 410, profit: 40, provider_code: "bsplug-1",
+      duration: "weekly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 93 },
+    { id: "BSP-665", name: "2GB – 2 Days", size: "2GB", validity: "2 Days",
+      sell_price: 800, cost_price: 740, profit: 60, provider_code: "bsplug-1",
+      duration: "daily", is_blitz_prime: false, available: true, success_rate: 91 },
+    { id: "BSP-764", name: "5GB – 14 Days", size: "5GB", validity: "14 Days",
+      sell_price: 1550, cost_price: 1400, profit: 150, provider_code: "bsplug-1",
+      duration: "weekly", is_blitz_prime: true, available: true, badge: "hot", success_rate: 92 },
   ],
 
   // ───── AIRTEL (12 plans · 6 Blitz Prime) ────────────────────
@@ -137,6 +147,22 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "PK-AIRTEL-PNDD-10GB-GIFTING", name: "10GB – Monthly", size: "10GB", validity: "30 Days",
       sell_price: 4100, cost_price: 3950, profit: 150, provider_code: "airtel-sme-cg",
       duration: "monthly", is_blitz_prime: true, available: true, success_rate: 90 },
+    // ─── BSPlug Airtel (alternative provider — network_id=3) ──
+    { id: "BSP-628", name: "1GB – 3 Days", size: "1GB", validity: "3 Days",
+      sell_price: 350, cost_price: 300, profit: 50, provider_code: "bsplug-3",
+      duration: "daily", is_blitz_prime: false, available: true, badge: "awuf", success_rate: 92 },
+    { id: "BSP-624", name: "2GB – 2 Days", size: "2GB", validity: "2 Days",
+      sell_price: 650, cost_price: 600, profit: 50, provider_code: "bsplug-3",
+      duration: "daily", is_blitz_prime: false, available: true, success_rate: 91 },
+    { id: "BSP-570", name: "3GB – 2 Days", size: "3GB", validity: "2 Days",
+      sell_price: 950, cost_price: 800, profit: 150, provider_code: "bsplug-3",
+      duration: "daily", is_blitz_prime: true, available: true, badge: "hot", success_rate: 91 },
+    { id: "BSP-620", name: "5GB – 7 Days", size: "5GB", validity: "7 Days",
+      sell_price: 1630, cost_price: 1480, profit: 150, provider_code: "bsplug-3",
+      duration: "weekly", is_blitz_prime: true, available: true, success_rate: 90 },
+    { id: "BSP-629", name: "10GB – 7 Days", size: "10GB", validity: "7 Days",
+      sell_price: 3200, cost_price: 2970, profit: 230, provider_code: "bsplug-3",
+      duration: "weekly", is_blitz_prime: false, available: true, badge: "best_value", success_rate: 89 },
   ],
 
   // ───── GLO (13 plans · 6 Blitz Prime) ───────────────────────
@@ -183,6 +209,22 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "PK-GLO-TPYQ-CS", name: "10GB – Monthly", size: "10GB", validity: "30 Days",
       sell_price: 4600, cost_price: 4400, profit: 200, provider_code: "glo-gifting",
       duration: "monthly", is_blitz_prime: false, available: true, success_rate: 88 },
+    // ─── BSPlug Glo (alternative provider — network_id=2) ────
+    { id: "BSP-339", name: "1.5GB – Daily", size: "1.5GB", validity: "1 Day",
+      sell_price: 350, cost_price: 288, profit: 62, provider_code: "bsplug-2",
+      duration: "daily", is_blitz_prime: false, available: true, badge: "awuf", success_rate: 92 },
+    { id: "BSP-340", name: "2.5GB – 2 Days", size: "2.5GB", validity: "2 Days",
+      sell_price: 550, cost_price: 480, profit: 70, provider_code: "bsplug-2",
+      duration: "daily", is_blitz_prime: false, available: true, success_rate: 91 },
+    { id: "BSP-711", name: "3.55GB – 2 Days", size: "3.55GB", validity: "2 Days",
+      sell_price: 660, cost_price: 580, profit: 80, provider_code: "bsplug-2",
+      duration: "daily", is_blitz_prime: true, available: true, badge: "hot", success_rate: 91 },
+    { id: "BSP-713", name: "5.1GB – 2 Days", size: "5.1GB", validity: "2 Days",
+      sell_price: 1100, cost_price: 990, profit: 110, provider_code: "bsplug-2",
+      duration: "daily", is_blitz_prime: false, available: true, success_rate: 90 },
+    { id: "BSP-341", name: "10GB – 7 Days", size: "10GB", validity: "7 Days",
+      sell_price: 2100, cost_price: 1950, profit: 150, provider_code: "bsplug-2",
+      duration: "weekly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 90 },
   ],
 
   // ───── 9MOBILE (4 confirmed AidaPay plans) ─────────────────
@@ -199,6 +241,16 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "9mobile-awuf-data-5gb", name: "5GB AWUF – Monthly", size: "5GB", validity: "30 Days",
       sell_price: 1950, cost_price: 1800, profit: 150, provider_code: "9mobile-awuf-data",
       duration: "monthly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 90 },
+    // ─── BSPlug 9Mobile (alternative provider — network_id=4) ─
+    { id: "BSP-231", name: "1GB – Monthly", size: "1GB", validity: "30 Days",
+      sell_price: 500, cost_price: 420, profit: 80, provider_code: "bsplug-4",
+      duration: "monthly", is_blitz_prime: false, available: true, success_rate: 91 },
+    { id: "BSP-242", name: "2GB – Monthly", size: "2GB", validity: "30 Days",
+      sell_price: 960, cost_price: 840, profit: 120, provider_code: "bsplug-4",
+      duration: "monthly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 91 },
+    { id: "BSP-238", name: "3GB – Monthly", size: "3GB", validity: "30 Days",
+      sell_price: 1420, cost_price: 1260, profit: 160, provider_code: "bsplug-4",
+      duration: "monthly", is_blitz_prime: false, available: true, success_rate: 90 },
   ],
 };
 
