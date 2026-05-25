@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "./Logo";
-import { BoltLoader } from "./BoltLoader";
+import { BoltLoader, SplashScreen } from "./BoltLoader";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { naira } from "@/lib/networks";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +23,7 @@ export function AppShell() {
   const nav = useNavigate();
   const [, setPinChecked] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [notifs, setNotifs] = useState<Notif[]>([]);
   usePushNotifications();
 
@@ -82,7 +83,12 @@ export function AppShell() {
     setNotifs(prev => prev.map(n => ({ ...n, read: true })));
   }
 
-  if (loading) return <div className="grid min-h-screen place-items-center"><BoltLoader size={72} label="Loading..." /></div>;
+  // Show splash for exactly 5s (regardless of auth speed)
+  if (showSplash || loading) return (
+    <AnimatePresence>
+      <SplashScreen key="splash" onDone={() => setShowSplash(false)} />
+    </AnimatePresence>
+  );
   if (!user) return null;
 
   return (
