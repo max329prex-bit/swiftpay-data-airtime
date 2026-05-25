@@ -9,6 +9,9 @@ const SUPA_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPA_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPA_SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SYNC_SECRET = Deno.env.get("SYNC_ADMIN_SECRET") ?? "";
+const BSPLUG_BASE = "https://bsplug.net/api";
+const BSPLUG_TOKEN = Deno.env.get("BSPLUG_TOKEN") ?? "";
+
 
 const AIRTIME_MAP: Record<string,string> = { MTN:"mtn-airtime", AIRTEL:"airtel-airtime", GLO:"glo-airtime", "9MOBILE":"9mobile-airtime" };
 
@@ -43,6 +46,25 @@ async function aidapayFetch(path: string, options: RequestInit = {}) {
     catch { return { ok: false, status: r.status, data: { success: false, message: `AidaPay error ${r.status}` } }; }
   } catch (e) {
     return { ok: false, status: 0, data: { success: false, message: "Cannot reach AidaPay" } };
+  }
+}
+
+
+async function bsplugFetch(path: string, options: RequestInit = {}) {
+  const url = `${BSPLUG_BASE}${path}`;
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    Authorization: `Token ${BSPLUG_TOKEN}`,
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string> || {})
+  };
+  try {
+    const r = await fetch(url, { ...options, headers });
+    const text = await r.text();
+    try { return { ok: r.ok, status: r.status, data: JSON.parse(text) }; }
+    catch { return { ok: false, status: r.status, data: { success: false, error: [`BSPlug error ${r.status}`] } }; }
+  } catch (e) {
+    return { ok: false, status: 0, data: { success: false, error: ["Cannot reach BSPlug"] } };
   }
 }
 
@@ -141,6 +163,35 @@ serve(async (req) => {
 
     const { data: pinValid, error: pe } = await userClient.rpc("verify_transaction_pin", { _pin: pin });
     if (pe || !pinValid) return new Response(JSON.stringify({ error: "Incorrect PIN" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+
+
+    // ── BSPlug data purchase ──────────────────────────────────
+    if (type === "data" && prvCode?.startsWith("bsplug")) {
+      if (!BSPLUG_TOKEN) throw new Error("BSPlug not configured");
+      const networkId = parseInt(prvCode.split("-")[1] || "1", 10);
+      const planId    = parseInt((pkgCode || "").replace("BSP-", ""), 10);
+      if (!planId || !networkId) throw new Error("Invalid BSPlug plan");
+
+      const bspRes = await bsplugFetch("/data/", {
+        method: "POST",
+        body: JSON.stringify({ mobile_number: phone, Ported_number: false, plan: planId, network: networkId })
+      });
+      const bspData = bspRes.data;
+      const adminClient = createClient(SUPA_URL, SUPA_SVC);
+
+      const errArr: string[] = Array.isArray(bspData?.error) ? bspData.error : bspData?.error ? [String(bspData.error)] : [];
+      const errMsg = errArr.join("; ") || bspData?.message || "BSPlug purchase failed";
+      if (!bspRes.ok || errArr.length) {
+        return new Response(JSON.stringify({ error: errMsg, code: "PURCHASE_FAILED", balance_credited: false }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+      }
+
+      const bspRef = `SP-BSP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      const txMeta: Record<string, unknown> = { ...meta, bsplug_plan: planId, bsplug_network: networkId, provider_code: prvCode, package_code: pkgCode, bsplug_order_id: bspData?.id || null };
+      const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: "data", _network: network, _phone: phone || "", _amount: Number(amount || 0), _aidapay_hash: null, _meta: txMeta });
+      if (te) console.error("bsp tx error:", te);
+
+      return new Response(JSON.stringify({ success: true, reference: (tx as any)?.reference || bspRef, status: "Processing", provider: "bsplug" }), { headers: { ...cors, "Content-Type": "application/json" } });
+    }
 
     let apCode: string;
     if (type === "airtime") { apCode = AIRTIME_MAP[network?.toUpperCase()] || "mtn-airtime"; }
