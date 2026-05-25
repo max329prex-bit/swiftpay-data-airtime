@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Plus, Zap, Wifi, BatteryCharging, Tv, Sparkles, Gift, Mail, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
-import { useSwiftPoints } from "@/hooks/useSwiftPoints";
+import { useBlitzPoints } from "@/hooks/useBlitzPoints";
 import { useHideBalance } from "@/hooks/useHideBalance";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 export default function Dashboard() {
   const { user } = useAuth();
   const { balance } = useWallet();
-  const { points, refresh: refreshPts } = useSwiftPoints();
+  const { points, refresh: refreshPts } = useBlitzPoints();
   const { hide, toggle: toggleHide } = useHideBalance();
   const [name, setName] = useState("");
   const [recent, setRecent] = useState<any[]>([]);
@@ -90,14 +90,14 @@ export default function Dashboard() {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <div className="font-display text-3xl font-bold">{points}</div>
-              <div className="text-sm text-muted-foreground">/ 100 pts</div>
+              <div className="text-sm text-muted-foreground">/ 100 BP</div>
             </div>
             <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10">
               <motion.div initial={{ width: 0 }} animate={{ width: pct + "%" }} transition={{ duration: 0.8 }}
                 className="h-full rounded-full bg-gradient-to-r from-primary to-accent" />
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              {points >= 100 ? "🎉 Reward unlocked! Redeem 1GB free." : `${100 - points} pts to your free 1GB data reward`}
+              {points >= 100 ? "🎉 Reward unlocked! Redeem 1GB free." : `${100 - points} BP to your free 1GB data reward`}
             </div>
           </div>
           <button onClick={() => setShowRedeem(true)} disabled={points < 100}
