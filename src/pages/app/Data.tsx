@@ -31,24 +31,16 @@ const BADGE_CFG = {
   hot:         { cls: "bg-red-500/15 border-red-500/30 text-red-400",          label: "\uD83D\uDD25 Hot" },
 } as const;
 
-// ─── Sub-components ───────────────────────────────────────────
 function BadgeChip({ badge }: { badge?: DataPlan["badge"] }) {
   if (!badge) return null;
   const { cls, label } = BADGE_CFG[badge];
-  return (
-    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${cls} mt-0.5 leading-none`}>
-      {label}
-    </span>
-  );
+  return <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${cls} mt-0.5 leading-none`}>{label}</span>;
 }
 
-function PlanCard({
-  plan, selected, onSelect,
-}: { plan: DataPlan; selected: boolean; onSelect: (p: DataPlan) => void }) {
+function PlanCard({ plan, selected, onSelect }: { plan: DataPlan; selected: boolean; onSelect: (p: DataPlan) => void }) {
   const pts = Math.max(1, Math.floor(plan.sell_price / 250) * 5);
   const rate = plan.success_rate ?? 92;
   const blocked = plan.coming_soon || !plan.available;
-
   return (
     <button
       onClick={() => !blocked && onSelect(plan)}
@@ -56,75 +48,51 @@ function PlanCard({
       type="button"
       className={[
         "relative flex flex-col items-center gap-0.5 rounded-2xl border p-3 text-center overflow-hidden transition",
-        blocked
-          ? "opacity-50 cursor-not-allowed border-white/5 bg-white/[0.02]"
-          : selected
-          ? "border-primary bg-primary/10 shadow-[0_0_14px_rgba(var(--primary-rgb,139,92,246),0.25)]"
+        blocked ? "opacity-50 cursor-not-allowed border-white/5 bg-white/[0.02]"
+          : selected ? "border-primary bg-primary/10 shadow-[0_0_14px_rgba(var(--primary-rgb,139,92,246),0.25)]"
           : "border-white/10 bg-white/[0.03] hover:bg-white/5 active:scale-95",
       ].join(" ")}
     >
-      {/* Success rate stripe */}
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/5 rounded-t-2xl">
         <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${rate}%` }} />
       </div>
-
       <div className="font-display text-xl font-black leading-none mt-2 text-foreground">{plan.size}</div>
       <div className="text-[10px] text-muted-foreground leading-none mt-0.5">{plan.validity}</div>
       <div className="text-sm font-bold mt-1.5">{naira(plan.sell_price)}</div>
       <div className="text-[9px] text-accent font-semibold">+{pts} pts</div>
       <BadgeChip badge={plan.badge} />
-
       {plan.coming_soon && (
         <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
-          <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-1 rounded-full">
-            Coming Soon
-          </span>
+          <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-1 rounded-full">Coming Soon</span>
         </div>
       )}
     </button>
   );
 }
 
-function PrimeCard({
-  plan, selected, onSelect,
-}: { plan: DataPlan; selected: boolean; onSelect: (p: DataPlan) => void }) {
+function PrimeCard({ plan, selected, onSelect }: { plan: DataPlan; selected: boolean; onSelect: (p: DataPlan) => void }) {
   const pts = Math.max(1, Math.floor(plan.sell_price / 250) * 5);
   const blocked = plan.coming_soon || !plan.available;
-
   return (
     <button
       onClick={() => !blocked && onSelect(plan)}
       disabled={blocked}
       type="button"
       className="flex-shrink-0 w-[138px] rounded-2xl p-[1.5px] transition active:scale-95"
-      style={{
-        background: selected
-          ? "linear-gradient(135deg, #f59e0b, #f97316)"
-          : "linear-gradient(135deg, rgba(245,158,11,0.35), rgba(249,115,22,0.20))",
-      }}
+      style={{ background: selected ? "linear-gradient(135deg, #f59e0b, #f97316)" : "linear-gradient(135deg, rgba(245,158,11,0.35), rgba(249,115,22,0.20))" }}
     >
-      <div
-        className={[
-          "h-full rounded-[13px] bg-[#0f1117] p-3 flex flex-col gap-1 text-left",
-          selected ? "ring-1 ring-amber-400/40" : "",
-        ].join(" ")}
-      >
+      <div className={["h-full rounded-[13px] bg-[#0f1117] p-3 flex flex-col gap-1 text-left", selected ? "ring-1 ring-amber-400/40" : ""].join(" ")}>
         <div className="font-display text-2xl font-black leading-none text-foreground">{plan.size}</div>
         <div className="text-[10px] text-muted-foreground leading-tight">{plan.validity}</div>
         <div className="text-sm font-bold mt-0.5">{naira(plan.sell_price)}</div>
         <div className="text-[9px] text-accent font-semibold">+{pts} pts</div>
         {plan.badge && <BadgeChip badge={plan.badge} />}
-        {plan.coming_soon && (
-          <span className="text-[9px] text-amber-400 font-bold border border-amber-400/30 rounded-full px-1.5 py-0.5 bg-amber-400/10 w-fit mt-0.5">
-            Soon
-          </span>
-        )}
+        {plan.coming_soon && <span className="text-[9px] text-amber-400 font-bold border border-amber-400/30 rounded-full px-1.5 py-0.5 bg-amber-400/10 w-fit mt-0.5">Soon</span>}
       </div>
     </button>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────
 export default function Data() {
   const [step, setStep] = useState<Step>("network");
   const [network, setNetwork] = useState<NetworkId>("MTN");
@@ -142,15 +110,22 @@ export default function Data() {
   const net = NETWORKS.find(n => n.id === network)!;
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to CTA button when a plan is selected
-  const handlePlanSelect = (pp: DataPlan) => {
-    setPlan(pp);
-    setTimeout(() => {
-      ctaRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 120);
-  };
+  // Scroll to CTA button whenever a plan is selected, accounting for fixed bottom nav
+  useEffect(() => {
+    if (!plan) return;
+    const timer = setTimeout(() => {
+      const el = ctaRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const bottomNavHeight = 130; // fixed bottom nav + padding
+      const visibleBottom = window.innerHeight - bottomNavHeight;
+      if (rect.bottom > visibleBottom) {
+        window.scrollBy({ top: rect.bottom - visibleBottom + 20, behavior: "smooth" });
+      }
+    }, 280); // wait for React to render plan info elements first
+    return () => clearTimeout(timer);
+  }, [plan]);
 
-  // Fetch live success rates from bundle_status (once on mount, cached)
   useEffect(() => {
     const cacheKey = "blitzpay_bundle_rates";
     const cached = localStorage.getItem(cacheKey);
@@ -160,8 +135,7 @@ export default function Data() {
         if (Date.now() - ts < 10 * 60 * 1000) { setLiveRates(d); return; }
       } catch {}
     }
-    supabase.from("bundle_status")
-      .select("package_code, success_count, fail_count")
+    supabase.from("bundle_status").select("package_code, success_count, fail_count")
       .then(({ data: rows }) => {
         if (!rows) return;
         const rates: Record<string, number> = {};
@@ -175,11 +149,9 @@ export default function Data() {
   }, []);
 
   const annotate = (p: DataPlan): DataPlan => ({
-    ...p,
-    success_rate: liveRates[p.id] !== undefined ? liveRates[p.id] : (p.success_rate ?? 92),
+    ...p, success_rate: liveRates[p.id] !== undefined ? liveRates[p.id] : (p.success_rate ?? 92),
   });
 
-  // Phone auto-detect
   useEffect(() => {
     const d = detectNetwork(phone);
     if (d) { setNetwork(d); setPhoneOk(phone.replace(/\D/g, "").length === 11); }
@@ -187,19 +159,12 @@ export default function Data() {
     setPlan(null);
   }, [phone]);
 
-  // Reset when network changes
-  useEffect(() => {
-    setPlan(null);
-    setShowMore(false);
-    setDuration("daily");
-  }, [network]);
+  useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); }, [network]);
 
   const safeNet = (["MTN", "AIRTEL", "GLO", "9MOBILE"] as Network[]).includes(network as Network)
-    ? (network as Network)
-    : "MTN" as Network;
-
+    ? (network as Network) : "MTN" as Network;
   const primePlans = getBlitzPrimePlans(safeNet);
-  const tabPlans   = getPlans(safeNet, duration);
+  const tabPlans = getPlans(safeNet, duration);
 
   async function pay() {
     if (!plan) return;
@@ -212,11 +177,7 @@ export default function Data() {
       });
       if (error) throw error;
       if (!data?.success) {
-        if (data?.code === "BUNDLE_UNAVAILABLE") {
-          setPlan(null);
-          setStep("form");
-          throw new Error("Plan temporarily unavailable. No charge made \u2014 pick another.");
-        }
+        if (data?.code === "BUNDLE_UNAVAILABLE") { setPlan(null); setStep("form"); throw new Error("Plan temporarily unavailable. No charge made \u2014 pick another."); }
         throw new Error(data?.error || "Purchase failed");
       }
       refresh();
@@ -225,50 +186,31 @@ export default function Data() {
     finally { setBusy(false); }
   }
 
-  // ── Network Selection ────────────────────────────────────────
   if (step === "network") return (
     <div className="space-y-5 pb-10">
       <div>
         <h1 className="font-display text-2xl font-semibold">Data Bundle</h1>
         <p className="text-sm text-muted-foreground mt-1">Choose your network</p>
       </div>
-
       <div className="flex items-center justify-between rounded-2xl glass p-4">
-        <div>
-          <div className="text-xs text-muted-foreground">Balance</div>
-          <div className="font-display text-lg font-bold">{naira(balance)}</div>
-        </div>
+        <div><div className="text-xs text-muted-foreground">Balance</div><div className="font-display text-lg font-bold">{naira(balance)}</div></div>
         <Button size="sm" variant="hero" onClick={() => nav("/app/wallet")} className="rounded-xl">+ Deposit</Button>
       </div>
-
       <div className="grid grid-cols-2 gap-3">
         {NETWORKS.map(n => {
           const isSupported = ["MTN", "AIRTEL", "GLO", "9MOBILE"].includes(n.id);
-          const planCount = isSupported
-            ? DATA_PLANS[n.id as Network].filter(p => p.available).length
-            : 0;
-
+          const planCount = isSupported ? DATA_PLANS[n.id as Network].filter(p => p.available).length : 0;
           return (
-            <button
-              key={n.id}
-              onClick={() => { if (!isSupported) return; setNetwork(n.id); setStep("form"); }}
-              disabled={!isSupported}
-              type="button"
-              className={[
-                "flex flex-col overflow-hidden rounded-3xl border transition",
-                isSupported
-                  ? "border-white/10 hover:border-white/20 active:scale-95 cursor-pointer"
-                  : "border-white/5 opacity-50 cursor-not-allowed",
-              ].join(" ")}
-            >
+            <button key={n.id} onClick={() => { if (!isSupported) return; setNetwork(n.id); setStep("form"); }}
+              disabled={!isSupported} type="button"
+              className={["flex flex-col overflow-hidden rounded-3xl border transition",
+                isSupported ? "border-white/10 hover:border-white/20 active:scale-95 cursor-pointer" : "border-white/5 opacity-50 cursor-not-allowed"].join(" ")}>
               <div className={`${n.bg} flex items-center justify-center py-8`}>
                 <span className={`font-black text-2xl ${n.color}`}>{n.name}</span>
               </div>
               <div className="bg-white/[0.03] py-3 px-3 text-left">
                 <div className="text-sm font-semibold">{n.name}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {isSupported ? `${planCount} plans` : "Coming soon"}
-                </div>
+                <div className="text-[11px] text-muted-foreground">{isSupported ? `${planCount} plans` : "Coming soon"}</div>
               </div>
             </button>
           );
@@ -277,227 +219,127 @@ export default function Data() {
     </div>
   );
 
-  // ── Form: Phone + Plans ──────────────────────────────────────
   return (
     <div className="space-y-4 pb-10">
-      {/* Header */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => step === "form" ? setStep("network") : setStep("form")}
-          className="grid h-9 w-9 place-items-center rounded-full glass"
-        >
+        <button onClick={() => step === "form" ? setStep("network") : setStep("form")} className="grid h-9 w-9 place-items-center rounded-full glass">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <h1 className="font-display text-xl font-semibold">Buy Data</h1>
-        <div className={`ml-auto h-10 w-10 rounded-xl ${NC[network]} flex items-center justify-center font-black text-xs`}>
-          {net.name}
-        </div>
+        <div className={`ml-auto h-10 w-10 rounded-xl ${NC[network]} flex items-center justify-center font-black text-xs`}>{net.name}</div>
       </div>
 
-      {/* Balance */}
       <div className="flex items-center justify-between rounded-2xl glass p-4">
-        <div>
-          <div className="text-xs text-muted-foreground">Balance</div>
-          <div className="font-display text-lg font-bold">{naira(balance)}</div>
-        </div>
+        <div><div className="text-xs text-muted-foreground">Balance</div><div className="font-display text-lg font-bold">{naira(balance)}</div></div>
         <Button size="sm" variant="hero" onClick={() => nav("/app/wallet")} className="rounded-xl">+ Deposit</Button>
       </div>
 
-      {/* Phone */}
       <div className="space-y-2">
         <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Phone Number</div>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Input
-              value={phone} onChange={e => setPhone(e.target.value)}
-              placeholder="08030000000" inputMode="tel"
-              className="h-14 rounded-2xl bg-secondary/40 text-base pr-8"
-            />
-            {phone && (
-              <button onClick={() => { setPhone(""); setPhoneOk(false); setPlan(null); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            )}
+            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="08030000000" inputMode="tel"
+              className="h-14 rounded-2xl bg-secondary/40 text-base pr-8" />
+            {phone && <button onClick={() => { setPhone(""); setPhoneOk(false); setPlan(null); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><X className="h-4 w-4" /></button>}
           </div>
-          <button
-            onClick={() => phone.replace(/\D/g, "").length === 11 ? setPhoneOk(true) : toast.error("Enter valid number")}
-            className={`h-14 w-14 rounded-2xl flex items-center justify-center transition ${phoneOk ? "bg-green-500/20 text-green-400" : "bg-primary/20 text-primary"}`}
-          >
+          <button onClick={() => phone.replace(/\D/g, "").length === 11 ? setPhoneOk(true) : toast.error("Enter valid number")}
+            className={`h-14 w-14 rounded-2xl flex items-center justify-center transition ${phoneOk ? "bg-green-500/20 text-green-400" : "bg-primary/20 text-primary"}`}>
             <CheckCircle2 className="h-5 w-5" />
           </button>
         </div>
-        {phoneOk && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 text-sm text-green-400">
-            <CheckCircle2 className="h-4 w-4" /> Verified {net.name} Number
-          </motion.div>
-        )}
+        {phoneOk && <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-sm text-green-400"><CheckCircle2 className="h-4 w-4" /> Verified {net.name} Number</motion.div>}
       </div>
 
-      {/* Plans section — only when phone verified */}
       {phoneOk && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-
-          {/* Blitz Prime */}
           {primePlans.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-amber-400" />
-                <span
-                  className="text-base font-black"
-                  style={{ background: "linear-gradient(90deg, #f59e0b, #f97316)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-                >
-                  Blitz Prime
-                </span>
+                <span className="text-base font-black" style={{ background: "linear-gradient(90deg, #f59e0b, #f97316)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Blitz Prime</span>
                 <span className="text-[10px] text-muted-foreground">Best picks for you</span>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                {primePlans.map(p => (
-                  <PrimeCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id}
-                    onSelect={pp => { handlePlanSelect(pp); setDuration(pp.duration); }} />
-                ))}
+                {primePlans.map(p => <PrimeCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id} onSelect={pp => { setPlan(pp); setDuration(pp.duration); }} />)}
               </div>
             </div>
           )}
 
-          {/* Duration Tabs */}
           <div className="space-y-3">
             <div className="flex gap-2">
               {(["daily", "weekly", "monthly"] as Duration[]).map(d => (
-                <button
-                  key={d}
-                  onClick={() => { setDuration(d); setShowMore(false); }}
-                  type="button"
-                  className={[
-                    "flex-1 rounded-xl py-2 text-xs font-bold capitalize transition",
-                    duration === d
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-white/[0.04] text-muted-foreground hover:bg-white/[0.07]",
-                  ].join(" ")}
-                >
+                <button key={d} onClick={() => { setDuration(d); setShowMore(false); }} type="button"
+                  className={["flex-1 rounded-xl py-2 text-xs font-bold capitalize transition",
+                    duration === d ? "bg-primary text-primary-foreground shadow-sm" : "bg-white/[0.04] text-muted-foreground hover:bg-white/[0.07]"].join(" ")}>
                   {d}
                 </button>
               ))}
             </div>
-
             {tabPlans.length === 0 ? (
-              <div className="text-xs text-muted-foreground text-center py-8 glass rounded-2xl">
-                No plans for this duration
-              </div>
+              <div className="text-xs text-muted-foreground text-center py-8 glass rounded-2xl">No plans for this duration</div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {tabPlans.slice(0, showMore ? tabPlans.length : Math.min(6, tabPlans.length)).map(p => (
-                  <PlanCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id}
-                    onSelect={handlePlanSelect} />
+                  <PlanCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id} onSelect={pp => setPlan(pp)} />
                 ))}
               </div>
             )}
-
             {tabPlans.length > 6 && (
-              <button
-                onClick={() => setShowMore(v => !v)}
-                type="button"
-                className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/[0.06] transition"
-              >
-                {showMore ? (
-                  <><ChevronUp className="h-3.5 w-3.5" /> Show Less</>
-                ) : (
-                  <><ChevronDown className="h-3.5 w-3.5" /> More Plans ({tabPlans.length - 6})</>
-                )}
+              <button onClick={() => setShowMore(v => !v)} type="button"
+                className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/[0.06] transition">
+                {showMore ? <><ChevronUp className="h-3.5 w-3.5" /> Show Less</> : <><ChevronDown className="h-3.5 w-3.5" /> More Plans ({tabPlans.length - 6})</>}
               </button>
             )}
           </div>
 
-          {/* Availability bar */}
           {plan && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 space-y-2"
-            >
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Success Rate
-                </span>
-                <span className={`text-base font-black tabular-nums ${
-                  (plan.success_rate ?? 92) >= 90 ? "text-green-400"
-                  : (plan.success_rate ?? 92) >= 75 ? "text-amber-400"
-                  : "text-red-400"
-                }`}>
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Success Rate</span>
+                <span className={`text-base font-black tabular-nums ${(plan.success_rate ?? 92) >= 90 ? "text-green-400" : (plan.success_rate ?? 92) >= 75 ? "text-amber-400" : "text-red-400"}`}>
                   {plan.success_rate ?? 92}%
                 </span>
               </div>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${plan.success_rate ?? 92}%` }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className={`h-full rounded-full ${
-                    (plan.success_rate ?? 92) >= 90
-                      ? "bg-gradient-to-r from-green-500 to-emerald-400"
-                      : (plan.success_rate ?? 92) >= 75
-                      ? "bg-gradient-to-r from-amber-500 to-yellow-400"
-                      : "bg-gradient-to-r from-red-500 to-rose-400"
-                  }`}
-                />
+                <motion.div initial={{ width: 0 }} animate={{ width: `${plan.success_rate ?? 92}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
+                  className={`h-full rounded-full ${(plan.success_rate ?? 92) >= 90 ? "bg-gradient-to-r from-green-500 to-emerald-400" : (plan.success_rate ?? 92) >= 75 ? "bg-gradient-to-r from-amber-500 to-yellow-400" : "bg-gradient-to-r from-red-500 to-rose-400"}`} />
               </div>
               <p className="text-[10px] text-muted-foreground leading-snug">
-                {(plan.success_rate ?? 92) >= 90
-                  ? "High reliability \u2014 this plan delivers consistently"
-                  : (plan.success_rate ?? 92) >= 75
-                  ? "Mostly available \u2014 minor occasional delays"
-                  : "Low availability \u2014 consider choosing another plan"}
+                {(plan.success_rate ?? 92) >= 90 ? "High reliability \u2014 this plan delivers consistently" : (plan.success_rate ?? 92) >= 75 ? "Mostly available \u2014 minor occasional delays" : "Low availability \u2014 consider choosing another plan"}
               </p>
             </motion.div>
           )}
 
-          {/* Selected plan summary pill */}
           {plan && (
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
-              <div className="text-xs text-muted-foreground">
-                {plan.size} \u00b7 {plan.validity}
-              </div>
+              <div className="text-xs text-muted-foreground">{plan.size} \u00b7 {plan.validity}</div>
               <div className="font-display text-base font-bold">{naira(plan.sell_price)}</div>
             </motion.div>
           )}
         </motion.div>
       )}
 
-      {/* Proceed CTA — ref here so we scroll to it when plan is selected */}
+      {/* CTA — ref here so useEffect can scroll to it */}
       <div ref={ctaRef}>
-        <Button
-          variant="hero" size="xl" className="w-full"
-          disabled={!plan || !phoneOk}
-          onClick={() => setStep("pin")}
-        >
+        <Button variant="hero" size="xl" className="w-full" disabled={!plan || !phoneOk} onClick={() => setStep("pin")}>
           {plan ? `Buy ${plan.size} for ${naira(plan.sell_price)}` : "Select a plan to continue"}
         </Button>
       </div>
 
-      {/* PIN Modal */}
       <AnimatePresence>
         {step === "pin" && plan && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
-              onClick={() => setStep("form")} />
-            <motion.div
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={() => setStep("form")} />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 26, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-white/10 p-6"
-            >
+              className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-white/10 p-6">
               <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h2 className="font-display text-lg font-bold">Authorize Purchase</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Review and confirm below</p>
-                </div>
-                <button onClick={() => setStep("form")} className="grid h-8 w-8 place-items-center rounded-full glass">
-                  <X className="h-4 w-4" />
-                </button>
+                <div><h2 className="font-display text-lg font-bold">Authorize Purchase</h2><p className="text-xs text-muted-foreground mt-0.5">Review and confirm below</p></div>
+                <button onClick={() => setStep("form")} className="grid h-8 w-8 place-items-center rounded-full glass"><X className="h-4 w-4" /></button>
               </div>
-
               <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4 mb-5 space-y-2.5">
                 {[
                   { label: "Product", value: `${net.name} Data \u2014 ${plan.size} (${plan.validity})` },
@@ -507,29 +349,18 @@ export default function Data() {
                 ].map(row => (
                   <div key={row.label} className="flex justify-between text-sm border-b border-white/5 pb-2 last:border-0 last:pb-0">
                     <span className="text-muted-foreground">{row.label}</span>
-                    <span className={row.accent ? "text-primary font-semibold" : row.bold ? "text-accent font-bold" : "font-semibold"}>
-                      {row.value}
-                    </span>
+                    <span className={row.accent ? "text-primary font-semibold" : row.bold ? "text-accent font-bold" : "font-semibold"}>{row.value}</span>
                   </div>
                 ))}
               </div>
-
               <div className="space-y-4 text-center">
                 <div className="text-sm font-semibold">Enter your 4-digit PIN</div>
                 <div className="flex justify-center">
                   <InputOTP maxLength={4} value={pin} onChange={setPin}>
-                    <InputOTPGroup>
-                      {[0, 1, 2, 3].map(i => (
-                        <InputOTPSlot key={i} index={i} className="h-14 w-14 text-xl rounded-2xl" />
-                      ))}
-                    </InputOTPGroup>
+                    <InputOTPGroup>{[0, 1, 2, 3].map(i => <InputOTPSlot key={i} index={i} className="h-14 w-14 text-xl rounded-2xl" />)}</InputOTPGroup>
                   </InputOTP>
                 </div>
-                <Button
-                  variant="hero" size="xl" className="w-full"
-                  disabled={pin.length < 4 || busy}
-                  onClick={pay}
-                >
+                <Button variant="hero" size="xl" className="w-full" disabled={pin.length < 4 || busy} onClick={pay}>
                   {busy ? "Processing\u2026" : `Pay ${naira(plan.sell_price)}`}
                 </Button>
               </div>
