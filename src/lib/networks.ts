@@ -225,41 +225,41 @@ export const DATA_BUNDLES = DATA_BUNDLES_VTU;
 
 // ─── Other services ───────────────────────────────────────────
 export const ELECTRICITY_PROVIDERS = [
-  { id: "EKEDC", name: "Eko Electric (EKEDC)", location: "Lagos South" },
-  { id: "IKEDC", name: "Ikeja Electric (IKEDC)", location: "Lagos North" },
-  { id: "IBEDC", name: "Ibadan Electric (IBEDC)", location: "Oyo/Ogun/Osun/Kwara" },
-  { id: "AEDC", name: "Abuja Electric (AEDC)", location: "FCT/Niger/Nassarawa/Kogi" },
-  { id: "KEDCO", name: "Kano Electric (KEDCO)", location: "Kano/Jigawa/Katsina" },
-  { id: "BEDC", name: "Benin Electric (BEDC)", location: "Edo/Delta/Ondo/Ekiti" },
-  { id: "PHED", name: "Port Harcourt Electric (PHED)", location: "Rivers/Bayelsa" },
-  { id: "JED", name: "Jos Electric (JED)", location: "Plateau/Benue/Nasarawa" },
-  { id: "ENUGU", name: "Enugu Electric (EEDC)", location: "Enugu/Ebonyi/Abia/Imo" },
-  { id: "KAEDCO", name: "Kaduna Electric (KAEDCO)", location: "Kaduna/Sokoto/Kebbi" },
+  { id: "EKEDC",  name: "Eko Electric (EKEDC)",        location: "Lagos South",              code: "ekedc"  },
+  { id: "IKEDC",  name: "Ikeja Electric (IKEDC)",       location: "Lagos North",              code: "ikedc"  },
+  { id: "IBEDC",  name: "Ibadan Electric (IBEDC)",      location: "Oyo/Ogun/Osun/Kwara",     code: "ibedc"  },
+  { id: "AEDC",   name: "Abuja Electric (AEDC)",        location: "FCT/Niger/Nassarawa/Kogi", code: "aedc"   },
+  { id: "KEDCO",  name: "Kano Electric (KEDCO)",        location: "Kano/Jigawa/Katsina",     code: "kedco"  },
+  { id: "BEDC",   name: "Benin Electric (BEDC)",        location: "Edo/Delta/Ondo/Ekiti",    code: "bedc"   },
+  { id: "PHED",   name: "Port Harcourt Electric (PHED)",location: "Rivers/Bayelsa",          code: "phed"   },
+  { id: "JED",    name: "Jos Electric (JED)",           location: "Plateau/Benue/Nasarawa",  code: "jed"    },
+  { id: "ENUGU",  name: "Enugu Electric (EEDC)",        location: "Enugu/Ebonyi/Abia/Imo",  code: "eedc"   },
+  { id: "KAEDCO", name: "Kaduna Electric (KAEDCO)",     location: "Kaduna/Sokoto/Kebbi",     code: "kaedco" },
 ];
 
 export const CABLE_PROVIDERS = [
-  { id: "DSTV", name: "DStv", color: "bg-blue-600" },
-  { id: "GOTV", name: "GOtv", color: "bg-green-600" },
-  { id: "STARTIMES", name: "StarTimes", color: "bg-orange-500" },
+  { id: "DSTV",      name: "DStv",      color: "bg-blue-600",   aidapay_code: "dstv"      },
+  { id: "GOTV",      name: "GOtv",      color: "bg-green-600",  aidapay_code: "gotv"      },
+  { id: "STARTIMES", name: "StarTimes", color: "bg-orange-500", aidapay_code: "startimes" },
 ];
 
-export const CABLE_PACKAGES: Record<string, { id: string; name: string; price: number; package_code?: string; provider_code?: string }[]> = {
+export const CABLE_PACKAGES: Record<string, { id: string; name: string; price: number; package_code?: string; provider_code?: string; aidapay_code: string }[]> = {
   DSTV: [
-    { id: "dstv-access", name: "DStv Access", price: 2000, package_code: "dstv-access", provider_code: "dstv" },
-    { id: "dstv-compact", name: "DStv Compact", price: 2000, package_code: "dstv-compact", provider_code: "dstv" },
-    { id: "dstv-compact-plus", name: "DStv Compact Plus", price: 30000, package_code: "dstv-compact-plus", provider_code: "dstv" },
-    { id: "dstv-premium", name: "DStv Premium", price: 44500, package_code: "dstv-premium", provider_code: "dstv" },
+    { id: "dstv-access",       name: "DStv Access",       price: 2000,  package_code: "dstv-access",       provider_code: "dstv", aidapay_code: "dstv-access"       },
+    { id: "dstv-compact",      name: "DStv Compact",      price: 9000,  package_code: "dstv-compact",      provider_code: "dstv", aidapay_code: "dstv-compact"      },
+    { id: "dstv-compact-plus", name: "DStv Compact Plus", price: 14250, package_code: "dstv-compact-plus", provider_code: "dstv", aidapay_code: "dstv-compact-plus" },
+    { id: "dstv-premium",      name: "DStv Premium",      price: 24500, package_code: "dstv-premium",      provider_code: "dstv", aidapay_code: "dstv-premium"      },
   ],
   GOTV: [
-    { id: "gotv-smallie", name: "GOtv Smallie", price: 1900, package_code: "gotv-smallie", provider_code: "gotv" },
-    { id: "gotv-jinja", name: "GOtv Jinja", price: 3900, package_code: "gotv-jinja", provider_code: "gotv" },
-    { id: "gotv-jolli", name: "GOtv Jolli", price: 5800, package_code: "gotv-jolli", provider_code: "gotv" },
-    { id: "gotv-max", name: "GOtv Max", price: 8500, package_code: "gotv-max", provider_code: "gotv" },
-    { id: "gotv-supa", name: "GOtv Supa", price: 11400, package_code: "gotv-supa", provider_code: "gotv" },
+    { id: "gotv-smallie", name: "GOtv Smallie", price: 1900,  package_code: "gotv-smallie", provider_code: "gotv", aidapay_code: "gotv-smallie" },
+    { id: "gotv-jinja",   name: "GOtv Jinja",   price: 3900,  package_code: "gotv-jinja",   provider_code: "gotv", aidapay_code: "gotv-jinja"   },
+    { id: "gotv-jolli",   name: "GOtv Jolli",   price: 5800,  package_code: "gotv-jolli",   provider_code: "gotv", aidapay_code: "gotv-jolli"   },
+    { id: "gotv-max",     name: "GOtv Max",     price: 8500,  package_code: "gotv-max",     provider_code: "gotv", aidapay_code: "gotv-max"     },
+    { id: "gotv-supa",    name: "GOtv Supa",    price: 11400, package_code: "gotv-supa",    provider_code: "gotv", aidapay_code: "gotv-supa"    },
   ],
   STARTIMES: [
-    { id: "st-nova", name: "Nova (Daily)", price: 150, package_code: "st-nova", provider_code: "startimes" },
-    { id: "st-smart", name: "Smart (Monthly)", price: 3800, package_code: "st-smart", provider_code: "startimes" },
-    { id: "st-classic", name: "Classic (Monthly)", price: 4500, package_code: "st-classic", provider_code: "startimes" },
+    { id: "st-nova",    name: "Nova (Daily)",    price: 150,  package_code: "st-nova",    provider_code: "startimes", aidapay_code: "startimes-nova"    },
+    { id: "st-smart",   name: "Smart (Monthly)", price: 3800, package_code: "st-smart",   provider_code: "startimes", aidapay_code: "startimes-smart"   },
+    { id: "st-classic", name: "Classic (Monthly)",price: 4500, package_code: "st-classic", provider_code: "startimes", aidapay_code: "startimes-classic" },
   ],
 };
