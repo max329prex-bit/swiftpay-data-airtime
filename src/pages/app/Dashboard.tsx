@@ -124,10 +124,10 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Support bar — email contact */}
+      {/* Support bar — links to support page */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-        <a
-          href="mailto:blitzpaysup@gmail.com"
+        <Link
+          to="/app/support"
           className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 hover:bg-primary/10 transition group"
         >
           <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-primary/20 group-hover:bg-primary/30 transition">
@@ -135,10 +135,10 @@ export default function Dashboard() {
           </span>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold">Get instant support</div>
-            <div className="text-xs text-muted-foreground">blitzpaysup@gmail.com</div>
+            <div className="text-xs text-muted-foreground">Email or chat with Blitzi</div>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition flex-shrink-0" />
-        </a>
+        </Link>
       </motion.div>
 
       {/* Recent */}
