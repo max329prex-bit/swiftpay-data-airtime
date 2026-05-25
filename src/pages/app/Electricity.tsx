@@ -14,7 +14,7 @@ const QUICK_AMOUNTS = [1000, 2000, 3000, 5000, 10000, 20000];
 type Step = "form" | "pin";
 
 // AidaPay electricity is temporarily unavailable – flip this to true when live
-const ELECTRICITY_LIVE = false;
+const ELECTRICITY_LIVE = true;
 
 export default function Electricity() {
   const [provider, setProvider] = useState(ELECTRICITY_PROVIDERS[0]);
