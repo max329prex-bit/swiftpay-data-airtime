@@ -1,0 +1,30 @@
+name: Deploy Supabase Edge Functions
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'supabase/functions/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy all edge functions
+        run: |
+          supabase functions deploy vtu-purchase --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy aidapay-webhook --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy monnify-webhook --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy monnify-account --project-ref tljnhlhzyntotadxoypz
+          supabase functions deploy chat --project-ref tljnhlhzyntotadxoypz
+          supabase functions deploy get-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy swift-chat --project-ref tljnhlhzyntotadxoypz
+          supabase functions deploy sync-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
