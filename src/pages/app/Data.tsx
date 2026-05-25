@@ -175,12 +175,13 @@ export default function Data() {
         });
       }
 
-      // Step 2 — Blitz Prime: top 5 best price-per-GB across ALL networks globally
-      const allAvailable = Object.values(mapped).flat().filter(p => p.available && !p.coming_soon);
-      const primeIds = new Set(
-        [...allAvailable].sort((a, b) => a.pricePerGb - b.pricePerGb).slice(0, 5).map(p => p.id)
-      );
+      // Step 2 — Blitz Prime: top 5 best price-per-GB WITHIN each network
+      // MTN Blitz Prime = best MTN deals, Glo Blitz Prime = best Glo deals, etc.
       for (const netId of Object.keys(mapped)) {
+        const netAvailable = mapped[netId].filter(p => p.available && !p.coming_soon);
+        const primeIds = new Set(
+          [...netAvailable].sort((a, b) => a.pricePerGb - b.pricePerGb).slice(0, 5).map(p => p.id)
+        );
         mapped[netId] = mapped[netId].map(p => ({ ...p, is_prime: primeIds.has(p.id) }));
       }
 
@@ -212,8 +213,8 @@ export default function Data() {
   useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); }, [network]);
 
   const netPlans = allPlans[network] ?? [];
-  // Blitz Prime: globally best price/GB across ALL networks, sorted by value
-  const primePlans = Object.values(allPlans).flat().filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
+  // Blitz Prime: best price/GB plans within the current network
+  const primePlans = netPlans.filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
   const tabPlans = netPlans.filter(p => p.duration === duration);
 
   const networkCounts = Object.fromEntries(
@@ -328,7 +329,7 @@ export default function Data() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {primePlans.map(p => <PrimeCard key={p.id} plan={p} selected={plan?.id === p.id}
-                  onSelect={pp => { setPlan(pp); setDuration(pp.duration); setNetwork(pp.network); }} />)}
+                  onSelect={pp => { setPlan(pp); setDuration(pp.duration); }} />)}
               </div>
             </div>
           )}
