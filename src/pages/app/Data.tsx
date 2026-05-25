@@ -13,7 +13,6 @@ import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, X, Zap } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
-// ─── Constants ────────────────────────────────────────────────
 type Step = "network" | "form" | "pin";
 type Duration = "daily" | "weekly" | "monthly";
 
@@ -25,10 +24,10 @@ const NC: Record<NetworkId, string> = {
 };
 
 const BADGE_CFG = {
-  most_bought: { cls: "bg-orange-500/15 border-orange-500/30 text-orange-400", label: "\uD83D\uDD25 Most Bought" },
-  best_value:  { cls: "bg-amber-400/15 border-amber-400/30 text-amber-400",   label: "\u2B50 Best Value" },
-  awuf:        { cls: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400", label: "\u2728 AWUF" },
-  hot:         { cls: "bg-red-500/15 border-red-500/30 text-red-400",          label: "\uD83D\uDD25 Hot" },
+  most_bought: { cls: "bg-orange-500/15 border-orange-500/30 text-orange-400", label: "🔥 Most Bought" },
+  best_value:  { cls: "bg-amber-400/15 border-amber-400/30 text-amber-400",   label: "⭐ Best Value" },
+  awuf:        { cls: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400", label: "✨ AWUF" },
+  hot:         { cls: "bg-red-500/15 border-red-500/30 text-red-400",          label: "🔥 Hot" },
 } as const;
 
 function BadgeChip({ badge }: { badge?: DataPlan["badge"] }) {
@@ -42,17 +41,11 @@ function PlanCard({ plan, selected, onSelect }: { plan: DataPlan; selected: bool
   const rate = plan.success_rate ?? 92;
   const blocked = plan.coming_soon || !plan.available;
   return (
-    <button
-      onClick={() => !blocked && onSelect(plan)}
-      disabled={blocked}
-      type="button"
-      className={[
-        "relative flex flex-col items-center gap-0.5 rounded-2xl border p-3 text-center overflow-hidden transition",
+    <button onClick={() => !blocked && onSelect(plan)} disabled={blocked} type="button"
+      className={["relative flex flex-col items-center gap-0.5 rounded-2xl border p-3 text-center overflow-hidden transition",
         blocked ? "opacity-50 cursor-not-allowed border-white/5 bg-white/[0.02]"
-          : selected ? "border-primary bg-primary/10 shadow-[0_0_14px_rgba(var(--primary-rgb,139,92,246),0.25)]"
-          : "border-white/10 bg-white/[0.03] hover:bg-white/5 active:scale-95",
-      ].join(" ")}
-    >
+        : selected ? "border-primary bg-primary/10 shadow-[0_0_14px_rgba(var(--primary-rgb,139,92,246),0.25)]"
+        : "border-white/10 bg-white/[0.03] hover:bg-white/5 active:scale-95"].join(" ")}>
       <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/5 rounded-t-2xl">
         <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${rate}%` }} />
       </div>
@@ -74,13 +67,9 @@ function PrimeCard({ plan, selected, onSelect }: { plan: DataPlan; selected: boo
   const pts = Math.max(1, Math.floor(plan.sell_price / 250) * 5);
   const blocked = plan.coming_soon || !plan.available;
   return (
-    <button
-      onClick={() => !blocked && onSelect(plan)}
-      disabled={blocked}
-      type="button"
+    <button onClick={() => !blocked && onSelect(plan)} disabled={blocked} type="button"
       className="flex-shrink-0 w-[138px] rounded-2xl p-[1.5px] transition active:scale-95"
-      style={{ background: selected ? "linear-gradient(135deg, #f59e0b, #f97316)" : "linear-gradient(135deg, rgba(245,158,11,0.35), rgba(249,115,22,0.20))" }}
-    >
+      style={{ background: selected ? "linear-gradient(135deg, #f59e0b, #f97316)" : "linear-gradient(135deg, rgba(245,158,11,0.35), rgba(249,115,22,0.20))" }}>
       <div className={["h-full rounded-[13px] bg-[#0f1117] p-3 flex flex-col gap-1 text-left", selected ? "ring-1 ring-amber-400/40" : ""].join(" ")}>
         <div className="font-display text-2xl font-black leading-none text-foreground">{plan.size}</div>
         <div className="text-[10px] text-muted-foreground leading-tight">{plan.validity}</div>
@@ -104,26 +93,24 @@ export default function Data() {
   const [duration, setDuration] = useState<Duration>("daily");
   const [showMore, setShowMore] = useState(false);
   const [liveRates, setLiveRates] = useState<Record<string, number>>({});
-
   const { balance, refresh } = useWallet();
   const nav = useNavigate();
   const net = NETWORKS.find(n => n.id === network)!;
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to CTA button whenever a plan is selected, accounting for fixed bottom nav
+  // Scroll to CTA button when plan selected, accounting for bottom nav
   useEffect(() => {
     if (!plan) return;
-    const timer = setTimeout(() => {
+    const t = setTimeout(() => {
       const el = ctaRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const bottomNavHeight = 130; // fixed bottom nav + padding
-      const visibleBottom = window.innerHeight - bottomNavHeight;
+      const visibleBottom = window.innerHeight - 130;
       if (rect.bottom > visibleBottom) {
         window.scrollBy({ top: rect.bottom - visibleBottom + 20, behavior: "smooth" });
       }
-    }, 280); // wait for React to render plan info elements first
-    return () => clearTimeout(timer);
+    }, 280);
+    return () => clearTimeout(t);
   }, [plan]);
 
   useEffect(() => {
@@ -135,17 +122,16 @@ export default function Data() {
         if (Date.now() - ts < 10 * 60 * 1000) { setLiveRates(d); return; }
       } catch {}
     }
-    supabase.from("bundle_status").select("package_code, success_count, fail_count")
-      .then(({ data: rows }) => {
-        if (!rows) return;
-        const rates: Record<string, number> = {};
-        for (const s of rows) {
-          const total = (s.success_count || 0) + (s.fail_count || 0);
-          if (total > 5) rates[s.package_code] = Math.round((s.success_count / total) * 100);
-        }
-        setLiveRates(rates);
-        localStorage.setItem(cacheKey, JSON.stringify({ data: rates, ts: Date.now() }));
-      });
+    supabase.from("bundle_status").select("package_code, success_count, fail_count").then(({ data: rows }) => {
+      if (!rows) return;
+      const rates: Record<string, number> = {};
+      for (const s of rows) {
+        const total = (s.success_count || 0) + (s.fail_count || 0);
+        if (total > 5) rates[s.package_code] = Math.round((s.success_count / total) * 100);
+      }
+      setLiveRates(rates);
+      localStorage.setItem(cacheKey, JSON.stringify({ data: rates, ts: Date.now() }));
+    });
   }, []);
 
   const annotate = (p: DataPlan): DataPlan => ({
@@ -177,7 +163,7 @@ export default function Data() {
       });
       if (error) throw error;
       if (!data?.success) {
-        if (data?.code === "BUNDLE_UNAVAILABLE") { setPlan(null); setStep("form"); throw new Error("Plan temporarily unavailable. No charge made \u2014 pick another."); }
+        if (data?.code === "BUNDLE_UNAVAILABLE") { setPlan(null); setStep("form"); throw new Error("Plan temporarily unavailable — pick another."); }
         throw new Error(data?.error || "Purchase failed");
       }
       refresh();
@@ -204,7 +190,8 @@ export default function Data() {
             <button key={n.id} onClick={() => { if (!isSupported) return; setNetwork(n.id); setStep("form"); }}
               disabled={!isSupported} type="button"
               className={["flex flex-col overflow-hidden rounded-3xl border transition",
-                isSupported ? "border-white/10 hover:border-white/20 active:scale-95 cursor-pointer" : "border-white/5 opacity-50 cursor-not-allowed"].join(" ")}>
+                isSupported ? "border-white/10 hover:border-white/20 active:scale-95 cursor-pointer"
+                : "border-white/5 opacity-50 cursor-not-allowed"].join(" ")}>
               <div className={`${n.bg} flex items-center justify-center py-8`}>
                 <span className={`font-black text-2xl ${n.color}`}>{n.name}</span>
               </div>
@@ -240,14 +227,16 @@ export default function Data() {
           <div className="relative flex-1">
             <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="08030000000" inputMode="tel"
               className="h-14 rounded-2xl bg-secondary/40 text-base pr-8" />
-            {phone && <button onClick={() => { setPhone(""); setPhoneOk(false); setPlan(null); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><X className="h-4 w-4" /></button>}
+            {phone && <button onClick={() => { setPhone(""); setPhoneOk(false); setPlan(null); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><X className="h-4 w-4" /></button>}
           </div>
           <button onClick={() => phone.replace(/\D/g, "").length === 11 ? setPhoneOk(true) : toast.error("Enter valid number")}
             className={`h-14 w-14 rounded-2xl flex items-center justify-center transition ${phoneOk ? "bg-green-500/20 text-green-400" : "bg-primary/20 text-primary"}`}>
             <CheckCircle2 className="h-5 w-5" />
           </button>
         </div>
-        {phoneOk && <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-sm text-green-400"><CheckCircle2 className="h-4 w-4" /> Verified {net.name} Number</motion.div>}
+        {phoneOk && <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 text-sm text-green-400"><CheckCircle2 className="h-4 w-4" /> Verified {net.name} Number</motion.div>}
       </div>
 
       {phoneOk && (
@@ -306,22 +295,24 @@ export default function Data() {
                   className={`h-full rounded-full ${(plan.success_rate ?? 92) >= 90 ? "bg-gradient-to-r from-green-500 to-emerald-400" : (plan.success_rate ?? 92) >= 75 ? "bg-gradient-to-r from-amber-500 to-yellow-400" : "bg-gradient-to-r from-red-500 to-rose-400"}`} />
               </div>
               <p className="text-[10px] text-muted-foreground leading-snug">
-                {(plan.success_rate ?? 92) >= 90 ? "High reliability \u2014 this plan delivers consistently" : (plan.success_rate ?? 92) >= 75 ? "Mostly available \u2014 minor occasional delays" : "Low availability \u2014 consider choosing another plan"}
+                {(plan.success_rate ?? 92) >= 90 ? "High reliability — this plan delivers consistently"
+                  : (plan.success_rate ?? 92) >= 75 ? "Mostly available — minor occasional delays"
+                  : "Low availability — consider choosing another plan"}
               </p>
             </motion.div>
           )}
 
+          {/* Plan summary pill — uses real · character, NOT escape sequence */}
           {plan && (
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
-              <div className="text-xs text-muted-foreground">{plan.size} \u00b7 {plan.validity}</div>
+              <div className="text-xs text-muted-foreground">{plan.size} · {plan.validity}</div>
               <div className="font-display text-base font-bold">{naira(plan.sell_price)}</div>
             </motion.div>
           )}
         </motion.div>
       )}
 
-      {/* CTA — ref here so useEffect can scroll to it */}
       <div ref={ctaRef}>
         <Button variant="hero" size="xl" className="w-full" disabled={!plan || !phoneOk} onClick={() => setStep("pin")}>
           {plan ? `Buy ${plan.size} for ${naira(plan.sell_price)}` : "Select a plan to continue"}
@@ -337,12 +328,15 @@ export default function Data() {
               transition={{ type: "spring", damping: 26, stiffness: 320 }}
               className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-white/10 p-6">
               <div className="flex items-center justify-between mb-5">
-                <div><h2 className="font-display text-lg font-bold">Authorize Purchase</h2><p className="text-xs text-muted-foreground mt-0.5">Review and confirm below</p></div>
+                <div>
+                  <h2 className="font-display text-lg font-bold">Authorize Purchase</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Review and confirm below</p>
+                </div>
                 <button onClick={() => setStep("form")} className="grid h-8 w-8 place-items-center rounded-full glass"><X className="h-4 w-4" /></button>
               </div>
               <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4 mb-5 space-y-2.5">
                 {[
-                  { label: "Product", value: `${net.name} Data \u2014 ${plan.size} (${plan.validity})` },
+                  { label: "Product", value: `${net.name} Data — ${plan.size} (${plan.validity})` },
                   { label: "Recipient", value: phone, accent: true },
                   { label: "Amount", value: naira(plan.sell_price) },
                   { label: "Total Payable", value: naira(plan.sell_price), bold: true },
@@ -361,7 +355,7 @@ export default function Data() {
                   </InputOTP>
                 </div>
                 <Button variant="hero" size="xl" className="w-full" disabled={pin.length < 4 || busy} onClick={pay}>
-                  {busy ? "Processing\u2026" : `Pay ${naira(plan.sell_price)}`}
+                  {busy ? "Processing…" : `Pay ${naira(plan.sell_price)}`}
                 </Button>
               </div>
             </motion.div>
