@@ -374,6 +374,53 @@ export default function Data() {
             )}
           </div>
 
+          {/* Availability bar — shown when a plan is selected */}
+          {plan && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 space-y-2"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Plan Availability
+                </span>
+                <span
+                  className={`text-base font-black tabular-nums ${
+                    (plan.success_rate ?? 92) >= 90
+                      ? "text-green-400"
+                      : (plan.success_rate ?? 92) >= 75
+                      ? "text-amber-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {plan.success_rate ?? 92}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${plan.success_rate ?? 92}%` }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className={`h-full rounded-full ${
+                    (plan.success_rate ?? 92) >= 90
+                      ? "bg-gradient-to-r from-green-500 to-emerald-400"
+                      : (plan.success_rate ?? 92) >= 75
+                      ? "bg-gradient-to-r from-amber-500 to-yellow-400"
+                      : "bg-gradient-to-r from-red-500 to-rose-400"
+                  }`}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                {(plan.success_rate ?? 92) >= 90
+                  ? "High reliability — this plan delivers consistently"
+                  : (plan.success_rate ?? 92) >= 75
+                  ? "Mostly available — minor occasional delays"
+                  : "Low availability — consider choosing another plan"}
+              </p>
+            </motion.div>
+          )}
+
           {/* Selected plan summary pill */}
           {plan && (
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
