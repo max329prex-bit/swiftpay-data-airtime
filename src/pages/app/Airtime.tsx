@@ -21,12 +21,13 @@ export default function Airtime() {
     if (pin.length < 4) return toast.error("Enter 4-digit PIN"); if (amount < 50) return toast.error("Min N50"); if (amount > balance) return toast.error("Insufficient balance");
     setBusy(true);
     try {
-      const ok = await supabase.rpc("verify_transaction_pin", { _pin: pin });
-      if (ok.error) throw ok.error;
-      if (!ok.data) throw new Error("Incorrect PIN");
-      const { data, error } = await supabase.rpc("purchase_vtu", { _type: "airtime", _network: network, _phone: phone, _amount: amount, _meta: {} });
-      if (error) throw error; refresh();
-      nav(`/app/success?ref=${(data as any).reference}&type=airtime&amount=${amount}&network=${network}`);
+      const { data, error } = await supabase.functions.invoke("vtu-purchase", {
+        body: { type: "airtime", network, phone, amount, pin },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Purchase failed");
+      refresh();
+      nav(`/app/success?ref=${data.reference}&type=airtime&amount=${amount}&network=${network}`);
     } catch (e: any) { toast.error(e.message ?? "Failed"); } finally { setBusy(false); }
   }
   return (
