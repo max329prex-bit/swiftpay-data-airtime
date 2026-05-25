@@ -318,7 +318,7 @@ export default function Data() {
 
       {phoneOk && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-          {/* Blitz Prime — best price/GB across all networks globally */
+          {/* Blitz Prime — best price/GB across all networks globally */}
           {primePlans.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
