@@ -1,5 +1,5 @@
 export type NetworkId = "MTN" | "GLO" | "AIRTEL" | "9MOBILE";
-export type Network = "MTN" | "AIRTEL" | "GLO";
+export type Network = "MTN" | "AIRTEL" | "GLO" | "9MOBILE";
 
 export const NETWORKS: { id: NetworkId; name: string; color: string; bg: string; prefixes: string[]; logo: string }[] = [
   { id: "MTN", name: "MTN", color: "text-black", bg: "bg-yellow-400", logo: "MTN",
@@ -184,6 +184,22 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
       sell_price: 4600, cost_price: 4400, profit: 200, provider_code: "glo-gifting",
       duration: "monthly", is_blitz_prime: false, available: true, success_rate: 88 },
   ],
+
+  // ───── 9MOBILE (4 confirmed AidaPay plans) ─────────────────
+  "9MOBILE": [
+    { id: "9mobile-awuf-data-500mb", name: "500MB AWUF – 1 Day", size: "500MB", validity: "1 Day",
+      sell_price: 280, cost_price: 250, profit: 30, provider_code: "9mobile-awuf-data",
+      duration: "daily", is_blitz_prime: true, available: true, badge: "awuf", success_rate: 91 },
+    { id: "9mobile-awuf-data-1gb", name: "1GB AWUF – 1 Day", size: "1GB", validity: "1 Day",
+      sell_price: 450, cost_price: 420, profit: 30, provider_code: "9mobile-awuf-data",
+      duration: "daily", is_blitz_prime: true, available: true, badge: "most_bought", success_rate: 90 },
+    { id: "9mobile-awuf-data-2gb", name: "2GB AWUF – 2 Days", size: "2GB", validity: "2 Days",
+      sell_price: 800, cost_price: 750, profit: 50, provider_code: "9mobile-awuf-data",
+      duration: "daily", is_blitz_prime: false, available: true, success_rate: 89 },
+    { id: "9mobile-awuf-data-5gb", name: "5GB AWUF – Monthly", size: "5GB", validity: "30 Days",
+      sell_price: 1950, cost_price: 1800, profit: 150, provider_code: "9mobile-awuf-data",
+      duration: "monthly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 90 },
+  ],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -219,7 +235,7 @@ export const DATA_BUNDLES_VTU: Record<NetworkId, DataBundle[]> = {
   MTN: DATA_PLANS.MTN.map(toBundle),
   AIRTEL: DATA_PLANS.AIRTEL.map(toBundle),
   GLO: DATA_PLANS.GLO.map(toBundle),
-  "9MOBILE": [],
+  "9MOBILE": DATA_PLANS["9MOBILE"].map(toBundle),
 };
 export const DATA_BUNDLES = DATA_BUNDLES_VTU;
 
