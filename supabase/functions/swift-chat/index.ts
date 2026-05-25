@@ -5,46 +5,53 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-const SYS = `You are Blitzi, the smart AI assistant built into SwiftPay — a Nigerian fintech app for airtime, data, electricity, cable TV and wallet management.
+const SYS = `You are Blitzi, the AI assistant inside SwiftPay — a Nigerian fintech app.
 
-You know everything about SwiftPay:
-- Users fund their wallet via a dedicated Monnify virtual bank account (free, instant bank transfer). Tap + on the dashboard.
-- Airtime: supports MTN, Airtel, Glo and 9Mobile. Min ₦50. Phone number is auto-detected by prefix.
-- Data bundles: daily, weekly and monthly plans across all 4 networks. Blitz Prime shows the absolute best price-per-GB deals. Users earn SwiftPoints on every purchase.
-- SwiftPoints: earn 5 points per ₦250 spent on airtime or data. Redeem 100 points for 1GB free data.
-- Electricity: select DISCO provider (EKEDC, IKEDC, AEDC, etc.), choose Prepaid or Postpaid, enter meter number, verify it, then pay any amount.
-- Cable TV: supports DStv, GOtv and StarTimes. Enter smartcard/IUC number, verify, then pick a subscription package.
-- Transaction PIN: required for every purchase. Set up in Settings → Change Transaction PIN.
-- Beneficiaries: save numbers for quick repeat purchases.
-- History: full transaction log available in the History tab.
-- Support: email blitzpaysup@gmail.com or chat with Blitzi (that's me!).
-- If a purchase fails, wallet is auto-refunded within 5–10 minutes. If not refunded after 30 min, contact support with your reference number.
-- All amounts are in Nigerian Naira (₦).
+CRITICAL RULES:
+- NEVER introduce yourself or say "I'm Blitzi" unless the user explicitly asks who you are.
+- NEVER start replies with "Hi!", "Hello!" or any greeting. Go straight to the answer.
+- NEVER say "How can I help you?" at the end — the user already knows they can ask questions.
+- Answer the user's actual question directly and helpfully.
+- Keep replies concise but complete — don't truncate useful information.
+- Always use Nigerian Naira (₦) for amounts.
 
-Personality: warm, direct, knowledgeable. Answer the user's actual question — don't deflect or give generic responses. If you don't know something specific (like a live balance or transaction status), tell them honestly and guide them to where they can find it in the app. You can give multi-step instructions when needed. Never truncate a useful answer just to be brief.`;
+What you know about SwiftPay:
+- Wallet: funded via a dedicated Monnify virtual bank account (free, instant). Tap + on dashboard.
+- Airtime: MTN, Airtel, Glo and 9Mobile. Min ₦50. Network auto-detected from phone prefix.
+- Data bundles: daily, weekly and monthly plans. Blitz Prime shows the best value (₦ per GB) deals per network.
+- SwiftPoints: earn 5 pts per ₦250 spent on airtime or data. 100 pts = 1GB free data reward.
+- Electricity: select DISCO (EKEDC, IKEDC, AEDC etc.), Prepaid or Postpaid, verify meter number, then pay.
+- Cable TV: DStv, GOtv, StarTimes. Enter smartcard/IUC number, verify, pick a package, confirm.
+- Transaction PIN: 4-digit PIN required for every purchase. Set/change in Settings.
+- Beneficiaries: save phone numbers for quick repeat purchases.
+- History: full transaction log in the History tab.
+- Failed transaction: wallet auto-refunded within 5-10 min. If not refunded after 30 min, email blitzpaysup@gmail.com with reference number.
+- Support email: blitzpaysup@gmail.com`;
 
-// Smart keyword fallback — only used when Cerebras is unreachable
+// FAQ fallback — used ONLY when Cerebras is unreachable
+// NEVER introduces Blitzi — just answers the question directly
 function getFallback(msg: string): string {
   const q = msg.toLowerCase();
   if (q.includes("wallet") || q.includes("fund") || q.includes("deposit") || q.includes("top up") || q.includes("balance"))
-    return "To fund your wallet, tap the + button on your dashboard. You'll see your reserved bank account details — transfer any amount and it reflects automatically within minutes. There's no fee for bank transfers! \u{1F4B0}";
+    return "Tap the + button on your dashboard to fund your wallet. You'll see your reserved bank account — transfer any amount and it reflects within minutes. Bank transfers are free.";
   if (q.includes("airtime"))
-    return "To buy airtime: go to Airtime on the dashboard, enter the recipient phone number (the network auto-detects), pick an amount (min \u20A650), confirm with your 4-digit PIN. Done in seconds! \u26A1";
+    return "Go to Airtime, enter the phone number (network auto-detects from the prefix), pick an amount (min \u20a650), confirm with your 4-digit PIN.";
   if (q.includes("data") || q.includes("bundle") || q.includes("gb") || q.includes("mb"))
-    return "To buy data: tap Data, choose a plan (check Blitz Prime for the best price-per-GB deals!), enter the phone number, confirm with your PIN. You earn SwiftPoints on every data purchase! \u{1F4F6}";
+    return "Tap Data, choose your network, check Blitz Prime for the best value plans (ranked by \u20a6 per GB), enter the phone number, confirm with PIN. You earn SwiftPoints on every purchase.";
   if (q.includes("pin") || q.includes("password"))
-    return "To set or change your PIN: go to Settings → Change Transaction PIN. You need your current PIN to change it. Your PIN is required for every purchase to keep your wallet secure. \u{1F510}";
+    return "To change your PIN, go to Settings \u2192 Change Transaction PIN. You'll need your current PIN. Your PIN is required for every purchase.";
   if (q.includes("point") || q.includes("swiftpoint") || q.includes("reward") || q.includes("redeem"))
-    return "SwiftPoints: you earn 5 points per \u20A6250 spent on airtime or data. Hit 100 points and you can redeem 1GB of free data! Track your progress on the dashboard — the progress bar shows how close you are. \u{1F3C6}";
+    return "You earn 5 SwiftPoints per \u20a6250 spent on airtime or data. Hit 100 points and you can redeem 1GB of free data from the dashboard.";
   if (q.includes("electric") || q.includes("disco") || q.includes("meter") || q.includes("prepaid") || q.includes("postpaid"))
-    return "For electricity: tap Electric on the dashboard → select your DISCO (e.g. EKEDC, IKEDC, AEDC) → choose Prepaid or Postpaid → enter your meter number → verify it → enter the amount → confirm with PIN. \u26A1";
+    return "Tap Electric \u2192 select your DISCO (e.g. EKEDC, IKEDC, AEDC) \u2192 choose Prepaid or Postpaid \u2192 enter your meter number \u2192 verify \u2192 enter amount \u2192 confirm with PIN.";
   if (q.includes("cable") || q.includes("dstv") || q.includes("gotv") || q.includes("startimes") || q.includes("tv"))
-    return "For cable TV: tap Cable TV → choose DStv, GOtv or StarTimes → enter your smartcard/IUC number → verify → select your package → confirm with PIN. \u{1F4FA}";
+    return "Tap Cable TV \u2192 choose DStv, GOtv or StarTimes \u2192 enter your smartcard/IUC number \u2192 verify \u2192 select package \u2192 confirm with PIN.";
   if (q.includes("fail") || q.includes("error") || q.includes("refund") || q.includes("charged") || q.includes("not deliver"))
-    return "If a transaction failed but your wallet was debited, it's automatically refunded within 5–10 minutes. If it's been more than 30 minutes with no refund, email blitzpaysup@gmail.com with your reference number and we'll resolve it quickly. \u{1F6E1}\uFE0F";
+    return "If a transaction failed but your wallet was debited, it's automatically refunded within 5-10 minutes. If it's been more than 30 minutes, email blitzpaysup@gmail.com with your reference number.";
   if (q.includes("contact") || q.includes("support") || q.includes("email") || q.includes("help"))
-    return "You can reach our support team at blitzpaysup@gmail.com — we respond within a few hours. For instant help, just keep chatting with me here! \u{1F4E7}";
-  return "I'm Blitzi, your SwiftPay assistant! \u{1F60A} I can help with wallet funding, airtime, data bundles, electricity, cable TV, SwiftPoints and anything else about the app. What do you need help with?";
+    return "You can reach support at blitzpaysup@gmail.com — we typically respond within a few hours. You can also keep chatting here for instant answers.";
+  // Generic fallback — still no self-introduction
+  return "I can help with wallet funding, airtime, data bundles, electricity, cable TV, SwiftPoints, PINs and transactions. What specifically do you need?";
 }
 
 serve(async (req) => {
@@ -56,7 +63,6 @@ serve(async (req) => {
     const { messages } = await req.json();
     const lastMsg = messages?.[messages.length - 1]?.content ?? "";
 
-    // Cerebras AI — llama-3.3-70b with full context
     if (CEREBRAS_KEY) {
       try {
         const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
@@ -72,41 +78,39 @@ serve(async (req) => {
               ...(messages || [])
             ],
             max_tokens: 800,
-            temperature: 0.65,
+            temperature: 0.6,
             top_p: 0.9,
           }),
-          signal: AbortSignal.timeout(12000), // 12-second timeout
+          signal: AbortSignal.timeout(12000),
         });
 
         if (r.ok) {
           const data = await r.json();
-          const reply = data.choices?.[0]?.message?.content;
+          const reply = data.choices?.[0]?.message?.content?.trim();
           if (reply) {
-            return new Response(JSON.stringify({ reply: reply.trim() }), {
+            return new Response(JSON.stringify({ reply }), {
               headers: { ...cors, "Content-Type": "application/json" }
             });
           }
         } else {
           const errText = await r.text();
-          console.error("Cerebras error:", r.status, errText.slice(0, 200));
+          console.error("Cerebras error:", r.status, errText.slice(0, 300));
         }
       } catch (aiErr) {
-        console.error("Cerebras unreachable:", aiErr instanceof Error ? aiErr.message : aiErr);
-        // Fall through to FAQ fallback
+        console.error("Cerebras unreachable:", aiErr instanceof Error ? aiErr.message : String(aiErr));
       }
     } else {
-      console.warn("CEREBRAS_API_KEY not set — using FAQ fallback");
+      console.warn("CEREBRAS_API_KEY not configured");
     }
 
-    // FAQ fallback — always gives a useful response
-    const reply = getFallback(lastMsg);
-    return new Response(JSON.stringify({ reply }), {
+    // FAQ fallback — never introduces Blitzi
+    return new Response(JSON.stringify({ reply: getFallback(lastMsg) }), {
       headers: { ...cors, "Content-Type": "application/json" }
     });
 
   } catch (e: any) {
     console.error("swift-chat error:", e?.message);
-    return new Response(JSON.stringify({ reply: "I ran into a small issue! Please try again or email blitzpaysup@gmail.com \u{1F60A}" }), {
+    return new Response(JSON.stringify({ reply: "Something went wrong on my end. Please try again or email blitzpaysup@gmail.com." }), {
       headers: { ...cors, "Content-Type": "application/json" }
     });
   }
