@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv, Sparkles, Gift } from "lucide-react";
+import { Eye, EyeOff, Plus, Zap, Wifi, ArrowUpRight, BatteryCharging, Tv, Sparkles, Gift, Bot, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useSwiftPoints } from "@/hooks/useSwiftPoints";
@@ -50,7 +50,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-5">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="text-sm text-muted-foreground">Hi {first} 👋</div>
+        <div className="text-sm text-muted-foreground">Hi {first} \uD83D\uDC4B</div>
         <div className="font-display text-2xl font-semibold">Let's get you topped up.</div>
       </motion.div>
 
@@ -63,7 +63,7 @@ export default function Dashboard() {
           <div>
             <div className="text-xs font-medium uppercase tracking-widest text-white/70">Wallet balance</div>
             <div className="mt-1 flex items-center gap-2">
-              <div className="font-display text-4xl font-bold text-white">{hide ? "₦ ••••••" : naira(balance)}</div>
+              <div className="font-display text-4xl font-bold text-white">{hide ? "\u20A6 \u2022\u2022\u2022\u2022\u2022\u2022" : naira(balance)}</div>
               <button onClick={toggleHide} className="text-white/70 hover:text-white">
                 {hide ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
@@ -95,7 +95,7 @@ export default function Dashboard() {
                 className="h-full rounded-full bg-gradient-to-r from-primary to-accent" />
             </div>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              {points >= 100 ? "🎉 Reward unlocked! Redeem 1GB free." : `${100 - points} pts to your free 1GB data reward`}
+              {points >= 100 ? "\uD83C\uDF89 Reward unlocked! Redeem 1GB free." : `${100 - points} pts to your free 1GB data reward`}
             </div>
           </div>
           <button onClick={() => setShowRedeem(true)} disabled={points < 100}
@@ -122,6 +122,23 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Swift AI Support bar */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <Link
+          to="/app/support"
+          className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 hover:bg-primary/10 transition group"
+        >
+          <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-primary/20 group-hover:bg-primary/30 transition">
+            <Bot className="h-5 w-5 text-primary" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold">Chat with Blitzi</div>
+            <div className="text-xs text-muted-foreground">AI support \u2014 instant answers, anytime</div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition flex-shrink-0" />
+        </Link>
+      </motion.div>
+
       {/* Recent */}
       <div>
         <div className="mb-3 flex items-center justify-between">
@@ -129,13 +146,13 @@ export default function Dashboard() {
           <Link to="/app/history" className="text-xs text-primary">See all</Link>
         </div>
         {recent.length === 0 ? (
-          <div className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">No transactions yet — your first top-up will appear here.</div>
+          <div className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">No transactions yet \u2014 your first top-up will appear here.</div>
         ) : (
           <div className="space-y-2">
             {recent.map(t => (
               <div key={t.id} className="glass flex items-center justify-between rounded-2xl p-4">
                 <div>
-                  <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` · ${t.network}` : ""}</div>
+                  <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` \u00b7 ${t.network}` : ""}</div>
                   <div className="text-[11px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
                 <div className={`text-sm font-semibold ${t.type === "wallet_topup" ? "text-accent" : ""}`}>
