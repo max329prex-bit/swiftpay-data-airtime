@@ -11,15 +11,13 @@ type Msg = { role: "user" | "assistant"; content: string };
 const STARTERS = [
   "How do I top up my wallet?",
   "Why did my airtime fail?",
-  "How do I earn BlitzPoints?",
+  "How do I earn SwiftPoints?",
   "How do I change my PIN?",
 ];
 
 export default function Support() {
   const [chatOpen, setChatOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: "Hi! I'm Blitzi, your BlitzPay assistant. Ask me anything about wallet funding, airtime, data, bills or your account 😊" },
-  ]);
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -161,6 +159,12 @@ export default function Support() {
 
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-hide">
+              {/* Static greeting — never sent to AI so Blitzi doesn't template-match it */}
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-2xl rounded-bl-sm glass px-4 py-3 text-sm leading-relaxed text-foreground">
+                  Hi! I&apos;m Blitzi, your SwiftPay assistant 😊 Ask me anything about wallet funding, airtime, data, electricity, cable TV, SwiftPoints or your account.
+                </div>
+              </div>
               {messages.map((m, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -184,7 +188,7 @@ export default function Support() {
             </div>
 
             {/* Quick starters (first message only) */}
-            {messages.length <= 1 && (
+            {messages.length === 0 && (
               <div className="px-4 pb-2 flex flex-wrap gap-2">
                 {STARTERS.map(s => (
                   <button key={s} onClick={() => send(s)}
