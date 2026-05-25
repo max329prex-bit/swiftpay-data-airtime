@@ -110,16 +110,21 @@ serve(async (req) => {
       const db = createClient(SUPA_URL, SUPA_SVC);
       const results: Record<string, number> = {};
       const seen = new Set<string>();
+      // Per-provider tracking so we can deactivate packages the provider removed
+      const seenPerProvider: Record<string, string[]> = {};
 
       for (const { network, code } of SYNC_PROVIDERS) {
         const res = await aidapayFetch(`/packages/${code}`);
         const pkgs: any[] = Array.isArray(res.data?.data) ? res.data.data : [];
         console.log(`${network}/${code}: ${pkgs.length} packages`);
 
+        if (!seenPerProvider[code]) seenPerProvider[code] = [];
+
         for (const pkg of pkgs) {
           const packageCode = pkg.package_api_code;
           if (!packageCode || seen.has(packageCode)) continue;
           seen.add(packageCode);
+          seenPerProvider[code].push(packageCode);
 
           const name = pkg.package_name || packageCode;
           const price = Number(pkg.package_amount || 0);
@@ -135,6 +140,21 @@ serve(async (req) => {
             coming_soon: false,
           }, { onConflict: "package_code" });
           if (!error) results[`${network}/${code}`] = (results[`${network}/${code}`] || 0) + 1;
+        }
+
+        // Deactivate packages for this provider that the API no longer returns
+        // (provider removed or delisted them — reflects in-app immediately on next sync)
+        const activeCodes = seenPerProvider[code];
+        if (activeCodes.length > 0) {
+          const codeList = activeCodes.map(c => `"${c}"`).join(",");
+          const { error: deErr } = await db
+            .from("packages")
+            .update({ is_active: false })
+            .eq("provider_code", code)
+            .eq("is_active", true)
+            .not("package_code", "in", `(${codeList})`);
+          if (deErr) console.error(`Deactivate error for ${code}:`, deErr.message);
+          else console.log(`✅ Synced ${code}: deactivated any stale packages no longer offered`);
         }
       }
 
