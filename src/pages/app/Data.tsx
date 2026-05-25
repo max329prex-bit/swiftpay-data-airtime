@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,10 @@ const NC: Record<NetworkId, string> = {
 };
 
 const BADGE_CFG = {
-  most_bought: { cls: "bg-orange-500/15 border-orange-500/30 text-orange-400", label: "🔥 Most Bought" },
-  best_value:  { cls: "bg-amber-400/15 border-amber-400/30 text-amber-400",   label: "⭐ Best Value" },
-  awuf:        { cls: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400", label: "✨ AWUF" },
-  hot:         { cls: "bg-red-500/15 border-red-500/30 text-red-400",          label: "🔥 Hot" },
+  most_bought: { cls: "bg-orange-500/15 border-orange-500/30 text-orange-400", label: "\uD83D\uDD25 Most Bought" },
+  best_value:  { cls: "bg-amber-400/15 border-amber-400/30 text-amber-400",   label: "\u2B50 Best Value" },
+  awuf:        { cls: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400", label: "\u2728 AWUF" },
+  hot:         { cls: "bg-red-500/15 border-red-500/30 text-red-400",          label: "\uD83D\uDD25 Hot" },
 } as const;
 
 // ─── Sub-components ───────────────────────────────────────────
@@ -140,6 +140,15 @@ export default function Data() {
   const { balance, refresh } = useWallet();
   const nav = useNavigate();
   const net = NETWORKS.find(n => n.id === network)!;
+  const ctaRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to CTA button when a plan is selected
+  const handlePlanSelect = (pp: DataPlan) => {
+    setPlan(pp);
+    setTimeout(() => {
+      ctaRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 120);
+  };
 
   // Fetch live success rates from bundle_status (once on mount, cached)
   useEffect(() => {
@@ -148,7 +157,7 @@ export default function Data() {
     if (cached) {
       try {
         const { data: d, ts } = JSON.parse(cached);
-        if (Date.now() - ts < 10 * 60 * 1000) { setLiveRates(d); return; } // 10min cache
+        if (Date.now() - ts < 10 * 60 * 1000) { setLiveRates(d); return; }
       } catch {}
     }
     supabase.from("bundle_status")
@@ -165,7 +174,6 @@ export default function Data() {
       });
   }, []);
 
-  // Annotate plan with real success rate from bundle_status
   const annotate = (p: DataPlan): DataPlan => ({
     ...p,
     success_rate: liveRates[p.id] !== undefined ? liveRates[p.id] : (p.success_rate ?? 92),
@@ -192,8 +200,6 @@ export default function Data() {
 
   const primePlans = getBlitzPrimePlans(safeNet);
   const tabPlans   = getPlans(safeNet, duration);
-  const mainPlans  = tabPlans.filter(p => p.is_blitz_prime || (p.badge && p.badge === "most_bought"));
-  const morePlans  = tabPlans.filter(p => !p.is_blitz_prime && !(p.badge === "most_bought"));
 
   async function pay() {
     if (!plan) return;
@@ -209,7 +215,7 @@ export default function Data() {
         if (data?.code === "BUNDLE_UNAVAILABLE") {
           setPlan(null);
           setStep("form");
-          throw new Error("Plan temporarily unavailable. No charge made — pick another.");
+          throw new Error("Plan temporarily unavailable. No charge made \u2014 pick another.");
         }
         throw new Error(data?.error || "Purchase failed");
       }
@@ -255,11 +261,9 @@ export default function Data() {
                   : "border-white/5 opacity-50 cursor-not-allowed",
               ].join(" ")}
             >
-              {/* Coloured top */}
               <div className={`${n.bg} flex items-center justify-center py-8`}>
                 <span className={`font-black text-2xl ${n.color}`}>{n.name}</span>
               </div>
-              {/* Info bottom */}
               <div className="bg-white/[0.03] py-3 px-3 text-left">
                 <div className="text-sm font-semibold">{n.name}</div>
                 <div className="text-[11px] text-muted-foreground">
@@ -335,7 +339,7 @@ export default function Data() {
       {phoneOk && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
 
-          {/* ── Blitz Prime ─────────────────────────── */}
+          {/* Blitz Prime */}
           {primePlans.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -350,13 +354,14 @@ export default function Data() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {primePlans.map(p => (
-                  <PrimeCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id} onSelect={pp => { setPlan(pp); setDuration(pp.duration); }} />
+                  <PrimeCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id}
+                    onSelect={pp => { handlePlanSelect(pp); setDuration(pp.duration); }} />
                 ))}
               </div>
             </div>
           )}
 
-          {/* ── Duration Tabs ────────────────────────── */}
+          {/* Duration Tabs */}
           <div className="space-y-3">
             <div className="flex gap-2">
               {(["daily", "weekly", "monthly"] as Duration[]).map(d => (
@@ -376,7 +381,6 @@ export default function Data() {
               ))}
             </div>
 
-            {/* Main grid for this duration */}
             {tabPlans.length === 0 ? (
               <div className="text-xs text-muted-foreground text-center py-8 glass rounded-2xl">
                 No plans for this duration
@@ -384,12 +388,12 @@ export default function Data() {
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {tabPlans.slice(0, showMore ? tabPlans.length : Math.min(6, tabPlans.length)).map(p => (
-                  <PlanCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id} onSelect={pp => { setPlan(pp); }} />
+                  <PlanCard key={p.id} plan={annotate(p)} selected={plan?.id === p.id}
+                    onSelect={handlePlanSelect} />
                 ))}
               </div>
             )}
 
-            {/* More / Less toggle */}
             {tabPlans.length > 6 && (
               <button
                 onClick={() => setShowMore(v => !v)}
@@ -405,7 +409,7 @@ export default function Data() {
             )}
           </div>
 
-          {/* Availability bar — shown when a plan is selected */}
+          {/* Availability bar */}
           {plan && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -416,15 +420,11 @@ export default function Data() {
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                   Success Rate
                 </span>
-                <span
-                  className={`text-base font-black tabular-nums ${
-                    (plan.success_rate ?? 92) >= 90
-                      ? "text-green-400"
-                      : (plan.success_rate ?? 92) >= 75
-                      ? "text-amber-400"
-                      : "text-red-400"
-                  }`}
-                >
+                <span className={`text-base font-black tabular-nums ${
+                  (plan.success_rate ?? 92) >= 90 ? "text-green-400"
+                  : (plan.success_rate ?? 92) >= 75 ? "text-amber-400"
+                  : "text-red-400"
+                }`}>
                   {plan.success_rate ?? 92}%
                 </span>
               </div>
@@ -444,10 +444,10 @@ export default function Data() {
               </div>
               <p className="text-[10px] text-muted-foreground leading-snug">
                 {(plan.success_rate ?? 92) >= 90
-                  ? "High reliability — this plan delivers consistently"
+                  ? "High reliability \u2014 this plan delivers consistently"
                   : (plan.success_rate ?? 92) >= 75
-                  ? "Mostly available — minor occasional delays"
-                  : "Low availability — consider choosing another plan"}
+                  ? "Mostly available \u2014 minor occasional delays"
+                  : "Low availability \u2014 consider choosing another plan"}
               </p>
             </motion.div>
           )}
@@ -457,7 +457,7 @@ export default function Data() {
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
               <div className="text-xs text-muted-foreground">
-                {plan.size} · {plan.validity}
+                {plan.size} \u00b7 {plan.validity}
               </div>
               <div className="font-display text-base font-bold">{naira(plan.sell_price)}</div>
             </motion.div>
@@ -465,16 +465,18 @@ export default function Data() {
         </motion.div>
       )}
 
-      {/* Proceed CTA */}
-      <Button
-        variant="hero" size="xl" className="w-full"
-        disabled={!plan || !phoneOk}
-        onClick={() => setStep("pin")}
-      >
-        {plan ? `Buy ${plan.size} for ${naira(plan.sell_price)}` : "Select a plan to continue"}
-      </Button>
+      {/* Proceed CTA — ref here so we scroll to it when plan is selected */}
+      <div ref={ctaRef}>
+        <Button
+          variant="hero" size="xl" className="w-full"
+          disabled={!plan || !phoneOk}
+          onClick={() => setStep("pin")}
+        >
+          {plan ? `Buy ${plan.size} for ${naira(plan.sell_price)}` : "Select a plan to continue"}
+        </Button>
+      </div>
 
-      {/* ── PIN Modal ──────────────────────────────────────────── */}
+      {/* PIN Modal */}
       <AnimatePresence>
         {step === "pin" && plan && (
           <>
@@ -486,7 +488,6 @@ export default function Data() {
               transition={{ type: "spring", damping: 26, stiffness: 320 }}
               className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-white/10 p-6"
             >
-              {/* Modal header */}
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h2 className="font-display text-lg font-bold">Authorize Purchase</h2>
@@ -497,10 +498,9 @@ export default function Data() {
                 </button>
               </div>
 
-              {/* Plan summary */}
-              <div className="rounded-2xl bg-white/[0.04] border border-white/8 p-4 mb-5 space-y-2.5">
+              <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4 mb-5 space-y-2.5">
                 {[
-                  { label: "Product", value: `${net.name} Data — ${plan.size} (${plan.validity})` },
+                  { label: "Product", value: `${net.name} Data \u2014 ${plan.size} (${plan.validity})` },
                   { label: "Recipient", value: phone, accent: true },
                   { label: "Amount", value: naira(plan.sell_price) },
                   { label: "Total Payable", value: naira(plan.sell_price), bold: true },
@@ -514,7 +514,6 @@ export default function Data() {
                 ))}
               </div>
 
-              {/* PIN input */}
               <div className="space-y-4 text-center">
                 <div className="text-sm font-semibold">Enter your 4-digit PIN</div>
                 <div className="flex justify-center">
@@ -531,7 +530,7 @@ export default function Data() {
                   disabled={pin.length < 4 || busy}
                   onClick={pay}
                 >
-                  {busy ? "Processing…" : `Pay ${naira(plan.sell_price)}`}
+                  {busy ? "Processing\u2026" : `Pay ${naira(plan.sell_price)}`}
                 </Button>
               </div>
             </motion.div>
