@@ -229,7 +229,8 @@ serve(async (req) => {
 
       const iacRef = `SP-IAC-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
       const txMeta: Record<string, unknown> = { ...meta, iacafe_plan: planId, iacafe_request_id: reqId, provider_code: prvCode, package_code: pkgCode, iacafe_order_id: iacData?.data?.order_id || null };
-      const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: "data", _network: network, _phone: phone || "", _amount: Number(amount || 0), _aidapay_hash: null, _meta: txMeta });
+      const { data: pkgIac } = await adminClient.from("packages").select("bp_value").eq("package_code", pkgCode || "").maybeSingle();
+      const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: "data", _network: network, _phone: phone || "", _amount: Number(amount || 0), _aidapay_hash: null, _meta: txMeta, _bp: pkgIac?.bp_value ?? null });
       if (te) console.error("iacafe tx error:", te);
 
       return new Response(JSON.stringify({ success: true, reference: (tx as any)?.reference || iacRef, status: iacData?.data?.status || "Processing", provider: "iacafe" }), { headers: { ...cors, "Content-Type": "application/json" } });
@@ -257,7 +258,8 @@ serve(async (req) => {
 
       const bspRef = `SP-BSP-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
       const txMeta: Record<string, unknown> = { ...meta, bsplug_plan: planId, bsplug_network: networkId, provider_code: prvCode, package_code: pkgCode, bsplug_order_id: bspData?.id || null };
-      const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: "data", _network: network, _phone: phone || "", _amount: Number(amount || 0), _aidapay_hash: null, _meta: txMeta });
+      const { data: pkgBsp } = await adminClient.from("packages").select("bp_value").eq("package_code", pkgCode || "").maybeSingle();
+      const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: "data", _network: network, _phone: phone || "", _amount: Number(amount || 0), _aidapay_hash: null, _meta: txMeta, _bp: pkgBsp?.bp_value ?? null });
       if (te) console.error("bsp tx error:", te);
 
       return new Response(JSON.stringify({ success: true, reference: (tx as any)?.reference || bspRef, status: "Processing", provider: "bsplug" }), { headers: { ...cors, "Content-Type": "application/json" } });
@@ -292,7 +294,12 @@ serve(async (req) => {
     if (apData.data?.transaction_data?.meter_token) txMeta.meter_token = apData.data.transaction_data.meter_token;
     if (apData.data?.transaction_data?.meter_unit)  txMeta.meter_unit  = apData.data.transaction_data.meter_unit;
 
-    const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: type, _network: network || apCode, _phone: recipient, _amount: paid, _aidapay_hash: txHash, _meta: txMeta });
+    let bpValue: number | null = null;
+    if (pkgCode) {
+      const { data: pkgRow } = await adminClient.from("packages").select("bp_value").eq("package_code", pkgCode).maybeSingle();
+      if (pkgRow?.bp_value) bpValue = pkgRow.bp_value;
+    }
+    const { data: tx, error: te } = await adminClient.rpc("create_vtu_transaction", { _user_id: user.id, _type: type, _network: network || apCode, _phone: recipient, _amount: paid, _aidapay_hash: txHash, _meta: txMeta, _bp: bpValue });
     if (te) console.error("tx error:", te);
     if (pkgCode && (prvCode || apCode)) adminClient.rpc("mark_bundle_available", { _package_code: pkgCode, _provider_code: prvCode || apCode, _network: network }).catch(console.error);
 
