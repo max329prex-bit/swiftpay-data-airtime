@@ -34,11 +34,23 @@ export default function Cable() {
   async function verify() {
     if (smartcard.length < 8) return toast.error("Enter valid smartcard / IUC number");
     setVerifying(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setCustomer("CUSTOMER VERIFIED");
-    setVerified(true);
-    setVerifying(false);
-    toast.success("Smartcard verified!");
+    try {
+      const { data, error } = await supabase.functions.invoke("vtu-purchase", {
+        body: { type: "cable_verify", phone: smartcard, provider: provider.aidapay_code },
+      });
+      if (error) throw error;
+      if (data?.customer_name) {
+        setCustomer(data.customer_name);
+        setVerified(true);
+        toast.success("Smartcard verified!");
+      } else {
+        throw new Error(data?.error || "Could not verify smartcard");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Verification failed");
+    } finally {
+      setVerifying(false);
+    }
   }
 
   async function pay() {
@@ -48,7 +60,7 @@ export default function Cable() {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
-        body: { type: "cable", network: provider.aidapay_code, phone: smartcard, amount: pkg.price, pin, packageCode: pkg.aidapay_code, customerName: customer },
+        body: { type: "cable", network: provider.aidapay_code, phone: smartcard, amount: pkg.price, pin, package_code: pkg.aidapay_code, provider_code: provider.aidapay_code },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "Purchase failed");
