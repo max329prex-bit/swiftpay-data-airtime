@@ -104,6 +104,16 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "BSP-764", name: "5GB – 14 Days", size: "5GB", validity: "14 Days",
       sell_price: 1550, cost_price: 1400, profit: 150, provider_code: "bsplug-1",
       duration: "weekly", is_blitz_prime: true, available: true, badge: "hot", success_rate: 92 },
+    // ─── IA Café MTN (cheaper rates — provider: iacafe) ──────
+    { id: "IAC-176", name: "1GB – 7 Days", size: "1GB", validity: "7 Days",
+      sell_price: 420, cost_price: 370, profit: 50, provider_code: "iacafe",
+      duration: "weekly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 94 },
+    { id: "IAC-190", name: "5GB – 14 Days", size: "5GB", validity: "14 Days",
+      sell_price: 1330, cost_price: 1200, profit: 130, provider_code: "iacafe",
+      duration: "weekly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 93 },
+    { id: "IAC-172", name: "2GB – 7 Days", size: "2GB", validity: "7 Days",
+      sell_price: 840, cost_price: 760, profit: 80, provider_code: "iacafe",
+      duration: "weekly", is_blitz_prime: false, available: true, badge: "hot", success_rate: 93 },
   ],
 
   // ───── AIRTEL (12 plans · 6 Blitz Prime) ────────────────────
@@ -163,6 +173,16 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "BSP-629", name: "10GB – 7 Days", size: "10GB", validity: "7 Days",
       sell_price: 3200, cost_price: 2970, profit: 230, provider_code: "bsplug-3",
       duration: "weekly", is_blitz_prime: false, available: true, badge: "best_value", success_rate: 89 },
+    // ─── IA Café Airtel (corporate monthly — provider: iacafe) ─
+    { id: "IAC-80", name: "1GB – Monthly", size: "1GB", validity: "30 Days",
+      sell_price: 420, cost_price: 369, profit: 51, provider_code: "iacafe",
+      duration: "monthly", is_blitz_prime: false, available: true, success_rate: 93 },
+    { id: "IAC-81", name: "2GB – Monthly", size: "2GB", validity: "30 Days",
+      sell_price: 820, cost_price: 738, profit: 82, provider_code: "iacafe",
+      duration: "monthly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 92 },
+    { id: "IAC-82", name: "3GB – Monthly", size: "3GB", validity: "30 Days",
+      sell_price: 1220, cost_price: 1101, profit: 119, provider_code: "iacafe",
+      duration: "monthly", is_blitz_prime: false, available: true, success_rate: 91 },
   ],
 
   // ───── GLO (13 plans · 6 Blitz Prime) ───────────────────────
@@ -225,6 +245,19 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "BSP-341", name: "10GB – 7 Days", size: "10GB", validity: "7 Days",
       sell_price: 2100, cost_price: 1950, profit: 150, provider_code: "bsplug-2",
       duration: "weekly", is_blitz_prime: true, available: true, badge: "best_value", success_rate: 90 },
+    // ─── IA Café Glo (gifting bundles — provider: iacafe) ────
+    { id: "IAC-346", name: "1.5GB – Daily", size: "1.5GB", validity: "1 Day",
+      sell_price: 320, cost_price: 284, profit: 36, provider_code: "iacafe",
+      duration: "daily", is_blitz_prime: false, available: true, badge: "awuf", success_rate: 92 },
+    { id: "IAC-413", name: "1GB – Daily", size: "1GB", validity: "1 Day",
+      sell_price: 320, cost_price: 284, profit: 36, provider_code: "iacafe",
+      duration: "daily", is_blitz_prime: false, available: true, success_rate: 92 },
+    { id: "IAC-394", name: "2GB + 1GB Night – Daily", size: "2GB", validity: "1 Day",
+      sell_price: 530, cost_price: 474, profit: 56, provider_code: "iacafe",
+      duration: "daily", is_blitz_prime: true, available: true, badge: "hot", success_rate: 91 },
+    { id: "IAC-338", name: "3.7GB + 2GB Night – 7 Days", size: "3.7GB", validity: "7 Days",
+      sell_price: 1050, cost_price: 948, profit: 102, provider_code: "iacafe",
+      duration: "weekly", is_blitz_prime: false, available: true, success_rate: 90 },
   ],
 
   // ───── 9MOBILE (4 confirmed AidaPay plans) ─────────────────
@@ -251,6 +284,16 @@ export const DATA_PLANS: Record<Network, DataPlan[]> = {
     { id: "BSP-238", name: "3GB – Monthly", size: "3GB", validity: "30 Days",
       sell_price: 1420, cost_price: 1260, profit: 160, provider_code: "bsplug-4",
       duration: "monthly", is_blitz_prime: false, available: true, success_rate: 90 },
+    // ─── IA Café 9Mobile (SME plans — provider: iacafe) ──────
+    { id: "IAC-131", name: "1GB – 3 Days", size: "1GB", validity: "3 Days",
+      sell_price: 370, cost_price: 324, profit: 46, provider_code: "iacafe",
+      duration: "daily", is_blitz_prime: false, available: true, badge: "awuf", success_rate: 92 },
+    { id: "IAC-120", name: "1.5GB – Daily", size: "1.5GB", validity: "1 Day",
+      sell_price: 490, cost_price: 435, profit: 55, provider_code: "iacafe",
+      duration: "daily", is_blitz_prime: true, available: true, badge: "hot", success_rate: 91 },
+    { id: "IAC-122", name: "2GB – 2 Days", size: "2GB", validity: "2 Days",
+      sell_price: 710, cost_price: 639, profit: 71, provider_code: "iacafe",
+      duration: "daily", is_blitz_prime: false, available: true, success_rate: 91 },
   ],
 };
 
