@@ -24,14 +24,12 @@ export default function Settings() {
   }, [user]);
 
   const initials = (name || user?.email || "?").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
-
   const themeLabel = theme === "dark" ? "Dark" : theme === "light" ? "Light" : "System";
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   const nextTheme = (theme === "dark" ? "light" : theme === "light" ? "system" : "dark") as "dark" | "light" | "system";
 
   return (
     <div className="space-y-5 pb-6">
-      {/* Profile header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative flex items-center gap-4">
@@ -44,7 +42,6 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Privacy */}
       <Section title="Privacy">
         <Row icon={hide ? EyeOff : Eye} label="Hide balance" desc="Mask your wallet amount on the home screen">
           <Switch checked={hide} onCheckedChange={setHide} />
@@ -52,7 +49,6 @@ export default function Settings() {
         <Row icon={Shield} label="Change transaction PIN" onClick={() => nav("/app/setup-pin")} chevron />
       </Section>
 
-      {/* App */}
       <Section title="App">
         <Row icon={Bell} label="Push notifications" desc="Deals & transaction alerts">
           <Switch checked={notif} onCheckedChange={(v) => {
@@ -61,32 +57,17 @@ export default function Settings() {
             toast.success(v ? "Notifications on" : "Notifications off");
           }} />
         </Row>
-        <Row
-          icon={ThemeIcon}
-          label="Theme"
-          desc={themeLabel}
-          onClick={() => {
-            setTheme(nextTheme);
-            toast.success(`Switched to ${nextTheme} mode`);
-          }}
-          chevron
-        />
+        <Row icon={ThemeIcon} label="Theme" desc={themeLabel}
+          onClick={() => { setTheme(nextTheme); toast.success(`Switched to ${nextTheme} mode`); }} chevron />
         <Row icon={Sparkles} label="BlitzPoints info" desc="Earn points on every purchase" />
       </Section>
 
-      {/* Account */}
       <Section title="Account">
         <Row icon={User} label="Edit profile" onClick={() => toast("Coming soon")} chevron />
-        <Row
-          icon={LogOut}
-          label="Sign out"
-          danger
-          onClick={async () => { await supabase.auth.signOut(); nav("/"); }}
-          chevron
-        />
+        <Row icon={LogOut} label="Sign out" danger onClick={async () => { await supabase.auth.signOut(); nav("/"); }} chevron />
       </Section>
 
-      <div className="pt-2 text-center text-[11px] text-muted-foreground">BlitzPay \u00b7 v1.0.0</div>
+      <div className="pt-2 text-center text-[11px] text-muted-foreground">BlitzPay · v1.0.0</div>
     </div>
   );
 }
@@ -100,9 +81,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({
-  icon: Icon, label, desc, children, onClick, chevron, danger,
-}: {
+function Row({ icon: Icon, label, desc, children, onClick, chevron, danger }: {
   icon: any; label: string; desc?: string; children?: React.ReactNode;
   onClick?: () => void; chevron?: boolean; danger?: boolean;
 }) {
