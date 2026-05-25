@@ -29,6 +29,7 @@ interface Plan {
   is_prime?: boolean;
   network: NetworkId;
   pricePerGb: number; // ₦ per GB — lower = better value
+  bp_value: number;     // exact BlitzPoints for this plan
 }
 
 const NC: Record<NetworkId, string> = {
@@ -72,7 +73,7 @@ function BadgeChip({ badge }: { badge?: Plan["badge"] }) {
 }
 
 function PlanCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean; onSelect: (p: Plan) => void }) {
-  const pts = Math.max(1, Math.floor(plan.sell_price / 250) * 5);
+  const pts = plan.bp_value ?? 1;
   const rate = plan.success_rate ?? 92;
   const blocked = plan.coming_soon || !plan.available;
   return (
@@ -87,7 +88,7 @@ function PlanCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean;
       <div className="font-display text-xl font-black leading-none mt-2 text-foreground">{plan.size}</div>
       <div className="text-[10px] text-muted-foreground leading-none mt-0.5">{plan.validity}</div>
       <div className="text-sm font-bold mt-1.5">{naira(plan.sell_price)}</div>
-      <div className="text-[9px] text-accent font-semibold">+{pts} pts</div>
+      <div className="text-[9px] text-accent font-semibold">+{pts} BP</div>
       <BadgeChip badge={plan.badge} />
       {plan.coming_soon && (
         <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
@@ -99,7 +100,7 @@ function PlanCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean;
 }
 
 function PrimeCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean; onSelect: (p: Plan) => void }) {
-  const pts = Math.max(1, Math.floor(plan.sell_price / 250) * 5);
+  const pts = plan.bp_value ?? 1;
   const blocked = plan.coming_soon || !plan.available;
   return (
     <button onClick={() => !blocked && onSelect(plan)} disabled={blocked} type="button"
@@ -113,7 +114,7 @@ function PrimeCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean
         <div className="font-display text-2xl font-black leading-none text-foreground">{plan.size}</div>
         <div className="text-[10px] text-muted-foreground leading-tight">{plan.validity}</div>
         <div className="text-sm font-bold mt-0.5">{naira(plan.sell_price)}</div>
-        <div className="text-[9px] text-accent font-semibold">+{pts} pts</div>
+        <div className="text-[9px] text-accent font-semibold">+{pts} BP</div>
         {plan.coming_soon && <span className="text-[9px] text-amber-400 font-bold border border-amber-400/30 rounded-full px-1.5 py-0.5 bg-amber-400/10 w-fit mt-0.5">Soon</span>}
       </div>
     </button>
@@ -170,6 +171,7 @@ export default function Data() {
             badge,
             network: netId as NetworkId,
             pricePerGb,
+            bp_value: p.bp_value ?? 1,
             is_prime: false, // assigned below
           };
         });
