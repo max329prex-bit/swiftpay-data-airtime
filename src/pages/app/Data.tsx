@@ -27,6 +27,8 @@ interface Plan {
   duration: Duration;
   badge?: "most_bought" | "best_value" | "awuf" | "hot";
   is_prime?: boolean;
+  network: NetworkId;
+  pricePerGb: number; // ₦ per GB — lower = better value
 }
 
 const NC: Record<NetworkId, string> = {
@@ -50,6 +52,17 @@ function parseDuration(validity: string): Duration {
   if (n <= 3) return "daily";
   if (n <= 14) return "weekly";
   return "monthly";
+}
+
+/** Parse "500MB" → 0.5, "2GB" → 2, "10GB" → 10 (normalised to GB) */
+function parseGbSize(size: string): number {
+  const m = (size || "").match(/(\d+\.?\d*)\s*(MB|GB|TB)/i);
+  if (!m) return 1;
+  const val = parseFloat(m[1]);
+  const unit = m[2].toUpperCase();
+  if (unit === "MB") return val / 1024;
+  if (unit === "TB") return val * 1024;
+  return val;
 }
 
 function BadgeChip({ badge }: { badge?: Plan["badge"] }) {
@@ -93,11 +106,14 @@ function PrimeCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean
       className="flex-shrink-0 w-[138px] rounded-2xl p-[1.5px] transition active:scale-95"
       style={{ background: selected ? "linear-gradient(135deg, #f59e0b, #f97316)" : "linear-gradient(135deg, rgba(245,158,11,0.35), rgba(249,115,22,0.20))" }}>
       <div className={["h-full rounded-[13px] bg-[#0f1117] p-3 flex flex-col gap-1 text-left", selected ? "ring-1 ring-amber-400/40" : ""].join(" ")}>
+        <div className="flex items-center justify-between mb-0.5">
+          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full leading-none ${NC[plan.network]}`}>{plan.network}</span>
+          {plan.badge && <BadgeChip badge={plan.badge} />}
+        </div>
         <div className="font-display text-2xl font-black leading-none text-foreground">{plan.size}</div>
         <div className="text-[10px] text-muted-foreground leading-tight">{plan.validity}</div>
         <div className="text-sm font-bold mt-0.5">{naira(plan.sell_price)}</div>
         <div className="text-[9px] text-accent font-semibold">+{pts} pts</div>
-        {plan.badge && <BadgeChip badge={plan.badge} />}
         {plan.coming_soon && <span className="text-[9px] text-amber-400 font-bold border border-amber-400/30 rounded-full px-1.5 py-0.5 bg-amber-400/10 w-fit mt-0.5">Soon</span>}
       </div>
     </button>
@@ -127,11 +143,14 @@ export default function Data() {
     supabase.functions.invoke("get-packages").then(({ data, error }) => {
       if (error || !data?.packages) { setLoadingPlans(false); return; }
       const mapped: Record<string, Plan[]> = {};
+
+      // Step 1 — map all plans, compute price-per-GB, assign display badges
       for (const [netId, pkgs] of Object.entries(data.packages as Record<string, any[]>)) {
-        // Sort by price and assign badges to top plans
         const sorted = [...pkgs].sort((a, b) => a.sell_price - b.sell_price);
         mapped[netId] = sorted.map((p, idx) => {
           const dur = parseDuration(p.validity);
+          const gbSize = parseGbSize(p.size || "");
+          const pricePerGb = gbSize > 0 ? p.sell_price / gbSize : Infinity;
           let badge: Plan["badge"] = undefined;
           if (idx === 0) badge = "awuf";
           else if (idx === 1) badge = "most_bought";
@@ -149,10 +168,22 @@ export default function Data() {
             success_rate: p.success_rate ?? 92,
             duration: dur,
             badge,
-            is_prime: idx < 3, // Top 3 cheapest = Blitz Prime
+            network: netId as NetworkId,
+            pricePerGb,
+            is_prime: false, // assigned below
           };
         });
       }
+
+      // Step 2 — Blitz Prime: top 5 best price-per-GB across ALL networks globally
+      const allAvailable = Object.values(mapped).flat().filter(p => p.available && !p.coming_soon);
+      const primeIds = new Set(
+        [...allAvailable].sort((a, b) => a.pricePerGb - b.pricePerGb).slice(0, 5).map(p => p.id)
+      );
+      for (const netId of Object.keys(mapped)) {
+        mapped[netId] = mapped[netId].map(p => ({ ...p, is_prime: primeIds.has(p.id) }));
+      }
+
       setAllPlans(mapped);
       setLoadingPlans(false);
     }).catch(() => setLoadingPlans(false));
@@ -181,7 +212,8 @@ export default function Data() {
   useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); }, [network]);
 
   const netPlans = allPlans[network] ?? [];
-  const primePlans = netPlans.filter(p => p.is_prime && p.available);
+  // Blitz Prime: globally best price/GB across ALL networks, sorted by value
+  const primePlans = Object.values(allPlans).flat().filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
   const tabPlans = netPlans.filter(p => p.duration === duration);
 
   const networkCounts = Object.fromEntries(
@@ -195,7 +227,7 @@ export default function Data() {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
-        body: { type: "data", network, phone, amount: plan.sell_price, pin, bundle: plan.id, provider: plan.provider_code },
+        body: { type: "data", network: plan.network, phone, amount: plan.sell_price, pin, bundle: plan.id, provider: plan.provider_code },
       });
       if (error) throw error;
       if (!data?.success) {
@@ -286,7 +318,7 @@ export default function Data() {
 
       {phoneOk && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-          {/* Blitz Prime — top 3 plans */}
+          {/* Blitz Prime — best price/GB across all networks globally */
           {primePlans.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -296,7 +328,7 @@ export default function Data() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
                 {primePlans.map(p => <PrimeCard key={p.id} plan={p} selected={plan?.id === p.id}
-                  onSelect={pp => { setPlan(pp); setDuration(pp.duration); }} />)}
+                  onSelect={pp => { setPlan(pp); setDuration(pp.duration); setNetwork(pp.network); }} />)}
               </div>
             </div>
           )}
