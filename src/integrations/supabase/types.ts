@@ -383,3 +383,107 @@ export const Constants = {
     },
   },
 } as const
+
+// ─── Extended types for new tables added in production hardening ──────────────
+
+export interface WalletLedgerRow {
+  id: string;
+  user_id: string;
+  amount: number;
+  direction: "credit" | "debit";
+  balance_before: number;
+  balance_after: number;
+  reason: string;
+  reference: string | null;
+  related_transaction_id: string | null;
+  meta: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AdminAuditLogRow {
+  id: string;
+  admin_id: string;
+  action: string;
+  target_user_id: string | null;
+  target_transaction_id: string | null;
+  reason: string;
+  balance_before: number | null;
+  balance_after: number | null;
+  meta: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface FraudVelocityRow {
+  id: string;
+  user_id: string;
+  event_type: string;
+  window_start: string;
+  count: number;
+  is_flagged: boolean;
+  flagged_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface WebhookEventRow {
+  id: string;
+  event_id: string;
+  provider: string;
+  event_type: string | null;
+  processed_at: string;
+  payload: Record<string, unknown> | null;
+}
+
+export type SupportTicketIntent =
+  | "transaction_pending"
+  | "wallet_not_credited"
+  | "data_not_received"
+  | "refund_issue"
+  | "other";
+
+export type SupportTicketStatus = "open" | "in_progress" | "resolved" | "closed";
+
+export interface SupportTicketRow {
+  id: string;
+  ticket_ref: string;
+  user_id: string;
+  intent: SupportTicketIntent;
+  status: SupportTicketStatus;
+  related_transaction_id: string | null;
+  message: string | null;
+  admin_notes: string | null;
+  assigned_to: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Extended transaction type ────────────────────────────────────────────────
+
+export type TxStatus =
+  | "pending"
+  | "processing"
+  | "verifying"
+  | "success"
+  | "failed"
+  | "escalated_manual_review";
+
+export interface TransactionExtended {
+  id: string;
+  user_id: string;
+  type: string;
+  network: string | null;
+  phone: string | null;
+  amount: number;
+  status: TxStatus;
+  reference: string;
+  meta: Record<string, unknown> | null;
+  created_at: string;
+  retry_count: number;
+  last_verification_at: string | null;
+  failure_reason: string | null;
+  provider_reference: string | null;
+  idempotency_key: string | null;
+}
