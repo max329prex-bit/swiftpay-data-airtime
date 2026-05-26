@@ -64,3 +64,23 @@ export interface DataPlan {
   success_rate?: number;
   unavailable_reason?: string;
 }
+
+/** Nigerian electricity distribution companies (DISCOs) — static structural data */
+export interface ElectricityProvider {
+  name: string;
+  code: string;  // AidaPay provider_code prefix (backend appends -prepaid or -postpaid)
+}
+
+export const ELECTRICITY_PROVIDERS: ElectricityProvider[] = [
+  { name: "Ikeja Electric (IKEDC)",          code: "ikeja-electric"   },
+  { name: "Eko Electricity (EKEDC)",          code: "eko-electric"     },
+  { name: "Abuja Electricity (AEDC)",         code: "abuja-electric"   },
+  { name: "Port Harcourt Electric (PHEDC)",   code: "ph-electric"      },
+  { name: "Enugu Electricity (EEDC)",         code: "enugu-electric"   },
+  { name: "Benin Electricity (BEDC)",         code: "benin-electric"   },
+  { name: "Ibadan Electricity (IBEDC)",       code: "ibadan-electric"  },
+  { name: "Kaduna Electricity (KAEDCO)",      code: "kaduna-electric"  },
+  { name: "Kano Electricity (KEDCO)",         code: "kano-electric"    },
+  { name: "Jos Electricity (JEDC)",           code: "jos-electric"     },
+  { name: "Yola Electricity (YEDC)",          code: "yola-electric"    },
+];
