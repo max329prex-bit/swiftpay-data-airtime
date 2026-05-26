@@ -26,5 +26,7 @@ jobs:
           supabase functions deploy get-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy swift-chat --project-ref tljnhlhzyntotadxoypz
           supabase functions deploy sync-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy transaction-recovery --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy provider-health --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
