@@ -1,224 +1,260 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Bot, Send, Loader2, ArrowLeft, X, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Clock, Wifi, Wallet, RefreshCw, HelpCircle,
+  CheckCircle2, ChevronRight, AlertTriangle,
+} from "lucide-react";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Intent =
+  | "transaction_pending"
+  | "wallet_not_credited"
+  | "data_not_received"
+  | "refund_issue"
+  | "other";
 
-const STARTERS = [
-  "How do I top up my wallet?",
-  "Why did my airtime fail?",
-  "How do I earn SwiftPoints?",
-  "How do I change my PIN?",
+interface RecentTx {
+  id: string;
+  reference: string;
+  type: string;
+  network: string | null;
+  amount: number;
+  status: string;
+  created_at: string;
+}
+
+const INTENTS: { id: Intent; label: string; icon: React.ReactNode; desc: string }[] = [
+  { id: "transaction_pending",  label: "Transaction Pending",   icon: <Clock className="w-4 h-4" />,        desc: "Purchase is stuck in processing" },
+  { id: "wallet_not_credited",  label: "Wallet Not Credited",   icon: <Wallet className="w-4 h-4" />,       desc: "Funded wallet but balance didn\'t update" },
+  { id: "data_not_received",    label: "Data Not Received",     icon: <Wifi className="w-4 h-4" />,         desc: "Paid but data wasn\'t delivered" },
+  { id: "refund_issue",         label: "Refund Issue",          icon: <RefreshCw className="w-4 h-4" />,    desc: "Expecting a refund that hasn\'t arrived" },
+  { id: "other",                label: "Other Issue",           icon: <HelpCircle className="w-4 h-4" />,   desc: "Something else went wrong" },
 ];
 
 export default function Support() {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const nav = useNavigate();
+  const { user } = useAuth();
+  const [step, setStep] = useState<"intent" | "detail" | "done">("intent");
+  const [intent, setIntent] = useState<Intent | null>(null);
+  const [recentTxs, setRecentTxs] = useState<RecentTx[]>([]);
+  const [selectedTx, setSelectedTx] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [ticketRef, setTicketRef] = useState<string | null>(null);
+  const [degradedProviders, setDegradedProviders] = useState<string[]>([]);
 
   useEffect(() => {
-    if (chatOpen) {
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-        inputRef.current?.focus();
-      }, 300);
-    }
-  }, [chatOpen]);
+    if (!user) return;
 
-  useEffect(() => {
-    if (chatOpen) {
-      setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
-    }
-  }, [messages, loading]);
+    // Load recent transactions for context auto-attach
+    supabase
+      .from("transactions")
+      .select("id, reference, type, network, amount, status, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => setRecentTxs((data as RecentTx[]) ?? []));
 
-  async function send(text?: string) {
-    const content = (text ?? input).trim();
-    if (!content || loading) return;
-
-    const userMsg: Msg = { role: "user", content };
-    const next = [...messages, userMsg];
-    setMessages(next);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("swift-chat", {
-        body: { messages: next.map(m => ({ role: m.role, content: m.content })) },
+    // Check for degraded providers (emergency broadcast)
+    supabase
+      .from("bundle_status")
+      .select("package_code, auto_paused_at, auto_paused_reason")
+      .not("auto_paused_at", "is", null)
+      .limit(5)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const providers = [...new Set(data.map((d: Record<string, unknown>) =>
+            (d.package_code as string).split("-")[0]?.toUpperCase()
+          ))];
+          setDegradedProviders(providers);
+        }
       });
+  }, [user]);
 
-      if (error) {
-        const body = await (error as any).context?.json?.().catch(() => null);
-        throw new Error(body?.error || "Connection error");
-      }
+  async function submit() {
+    if (!intent || !user) return;
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .insert({
+          user_id: user.id,
+          intent,
+          message: message.trim() || null,
+          related_transaction_id: selectedTx || null,
+          status: "open",
+        })
+        .select("ticket_ref")
+        .single();
 
-      const reply = data?.reply || "Sorry, I could not respond right now. Please try again.";
-      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
-    } catch {
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: "Sorry, I'm having trouble right now. Please email blitzpaysup@gmail.com and we'll help you out! 📧"
-      }]);
+      if (error) throw error;
+      setTicketRef((data as Record<string, string>).ticket_ref);
+      setStep("done");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to submit ticket");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
+  function restart() {
+    setStep("intent"); setIntent(null); setSelectedTx(null);
+    setMessage(""); setTicketRef(null);
+  }
+
+  const selectedIntentObj = INTENTS.find(i => i.id === intent);
+
   return (
-    <>
-      {/* ── Main support options page ── */}
-      <div className="space-y-4 pb-10">
-        <div className="flex items-center gap-3">
-          <button onClick={() => nav("/app")} className="grid h-9 w-9 place-items-center rounded-full glass">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div>
-            <h1 className="font-display text-xl font-semibold">Support</h1>
-            <p className="text-xs text-muted-foreground">We're here to help</p>
-          </div>
-        </div>
-
-        {/* Email card */}
-        <a href="mailto:blitzpaysup@gmail.com"
-          className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-5 hover:bg-white/[0.07] transition group">
-          <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-accent/20">
-            <Mail className="h-5 w-5 text-accent" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="font-display text-base font-bold">Send Email</div>
-            <div className="text-xs text-muted-foreground mt-0.5">blitzpaysup@gmail.com</div>
-            <div className="text-[11px] text-muted-foreground mt-1">For billing issues, account problems & complaints</div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition flex-shrink-0" />
-        </a>
-
-        {/* Blitzi chat card */}
-        <button onClick={() => setChatOpen(true)}
-          className="flex w-full items-center gap-4 rounded-3xl border border-primary/20 bg-primary/5 p-5 hover:bg-primary/10 transition group text-left">
-          <span className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-primary/20 group-hover:bg-primary/30 transition">
-            <Bot className="h-5 w-5 text-primary" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="font-display text-base font-bold">Chat with Blitzi</div>
-            <div className="text-xs text-muted-foreground mt-0.5">AI assistant — instant answers 24/7</div>
-            <div className="text-[11px] text-muted-foreground mt-1">Wallet, airtime, data, bills and account help</div>
-          </div>
-          <div className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent flex-shrink-0">LIVE</div>
-        </button>
-
-        {/* Quick topics */}
-        <div>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground px-1">Common questions</div>
-          <div className="space-y-1.5">
-            {STARTERS.map(s => (
-              <button key={s} onClick={() => { setChatOpen(true); setTimeout(() => send(s), 400); }}
-                className="glass flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm text-left hover:border-primary/30 transition">
-                <span>{s}</span>
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              </button>
-            ))}
-          </div>
-        </div>
+    <div className="space-y-5 pb-10">
+      <div>
+        <h1 className="font-display text-2xl font-semibold">Support</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          We\'ll help resolve your issue quickly.
+        </p>
       </div>
 
-      {/* ── Full-screen chat overlay — covers EVERYTHING including bottom nav ── */}
-      <AnimatePresence>
-        {chatOpen && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="fixed inset-0 z-[100] flex flex-col bg-background"
-            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      {/* Emergency banner if providers are degraded */}
+      {degradedProviders.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4"
+        >
+          <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
+          <div className="text-sm text-yellow-300">
+            <strong>Service Notice:</strong> Some {degradedProviders.join(", ")} plans are temporarily
+            paused for maintenance. Funds are safe. Avoid retrying — we\'re on it.
+          </div>
+        </motion.div>
+      )}
+
+      <AnimatePresence mode="wait">
+
+        {/* STEP 1: Intent selection */}
+        {step === "intent" && (
+          <motion.div key="intent" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="space-y-3"
           >
-            {/* Chat header */}
-            <div className="flex items-center gap-3 px-5 pt-12 pb-4 border-b border-white/5 bg-background/95 backdrop-blur-xl">
-              <button onClick={() => setChatOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-full glass flex-shrink-0">
-                <ArrowLeft className="h-4 w-4" />
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+              What\'s the issue?
+            </p>
+            {INTENTS.map(({ id, label, icon, desc }) => (
+              <button
+                key={id}
+                onClick={() => { setIntent(id); setStep("detail"); }}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl bg-secondary/40 border border-white/5 p-4 text-left transition hover:bg-secondary/60 active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-primary">{icon}</span>
+                  <div>
+                    <div className="text-sm font-semibold">{label}</div>
+                    <div className="text-xs text-muted-foreground">{desc}</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
               </button>
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/20 flex-shrink-0">
-                <Bot className="h-4 w-4 text-primary" />
-              </span>
-              <div>
-                <div className="text-sm font-semibold">Blitzi</div>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-                  <span className="text-[11px] text-accent">Online — always ready to help</span>
-                </div>
-              </div>
+            ))}
+
+            <div className="mt-4 rounded-2xl bg-secondary/20 p-4 text-center text-sm text-muted-foreground">
+              Urgent? Email us at{" "}
+              <a href="mailto:blitzpaysup@gmail.com" className="text-primary underline">
+                blitzpaysup@gmail.com
+              </a>
+            </div>
+          </motion.div>
+        )}
+
+        {/* STEP 2: Detail + transaction attach */}
+        {step === "detail" && (
+          <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }} className="space-y-4"
+          >
+            <button onClick={() => setStep("intent")} className="text-sm text-muted-foreground flex items-center gap-1">
+              ← Back
+            </button>
+
+            <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3 flex items-center gap-2">
+              <span className="text-primary">{selectedIntentObj?.icon}</span>
+              <span className="text-sm font-medium">{selectedIntentObj?.label}</span>
             </div>
 
-            {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-hide">
-              {/* Static greeting — never sent to AI so Blitzi doesn't template-match it */}
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl rounded-bl-sm glass px-4 py-3 text-sm leading-relaxed text-foreground">
-                  Hi! I&apos;m Blitzi, your SwiftPay assistant 😊 Ask me anything about wallet funding, airtime, data, electricity, cable TV, SwiftPoints or your account.
-                </div>
-              </div>
-              {messages.map((m, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-gradient-primary text-white rounded-br-sm"
-                      : "glass rounded-bl-sm text-foreground"
-                  }`}>
-                    {m.content}
-                  </div>
-                </motion.div>
-              ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="glass flex items-center gap-2 rounded-2xl rounded-bl-sm px-4 py-3 text-sm">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                    <span className="text-muted-foreground text-xs">Blitzi is thinking…</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Quick starters (first message only) */}
-            {messages.length === 0 && (
-              <div className="px-4 pb-2 flex flex-wrap gap-2">
-                {STARTERS.map(s => (
-                  <button key={s} onClick={() => send(s)}
-                    className="glass rounded-full px-3 py-1.5 text-xs hover:border-primary/40 transition">
-                    {s}
+            {/* Auto-attach recent transaction */}
+            {recentTxs.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Related transaction (optional)
+                </p>
+                {recentTxs.map(tx => (
+                  <button
+                    key={tx.id}
+                    onClick={() => setSelectedTx(selectedTx === tx.id ? null : tx.id)}
+                    className={`w-full flex items-center justify-between rounded-xl border p-3 text-sm transition ${
+                      selectedTx === tx.id
+                        ? "border-primary bg-primary/10"
+                        : "border-white/10 bg-white/[0.03] hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="text-left">
+                      <div className="font-mono text-xs text-muted-foreground">{tx.reference}</div>
+                      <div className="font-medium">
+                        {tx.type} {tx.network && `· ${tx.network}`} · ₦{tx.amount.toLocaleString()}
+                      </div>
+                    </div>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      tx.status === "success" ? "text-green-400 bg-green-400/10" :
+                      tx.status === "failed"  ? "text-red-400 bg-red-400/10" :
+                      "text-yellow-400 bg-yellow-400/10"
+                    }`}>
+                      {tx.status}
+                    </span>
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Input bar */}
-            <div className="px-4 pb-6 pt-2 border-t border-white/5 bg-background/95 backdrop-blur-xl">
-              <div className="glass flex items-center gap-2 rounded-2xl border border-white/10 p-1.5">
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
-                  placeholder="Ask Blitzi anything…"
-                  className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
-                />
-                <Button onClick={() => send()} disabled={loading || !input.trim()} size="icon"
-                  className="rounded-xl bg-gradient-primary text-white shadow-glow disabled:opacity-50 flex-shrink-0">
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            {/* Message */}
+            <Textarea
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Describe your issue in a few words (optional)..."
+              className="h-24 resize-none rounded-2xl bg-secondary/40"
+            />
+
+            <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-2xl">
+              {submitting ? "Submitting..." : "Submit Support Ticket"}
+            </Button>
           </motion.div>
         )}
+
+        {/* STEP 3: Done */}
+        {step === "done" && (
+          <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center gap-4 py-8 text-center"
+          >
+            <div className="rounded-full bg-green-500/10 border border-green-500/30 p-5">
+              <CheckCircle2 className="w-8 h-8 text-green-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Ticket Submitted</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                We\'ll review and get back to you via email.
+              </p>
+            </div>
+            {ticketRef && (
+              <div className="rounded-xl bg-secondary/40 border border-white/10 px-4 py-3 w-full">
+                <div className="text-xs text-muted-foreground mb-1">Your ticket reference</div>
+                <div className="font-mono text-sm font-semibold text-primary">{ticketRef}</div>
+              </div>
+            )}
+            <Button variant="outline" onClick={restart} className="mt-2 rounded-xl">
+              Submit Another
+            </Button>
+          </motion.div>
+        )}
+
       </AnimatePresence>
-    </>
+    </div>
   );
 }
