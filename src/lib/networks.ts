@@ -84,3 +84,32 @@ export const ELECTRICITY_PROVIDERS: ElectricityProvider[] = [
   { name: "Jos Electricity (JEDC)",           code: "jos-electric"     },
   { name: "Yola Electricity (YEDC)",          code: "yola-electric"    },
 ];
+
+/** Cable TV providers — static structural data (DStv, GOtv, StarTimes) */
+export const CABLE_PROVIDERS = [
+  { id: "DSTV",      name: "DStv",      color: "bg-blue-600",   aidapay_code: "dstv"      },
+  { id: "GOTV",      name: "GOtv",      color: "bg-green-600",  aidapay_code: "gotv"      },
+  { id: "STARTIMES", name: "StarTimes", color: "bg-orange-500", aidapay_code: "startimes" },
+];
+
+/** Cable TV packages — static pricing data keyed by provider id */
+export const CABLE_PACKAGES: Record<string, { id: string; name: string; price: number; package_code?: string; provider_code?: string; aidapay_code: string }[]> = {
+  DSTV: [
+    { id: "dstv-access",       name: "DStv Access",       price: 2000,  package_code: "dstv-access",       provider_code: "dstv", aidapay_code: "dstv-access"       },
+    { id: "dstv-compact",      name: "DStv Compact",      price: 9000,  package_code: "dstv-compact",      provider_code: "dstv", aidapay_code: "dstv-compact"      },
+    { id: "dstv-compact-plus", name: "DStv Compact Plus", price: 14250, package_code: "dstv-compact-plus", provider_code: "dstv", aidapay_code: "dstv-compact-plus" },
+    { id: "dstv-premium",      name: "DStv Premium",      price: 24500, package_code: "dstv-premium",      provider_code: "dstv", aidapay_code: "dstv-premium"      },
+  ],
+  GOTV: [
+    { id: "gotv-smallie", name: "GOtv Smallie", price: 1900,  package_code: "gotv-smallie", provider_code: "gotv", aidapay_code: "gotv-smallie" },
+    { id: "gotv-jinja",   name: "GOtv Jinja",   price: 3900,  package_code: "gotv-jinja",   provider_code: "gotv", aidapay_code: "gotv-jinja"   },
+    { id: "gotv-jolli",   name: "GOtv Jolli",   price: 5800,  package_code: "gotv-jolli",   provider_code: "gotv", aidapay_code: "gotv-jolli"   },
+    { id: "gotv-max",     name: "GOtv Max",     price: 8500,  package_code: "gotv-max",     provider_code: "gotv", aidapay_code: "gotv-max"     },
+    { id: "gotv-supa",    name: "GOtv Supa",    price: 11400, package_code: "gotv-supa",    provider_code: "gotv", aidapay_code: "gotv-supa"    },
+  ],
+  STARTIMES: [
+    { id: "st-nova",    name: "Nova (Daily)",     price: 150,  package_code: "st-nova",    provider_code: "startimes", aidapay_code: "startimes-nova"    },
+    { id: "st-smart",   name: "Smart (Monthly)",  price: 3800, package_code: "st-smart",   provider_code: "startimes", aidapay_code: "startimes-smart"   },
+    { id: "st-classic", name: "Classic (Monthly)", price: 4500, package_code: "st-classic", provider_code: "startimes", aidapay_code: "startimes-classic" },
+  ],
+};
