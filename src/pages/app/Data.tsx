@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, X, Zap, Loader2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
-type Step = "network" | "form" | "pin";
+type Step = "network" | "form" | "pin" | "verifying";
 type Duration = "daily" | "weekly" | "monthly";
 type NetworkId4 = "MTN" | "AIRTEL" | "GLO" | "9MOBILE";
 
@@ -30,6 +30,8 @@ interface Plan {
   network: NetworkId;
   pricePerGb: number; // ₦ per GB — lower = better value
   bp_value: number;     // exact BlitzPoints for this plan
+  tier?: "stable" | "promo";  // stable = can failover, promo = fail-fast only
+  health_score?: number;       // 0-100, from provider intelligence layer
 }
 
 const NC: Record<NetworkId, string> = {
@@ -90,6 +92,12 @@ function PlanCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean;
       <div className="text-sm font-bold mt-1.5">{naira(plan.sell_price)}</div>
       <div className="text-[9px] text-accent font-semibold">+{pts} BP</div>
       <BadgeChip badge={plan.badge} />
+      {plan.tier === "stable" && (
+        <span className="text-[7px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 leading-none">⚡ Stable</span>
+      )}
+      {plan.tier === "promo" && plan.available && (
+        <span className="text-[7px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 leading-none">🔥 Hot Deal</span>
+      )}
       {plan.coming_soon && (
         <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
           <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-1 rounded-full">Coming Soon</span>
@@ -445,6 +453,31 @@ export default function Data() {
               </div>
             </motion.div>
           </>
+        )}
+
+        {/* ── VERIFYING STATE — shown while provider processes ── */}
+        {step === "verifying" && (
+          <motion.div key="verifying" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center gap-5 py-12 text-center">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-primary/30 flex items-center justify-center">
+                <Loader2 className="w-7 h-7 text-primary animate-spin" />
+              </div>
+            </div>
+            <div>
+              <div className="font-semibold text-lg">Confirming with provider...</div>
+              <div className="text-sm text-muted-foreground mt-1 max-w-[260px] leading-relaxed">
+                Do not retry or close this screen. This usually completes in under 2 minutes.
+              </div>
+            </div>
+            <div className="flex gap-1.5 mt-2">
+              {["Processing", "Confirming", "Completing"].map((label, i) => (
+                <span key={i} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${i === 1 ? "bg-primary/20 text-primary border border-primary/30" : "bg-white/5 text-muted-foreground border border-white/10"}`}>
+                  {label}
+                </span>
+              ))}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
