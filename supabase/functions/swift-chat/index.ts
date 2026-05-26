@@ -5,7 +5,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-const SYS = `You are Blitzi, the AI assistant inside SwiftPay — a Nigerian fintech app.
+const SYS = `You are Blitzi, the AI assistant inside BlitzPay — a Nigerian fintech app.
 
 CRITICAL RULES:
 - NEVER introduce yourself or say "I'm Blitzi" unless the user explicitly asks who you are.
@@ -14,11 +14,11 @@ CRITICAL RULES:
 - Answer the user's actual question directly and helpfully.
 - Keep replies concise but complete. Use Nigerian Naira (₦) for amounts.
 
-What you know about SwiftPay:
+What you know about BlitzPay:
 - Wallet: funded via a Monnify virtual bank account (free, instant). Tap + on dashboard.
 - Airtime: MTN, Airtel, Glo and 9Mobile. Min ₦50. Network auto-detected from phone prefix.
 - Data bundles: daily, weekly and monthly plans. Blitz Prime shows the best value (₦ per GB) per network.
-- SwiftPoints: earn 5 pts per ₦250 on airtime or data. 100 pts = 1GB free data reward.
+- BlitzPoints: earn 5 pts per ₦250 on airtime or data. 100 pts = 1GB free data reward.
 - Electricity: select DISCO, Prepaid or Postpaid, verify meter number, then pay.
 - Cable TV: DStv, GOtv, StarTimes. Enter smartcard/IUC, verify, pick package, confirm.
 - Transaction PIN: 4-digit PIN required for every purchase. Set/change in Settings.
@@ -32,11 +32,11 @@ function getFallback(msg: string): string {
   if (q.includes("airtime"))
     return "Go to Airtime, enter the phone number (network auto-detects), pick an amount (min \u20a650), confirm with your 4-digit PIN.";
   if (q.includes("data") || q.includes("bundle") || q.includes("gb") || q.includes("mb"))
-    return "Tap Data, choose your network, check Blitz Prime for best-value plans (ranked by \u20a6 per GB), enter phone number, confirm with PIN. You earn SwiftPoints on every purchase.";
+    return "Tap Data, choose your network, check Blitz Prime for best-value plans (ranked by \u20a6 per GB), enter phone number, confirm with PIN. You earn BlitzPoints on every purchase.";
   if (q.includes("pin") || q.includes("password"))
     return "To change your PIN go to Settings \u2192 Change Transaction PIN. You need your current PIN to set a new one.";
-  if (q.includes("point") || q.includes("swiftpoint") || q.includes("reward") || q.includes("redeem"))
-    return "You earn 5 SwiftPoints per \u20a6250 spent on airtime or data. Hit 100 points and redeem 1GB of free data from the dashboard.";
+  if (q.includes("point") || q.includes("blitzpoint") || q.includes("swiftpoint") || q.includes("reward") || q.includes("redeem"))
+    return "You earn 5 BlitzPoints per \u20a6250 spent on airtime or data. Hit 100 points and redeem 1GB of free data from the dashboard.";
   if (q.includes("electric") || q.includes("meter") || q.includes("disco"))
     return "Tap Electric \u2192 select DISCO \u2192 choose Prepaid or Postpaid \u2192 enter meter number \u2192 verify \u2192 enter amount \u2192 confirm with PIN.";
   if (q.includes("cable") || q.includes("dstv") || q.includes("gotv") || q.includes("startimes"))
@@ -45,7 +45,7 @@ function getFallback(msg: string): string {
     return "Failed transactions are auto-refunded within 5-10 minutes. If not refunded after 30 min, email blitzpaysup@gmail.com with your reference number.";
   if (q.includes("contact") || q.includes("support") || q.includes("email"))
     return "Reach support at blitzpaysup@gmail.com — we respond within a few hours.";
-  return "I can help with wallet funding, airtime, data, electricity, cable TV, SwiftPoints and account issues. What do you need?";
+  return "I can help with wallet funding, airtime, data, electricity, cable TV, BlitzPoints and account issues. What do you need?";
 }
 
 serve(async (req) => {
