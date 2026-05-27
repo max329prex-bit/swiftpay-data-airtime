@@ -15,23 +15,48 @@ const PROVIDERS: Record<string, { bankCode: string; account: string }> = {
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  // Accept auth via: x-admin-secret header OR service-role Bearer token
+function isAuthorized(req: Request): boolean {
   const adminSecret = req.headers.get("x-admin-secret") ?? "";
   const authHeader  = req.headers.get("Authorization") ?? "";
-  const authorized  =
-    (ADMIN_SEC && adminSecret === ADMIN_SEC) ||
+  return (
+    (ADMIN_SEC.length > 0 && adminSecret === ADMIN_SEC) ||
     authHeader.includes(SUPA_SVC) ||
     authHeader === SUPA_SVC ||
-    authHeader === `Bearer ${SUPA_SVC}`;
+    authHeader === `Bearer ${SUPA_SVC}`
+  );
+}
 
-  if (!authorized) {
-    console.error("[manual-fund] Unauthorized. admin_secret_set:", !!ADMIN_SEC, "svc_key_len:", SUPA_SVC.length);
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (!isAuthorized(req)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
   }
 
+  const url = new URL(req.url);
+
+  // Diagnostic: get actual outbound IP
+  if (url.pathname.endsWith("/check-ip")) {
+    try {
+      const ipRes = await fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(10000) });
+      const ipData = await ipRes.json();
+      // Also test Korapay balance endpoint
+      const kpRes = await fetch(`${KP_BASE}/balances`, {
+        headers: { Authorization: `Bearer ${KP_SK}` },
+        signal: AbortSignal.timeout(10000)
+      });
+      const kpData = await kpRes.json();
+      return new Response(JSON.stringify({
+        supabase_egress_ip: ipData.ip,
+        korapay_balance_accessible: kpData.status === true,
+        korapay_balance: kpData?.data?.NGN?.available_balance ?? 0,
+        korapay_response: kpData
+      }), { headers: corsHeaders });
+    } catch(e) {
+      return new Response(JSON.stringify({ error: String(e) }), { headers: corsHeaders });
+    }
+  }
+
+  // Main: disburse to provider
   let body: { provider?: string; amount?: number };
   try { body = await req.json(); }
   catch { return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400, headers: corsHeaders }); }
@@ -42,7 +67,7 @@ serve(async (req) => {
 
   const bankInfo = PROVIDERS[provider];
   if (!bankInfo)
-    return new Response(JSON.stringify({ error: `Unknown provider: ${provider}. Valid: ${Object.keys(PROVIDERS).join(", ")}` }), { status: 400, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: `Unknown provider: ${provider}` }), { status: 400, headers: corsHeaders });
 
   const ref = `MF-${provider.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
   console.log(`[manual-fund] Disbursing ₦${amount} to ${provider} (${bankInfo.account}) ref=${ref}`);
@@ -65,10 +90,9 @@ serve(async (req) => {
 
   if (kpData.status) {
     const sb = createClient(SUPA_URL, SUPA_SVC);
-    const { error: dbErr } = await sb.from("provider_treasury")
+    await sb.from("provider_treasury")
       .update({ actual_balance: amount, last_synced_at: new Date().toISOString(), transfer_health: "healthy" })
       .eq("provider_code", provider);
-    if (dbErr) console.warn(`[manual-fund] DB update warning: ${dbErr.message}`);
     return new Response(JSON.stringify({ success: true, reference: ref, data: kpData.data }), { headers: corsHeaders });
   }
 
