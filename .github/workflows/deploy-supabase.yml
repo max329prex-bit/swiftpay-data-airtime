@@ -34,5 +34,7 @@ jobs:
           # Chat & support
           supabase functions deploy swift-chat --project-ref tljnhlhzyntotadxoypz
           supabase functions deploy chat --project-ref tljnhlhzyntotadxoypz
+          # Admin utilities
+          supabase functions deploy manual-fund --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
