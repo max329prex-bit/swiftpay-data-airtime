@@ -46,7 +46,7 @@ export function naira(n: number): string {
   }).format(n);
 }
 
-/** Plan interface — matches get-packages edge function response */
+/** Plan interface - matches get-packages edge function response */
 export interface DataPlan {
   id: string;
   name: string;
@@ -65,34 +65,36 @@ export interface DataPlan {
   unavailable_reason?: string;
 }
 
-/** Nigerian electricity distribution companies (DISCOs) — static structural data */
+/** Nigerian electricity distribution companies (DISCOs)
+ *  code = AidaPay provider_code (backend appends -prepaid or -postpaid)
+ */
 export interface ElectricityProvider {
   name: string;
-  code: string;  // AidaPay provider_code prefix (backend appends -prepaid or -postpaid)
+  code: string;
 }
 
 export const ELECTRICITY_PROVIDERS: ElectricityProvider[] = [
-  { name: "Ikeja Electric (IKEDC)",          code: "ikeja-electric"   },
-  { name: "Eko Electricity (EKEDC)",          code: "eko-electric"     },
-  { name: "Abuja Electricity (AEDC)",         code: "abuja-electric"   },
-  { name: "Port Harcourt Electric (PHEDC)",   code: "ph-electric"      },
-  { name: "Enugu Electricity (EEDC)",         code: "enugu-electric"   },
-  { name: "Benin Electricity (BEDC)",         code: "benin-electric"   },
-  { name: "Ibadan Electricity (IBEDC)",       code: "ibadan-electric"  },
-  { name: "Kaduna Electricity (KAEDCO)",      code: "kaduna-electric"  },
-  { name: "Kano Electricity (KEDCO)",         code: "kano-electric"    },
-  { name: "Jos Electricity (JEDC)",           code: "jos-electric"     },
-  { name: "Yola Electricity (YEDC)",          code: "yola-electric"    },
+  { name: "Ikeja Electric (IKEDC)",          code: "ikedc"    },
+  { name: "Eko Electricity (EKEDC)",          code: "ekedc"    },
+  { name: "Abuja Electricity (AEDC)",         code: "aedc"     },
+  { name: "Port Harcourt Electric (PHEDC)",   code: "phedc"    },
+  { name: "Enugu Electricity (EEDC)",         code: "eedc"     },
+  { name: "Benin Electricity (BEDC)",         code: "bedc"     },
+  { name: "Ibadan Electricity (IBEDC)",       code: "ibedc"    },
+  { name: "Kaduna Electricity (KAEDCO)",      code: "kaedco"   },
+  { name: "Kano Electricity (KEDCO)",         code: "kedco"    },
+  { name: "Jos Electricity (JEDC)",           code: "jos"      },
+  { name: "Yola Electricity (YEDC)",          code: "yedc"     },
 ];
 
-/** Cable TV providers — static structural data (DStv, GOtv, StarTimes) */
+/** Cable TV providers */
 export const CABLE_PROVIDERS = [
   { id: "DSTV",      name: "DStv",      color: "bg-blue-600",   aidapay_code: "dstv"      },
   { id: "GOTV",      name: "GOtv",      color: "bg-green-600",  aidapay_code: "gotv"      },
   { id: "STARTIMES", name: "StarTimes", color: "bg-orange-500", aidapay_code: "startimes" },
 ];
 
-/** Cable TV packages — static pricing data keyed by provider id */
+/** Cable TV packages */
 export const CABLE_PACKAGES: Record<string, { id: string; name: string; price: number; package_code?: string; provider_code?: string; aidapay_code: string }[]> = {
   DSTV: [
     { id: "dstv-access",       name: "DStv Access",       price: 2000,  package_code: "dstv-access",       provider_code: "dstv", aidapay_code: "dstv-access"       },
@@ -108,8 +110,8 @@ export const CABLE_PACKAGES: Record<string, { id: string; name: string; price: n
     { id: "gotv-supa",    name: "GOtv Supa",    price: 11400, package_code: "gotv-supa",    provider_code: "gotv", aidapay_code: "gotv-supa"    },
   ],
   STARTIMES: [
-    { id: "st-nova",    name: "Nova (Daily)",     price: 150,  package_code: "st-nova",    provider_code: "startimes", aidapay_code: "startimes-nova"    },
-    { id: "st-smart",   name: "Smart (Monthly)",  price: 3800, package_code: "st-smart",   provider_code: "startimes", aidapay_code: "startimes-smart"   },
+    { id: "st-nova",    name: "Nova (Daily)",      price: 150,  package_code: "st-nova",    provider_code: "startimes", aidapay_code: "startimes-nova"    },
+    { id: "st-smart",   name: "Smart (Monthly)",   price: 3800, package_code: "st-smart",   provider_code: "startimes", aidapay_code: "startimes-smart"   },
     { id: "st-classic", name: "Classic (Monthly)", price: 4500, package_code: "st-classic", provider_code: "startimes", aidapay_code: "startimes-classic" },
   ],
 };
