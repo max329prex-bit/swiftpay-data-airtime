@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, LogOut, User, Bell, Shield, Sparkles, ChevronRight, Moon, Sun, Monitor } from "lucide-react";
+import { Eye, EyeOff, LogOut, User, Bell, Shield, Sparkles, ChevronRight, Moon, Sun, Monitor, Activity, BookOpen, Megaphone, ShieldAlert, BarChart3, Headphones } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useHideBalance } from "@/hooks/useHideBalance";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+
+function useIsAdmin() {
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => setIsAdmin(data?.role === "admin"));
+  }, [user]);
+  return isAdmin;
+}
 
 export default function Settings() {
   const { user } = useAuth();
@@ -16,6 +27,7 @@ export default function Settings() {
   const [phone, setPhone] = useState("");
   const [notif, setNotif] = useState(() => localStorage.getItem("swiftly:notif") !== "0");
   const nav = useNavigate();
+  const isAdmin = useIsAdmin();
 
   useEffect(() => {
     if (!user) return;
@@ -61,6 +73,20 @@ export default function Settings() {
           onClick={() => { setTheme(nextTheme); toast.success(`Switched to ${nextTheme} mode`); }} chevron />
         <Row icon={Sparkles} label="BlitzPoints info" desc="Earn points on every purchase" />
       </Section>
+
+      <Section title="Tools">
+        <Row icon={Activity} label="Network Status" desc="View live provider health" onClick={() => nav("/app/provider-status")} chevron />
+        <Row icon={BookOpen} label="Wallet Ledger" desc="Full balance movement history" onClick={() => nav("/app/ledger")} chevron />
+      </Section>
+
+      {isAdmin && (
+        <Section title="Admin">
+          <Row icon={BarChart3} label="Treasury Dashboard" desc="Provider float and health" onClick={() => nav("/app/admin/treasury")} chevron />
+          <Row icon={Headphones} label="Support Center" desc="Manage user tickets" onClick={() => nav("/app/admin/support")} chevron />
+          <Row icon={Megaphone} label="Broadcast" desc="Send system-wide alerts" onClick={() => nav("/app/admin/broadcast")} chevron />
+          <Row icon={ShieldAlert} label="Fraud Monitor" desc="Velocity flags and suspicious activity" onClick={() => nav("/app/admin/fraud")} chevron />
+        </Section>
+      )}
 
       <Section title="Account">
         <Row icon={User} label="Edit profile" onClick={() => toast("Coming soon")} chevron />
