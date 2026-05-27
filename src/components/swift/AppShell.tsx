@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Wallet as WalletIcon, Receipt, Settings as SettingsIcon, Bell, X, CheckCheck, AlertCircle, Info } from "lucide-react";
+import { Home, Wallet as WalletIcon, Receipt, Settings as SettingsIcon, Bell, X, CheckCheck, AlertCircle, Info, MessageCircle, Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "./Logo";
 import { BoltLoader, SplashScreen } from "./BoltLoader";
@@ -18,6 +18,7 @@ const TABS = [
 ];
 
 type Notif = { id: string; title: string; body: string; read: boolean };
+type ChatMsg = { role: "user" | "blitzi"; text: string };
 
 export function AppShell() {
   const { user, loading } = useAuth();
@@ -27,6 +28,13 @@ export function AppShell() {
   const [showSplash, setShowSplash] = useState(true);
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [broadcastDismissed, setBroadcastDismissed] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([
+    { role: "blitzi", text: "Hi! I\'m Blitzi, your BlitzPay assistant. Ask me anything about your account, data plans, or transactions." }
+  ]);
+  const [chatBusy, setChatBusy] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const broadcast = useBroadcast();
   usePushNotifications();
 
@@ -49,7 +57,7 @@ export function AppShell() {
     const items: Notif[] = [];
     const welcomedKey = `bp_welcomed_${user.id}`;
     if (!localStorage.getItem(welcomedKey)) {
-      items.push({ id: "welcome", title: "Welcome to BlitzPay!", body: "Your account is set up and ready. Fund your wallet to get started.", read: false });
+      items.push({ id: "welcome", title: "Welcome to BlitzPay!", body: "Fund your wallet and enjoy instant data & airtime.", read: false });
       localStorage.setItem(welcomedKey, "1");
     }
     supabase.from("transactions").select("id, amount, created_at").eq("user_id", user.id).eq("type", "wallet_topup")
@@ -57,7 +65,7 @@ export function AppShell() {
       .then(({ data }) => {
         const txNotifs: Notif[] = (data || []).map(t => ({
           id: t.id, title: "Wallet Funded",
-          body: `${naira(Number(t.amount))} was added to your wallet.`,
+          body: `${naira(Number(t.amount))} added to your wallet.`,
           read: !!localStorage.getItem(`bp_nr_${t.id}`),
         }));
         setNotifs([...items, ...txNotifs]);
@@ -69,6 +77,28 @@ export function AppShell() {
   function markAllRead() {
     notifs.forEach(n => localStorage.setItem(`bp_nr_${n.id}`, "1"));
     setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+  }
+
+  useEffect(() => {
+    if (showChat) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMsgs, showChat]);
+
+  async function sendChat() {
+    const msg = chatInput.trim();
+    if (!msg || chatBusy) return;
+    setChatInput("");
+    setChatMsgs(prev => [...prev, { role: "user", text: msg }]);
+    setChatBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("swift-chat", { body: { message: msg } });
+      if (error) throw error;
+      const reply = data?.reply || data?.message || "Sorry, I couldn\'t get a response. Try again!";
+      setChatMsgs(prev => [...prev, { role: "blitzi", text: reply }]);
+    } catch {
+      setChatMsgs(prev => [...prev, { role: "blitzi", text: "Something went wrong. Please try again in a moment." }]);
+    } finally {
+      setChatBusy(false);
+    }
   }
 
   if (showSplash || loading) return (
@@ -98,7 +128,6 @@ export function AppShell() {
             )}
           </button>
         </div>
-
         <AnimatePresence>
           {broadcast?.active && !broadcastDismissed && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
@@ -109,9 +138,7 @@ export function AppShell() {
                   {broadcast.title && <strong className="font-semibold">{broadcast.title}: </strong>}
                   {broadcast.message}
                 </p>
-                <button onClick={() => setBroadcastDismissed(true)} className="flex-shrink-0 opacity-60 hover:opacity-100">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                <button onClick={() => setBroadcastDismissed(true)} className="flex-shrink-0 opacity-60 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
               </div>
             </motion.div>
           )}
@@ -119,6 +146,16 @@ export function AppShell() {
       </header>
 
       <main className="px-5 pt-5"><Outlet /></main>
+
+      {/* Blitzi floating chat button */}
+      <motion.button
+        onClick={() => setShowChat(true)}
+        whileTap={{ scale: 0.9 }}
+        className="fixed bottom-24 right-5 z-30 h-12 w-12 rounded-full bg-gradient-primary shadow-glow grid place-items-center"
+        title="Chat with Blitzi"
+      >
+        <MessageCircle className="h-5 w-5 text-white" />
+      </motion.button>
 
       <nav className="fixed bottom-4 left-1/2 z-30 w-[92%] max-w-sm -translate-x-1/2">
         <div className="glass flex items-center justify-around rounded-3xl border border-white/10 px-2 py-2 shadow-glow backdrop-blur-2xl">
@@ -137,6 +174,78 @@ export function AppShell() {
         </div>
       </nav>
 
+      {/* Blitzi Chat Drawer */}
+      <AnimatePresence>
+        {showChat && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowChat(false)} />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-white/10 flex flex-col"
+              style={{ height: "70vh" }}>
+              {/* Chat header */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/5 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-gradient-primary grid place-items-center shadow-glow">
+                    <span className="text-base">⚡</span>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">Blitzi</div>
+                    <div className="text-[10px] text-accent">AI Assistant</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowChat(false)} className="grid h-8 w-8 place-items-center rounded-full glass">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Chat messages */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-hide">
+                {chatMsgs.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-gradient-primary text-white rounded-br-sm"
+                        : "bg-white/[0.07] text-foreground rounded-bl-sm"
+                    }`}>
+                      {m.text}
+                    </div>
+                  </div>
+                ))}
+                {chatBusy && (
+                  <div className="flex justify-start">
+                    <div className="bg-white/[0.07] rounded-2xl rounded-bl-sm px-4 py-2.5 flex items-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Blitzi is typing...</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Chat input */}
+              <div className="px-4 pb-5 pt-2 border-t border-white/5 flex-shrink-0">
+                <div className="flex items-center gap-2 glass rounded-2xl px-4 py-2">
+                  <input
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendChat()}
+                    placeholder="Ask Blitzi anything..."
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                  <button onClick={sendChat} disabled={!chatInput.trim() || chatBusy}
+                    className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-primary disabled:opacity-40 transition">
+                    <Send className="h-3.5 w-3.5 text-white" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Notification panel */}
       <AnimatePresence>
         {showNotifs && (
           <>
