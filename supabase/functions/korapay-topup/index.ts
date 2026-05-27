@@ -28,7 +28,7 @@ serve(async (req) => {
     const korapayBody: Record<string, unknown> = {
       amount, currency: "NGN", reference: ref,
       notification_url: `${SUPA_URL}/functions/v1/korapay-webhook`,
-      merchant_bears_cost: false,
+      merchant_bears_cost: true,
       customer: { name: user.email?.split("@")[0] || "BlitzPay User", email: user.email },
       channels: ["bank_transfer"],
       narration: `BlitzPay wallet top-up`,
