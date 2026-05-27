@@ -58,12 +58,13 @@ serve(async (req) => {
     const lastMsg = messages?.[messages.length - 1]?.content ?? "";
 
     if (CEREBRAS_KEY) {
+      console.log("[swift-chat] Using Cerebras AI, key length:", CEREBRAS_KEY.length);
       try {
         const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
           method: "POST",
           headers: { "Authorization": `Bearer ${CEREBRAS_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "llama3.1-8b",
+            model: "llama-3.3-70b",
             messages: [{ role: "system", content: SYS }, ...(messages || [])],
             max_tokens: 800,
             temperature: 0.6,
