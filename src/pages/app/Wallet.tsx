@@ -1,21 +1,20 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWallet } from "@/hooks/useWallet";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ExternalLink, AlertCircle, Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 
 const QUICK = [500, 1000, 2000, 5000, 10000, 20000];
-const FEE_PCT = 1.61;
+const FEE_PCT = 2;
 
 export default function Wallet() {
   const { balance, refresh } = useWallet();
-  const [amount, setAmount]   = useState(0);
-  const [busy, setBusy]       = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [amount, setAmount] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   const fee       = amount > 0 ? Math.round(amount * (FEE_PCT / 100) * 100) / 100 : 0;
   const netCredit = amount - fee;
@@ -23,36 +22,39 @@ export default function Wallet() {
   async function initiateFunding() {
     if (amount < 100) return toast.error("Minimum deposit is ₦100");
     setBusy(true);
-    setCheckoutUrl(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      const redirectBase = `${window.location.origin}/app/deposit-status`;
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/korapay-topup`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-          body: JSON.stringify({ amount })
+          body: JSON.stringify({ amount, redirect_base_url: redirectBase })
         }
       );
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed to initialize payment");
-      setCheckoutUrl(data.checkout_url);
-      toast.success("Payment ready — complete the transfer to fund your wallet");
+      // Store ref for status page
+      sessionStorage.setItem("bp_pending_ref", data.reference);
+      sessionStorage.setItem("bp_pending_amount", String(amount));
+      // Redirect directly to Korapay — no confirmation step
+      window.location.href = data.checkout_url;
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
       setBusy(false);
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
     }
+    // Note: don't set setBusy(false) on success — page is navigating away
   }
 
+  // Live wallet update after return from Korapay
   useEffect(() => {
     const ch = supabase.channel("wallet-live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "transactions" },
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "transactions" },
         (p) => {
           if (p.new?.type === "wallet_fund" && p.new?.status === "success") {
             refresh();
             toast.success(`Wallet funded! +${naira(p.new.amount)}`);
-            setCheckoutUrl(null); setAmount(0);
           }
         })
       .subscribe();
@@ -61,7 +63,7 @@ export default function Wallet() {
 
   return (
     <div className="space-y-5 pb-10">
-      <h1 className="font-display text-2xl font-semibold">Wallet</h1>
+      <h1 className="font-display text-2xl font-semibold">Deposit</h1>
 
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
@@ -70,32 +72,8 @@ export default function Wallet() {
         <div className="mt-1 font-display text-4xl font-bold text-white">{naira(balance)}</div>
       </motion.div>
 
-      <AnimatePresence>
-        {checkoutUrl && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-amber-300">Transfer pending</p>
-                <p className="mt-1 text-xs text-amber-400/80">
-                  Transfer <strong>{naira(amount)}</strong> to the bank account on the payment page.
-                  Your wallet updates automatically once received.
-                </p>
-                <Button asChild size="sm" variant="outline"
-                  className="mt-3 border-amber-500/40 text-amber-300 hover:bg-amber-500/10">
-                  <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="mr-2 h-3.5 w-3.5" />Open payment page
-                  </a>
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="space-y-3">
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Amount to fund</div>
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Amount to deposit</div>
         <Input value={amount || ""} onChange={e => setAmount(Math.max(0, Number(e.target.value.replace(/\D/g, ""))))}
           placeholder="₦ 0" inputMode="numeric" className="h-14 rounded-2xl bg-secondary/40 text-lg font-semibold" />
         <div className="grid grid-cols-3 gap-2">
@@ -130,10 +108,16 @@ export default function Wallet() {
         </motion.div>
       )}
 
-      <Button onClick={checkoutUrl ? () => window.open(checkoutUrl, "_blank") : initiateFunding}
-        disabled={busy || amount < 100} className="h-14 w-full rounded-2xl text-base font-semibold">
-        {busy ? "Initializing…" : checkoutUrl ? "Open Payment Page ↗" : `Fund Wallet — ${naira(amount || 0)}`}
+      <Button onClick={initiateFunding} disabled={busy || amount < 100}
+        className="h-14 w-full rounded-2xl text-base font-semibold">
+        {busy
+          ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Opening payment page...</>
+          : `Deposit ${amount >= 100 ? naira(amount) : ""}`}
       </Button>
+
+      <p className="text-center text-xs text-muted-foreground">
+        You will be taken to Korapay to complete your bank transfer. Your wallet updates instantly once confirmed.
+      </p>
     </div>
   );
 }
