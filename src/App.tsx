@@ -24,6 +24,7 @@ import TransactionDetail from "./pages/app/TransactionDetail.tsx";
 import Receipt from "./pages/app/Receipt.tsx";
 import ProviderStatus from "./pages/app/ProviderStatus.tsx";
 import Ledger from "./pages/app/Ledger.tsx";
+import DepositStatus from "./pages/app/DepositStatus.tsx";
 import TreasuryDashboard from "./pages/app/admin/TreasuryDashboard.tsx";
 import SupportCenter from "./pages/app/admin/SupportCenter.tsx";
 import FraudMonitor from "./pages/app/admin/FraudMonitor.tsx";
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="receipt/:id" element={<Receipt />} />
               <Route path="provider-status" element={<ProviderStatus />} />
               <Route path="ledger" element={<Ledger />} />
+              <Route path="deposit-status" element={<DepositStatus />} />
               <Route path="admin/treasury" element={<TreasuryDashboard />} />
               <Route path="admin/support" element={<SupportCenter />} />
               <Route path="admin/fraud" element={<FraudMonitor />} />
