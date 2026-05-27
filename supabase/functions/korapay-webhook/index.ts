@@ -33,19 +33,22 @@ serve(async (req) => {
     if (event !== "charge.success") return new Response(OK, { status: 200, headers: OK_HDR });
     const ref = (data?.reference ?? "") as string;
     const amount = Number(data?.amount ?? 0);
+    // Use net_credit from metadata (amount after BlitzPay 2% fee)
+    const netCredit = Number(data?.metadata?.net_credit ?? 0);
+    const creditAmount = netCredit > 0 ? netCredit : amount;
     const userId = (data?.metadata?.user_id ?? "") as string;
     if (!ref || !userId || amount < 100) { console.warn("Korapay: missing fields"); return new Response(OK, { status: 200, headers: OK_HDR }); }
     const sb = createClient(SUPA_URL, SUPA_SVC);
     const { error: dupErr } = await sb.from("webhook_events").insert({ event_id: `korapay-${ref}`, provider: "korapay", event_type: event, payload: body });
     if (dupErr) { console.warn("Korapay: duplicate", ref); return new Response(OK, { status: 200, headers: OK_HDR }); }
-    const { error: creditErr } = await sb.rpc("credit_wallet_from_korapay", { _user_id: userId, _amount: amount, _korapay_ref: ref });
+    const { error: creditErr } = await sb.rpc("credit_wallet_from_korapay", { _user_id: userId, _amount: creditAmount, _korapay_ref: ref });
     if (creditErr) {
       if (!creditErr.message?.includes("DUPLICATE")) {
         console.error("Korapay: credit failed:", creditErr.message);
         await tg(`⚠️ *Korapay credit failed*\nRef: \`${ref}\`\nAmount: ₦${amount}\nError: ${creditErr.message}`);
       }
     } else {
-      console.log(`Korapay: credited ₦${amount} to ${userId}`);
+      console.log(`Korapay: credited ₦${creditAmount} (net of ${netCredit}) to ${userId}`);
       await tg(`✅ *Wallet funded*\n₦${amount.toLocaleString()} credited to ${userId.substring(0,8)}...\nRef: \`${ref}\``);
     }
     return new Response(OK, { status: 200, headers: OK_HDR });
