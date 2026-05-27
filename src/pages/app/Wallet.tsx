@@ -1,36 +1,67 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWallet } from "@/hooks/useWallet";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, CreditCard, Plus } from "lucide-react";
+import { ExternalLink, AlertCircle, Info } from "lucide-react";
 
 const QUICK = [500, 1000, 2000, 5000, 10000, 20000];
+const FEE_PCT = 1.61;
 
 export default function Wallet() {
   const { balance, refresh } = useWallet();
-  const [amount, setAmount] = useState(0);
-  const [method, setMethod] = useState<"transfer" | "card">("transfer");
-  const [busy, setBusy] = useState(false);
+  const [amount, setAmount]   = useState(0);
+  const [busy, setBusy]       = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
-  async function topup() {
-    if (amount < 100) return toast.error("Min ₦100");
+  const fee       = amount > 0 ? Math.round(amount * (FEE_PCT / 100) * 100) / 100 : 0;
+  const netCredit = amount - fee;
+
+  async function initiateFunding() {
+    if (amount < 100) return toast.error("Minimum deposit is ₦100");
     setBusy(true);
-    const { error } = await supabase.rpc("topup_wallet", { _amount: amount, _method: method });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success(`Wallet funded with ${naira(amount)}`);
-    refresh(); setAmount(0);
+    setCheckoutUrl(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/korapay-topup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ amount })
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to initialize payment");
+      setCheckoutUrl(data.checkout_url);
+      toast.success("Payment ready — complete the transfer to fund your wallet");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
   }
+
+  useEffect(() => {
+    const ch = supabase.channel("wallet-live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "transactions" },
+        (p) => {
+          if (p.new?.type === "wallet_fund" && p.new?.status === "success") {
+            refresh();
+            toast.success(`Wallet funded! +${naira(p.new.amount)}`);
+            setCheckoutUrl(null); setAmount(0);
+          }
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [refresh]);
 
   return (
     <div className="space-y-5 pb-10">
-      <div>
-        <h1 className="font-display text-2xl font-semibold">Wallet</h1>
-      </div>
+      <h1 className="font-display text-2xl font-semibold">Wallet</h1>
 
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
@@ -39,9 +70,34 @@ export default function Wallet() {
         <div className="mt-1 font-display text-4xl font-bold text-white">{naira(balance)}</div>
       </motion.div>
 
+      <AnimatePresence>
+        {checkoutUrl && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-amber-300">Transfer pending</p>
+                <p className="mt-1 text-xs text-amber-400/80">
+                  Transfer <strong>{naira(amount)}</strong> to the bank account on the payment page.
+                  Your wallet updates automatically once received.
+                </p>
+                <Button asChild size="sm" variant="outline"
+                  className="mt-3 border-amber-500/40 text-amber-300 hover:bg-amber-500/10">
+                  <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="mr-2 h-3.5 w-3.5" />Open payment page
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="space-y-3">
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Top-up amount</div>
-        <Input value={amount || ""} onChange={e => setAmount(Math.max(0, Number(e.target.value.replace(/\D/g, ""))))} placeholder="₦ 0" inputMode="numeric" className="h-14 rounded-2xl bg-secondary/40 text-lg font-semibold" />
+        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Amount to fund</div>
+        <Input value={amount || ""} onChange={e => setAmount(Math.max(0, Number(e.target.value.replace(/\D/g, ""))))}
+          placeholder="₦ 0" inputMode="numeric" className="h-14 rounded-2xl bg-secondary/40 text-lg font-semibold" />
         <div className="grid grid-cols-3 gap-2">
           {QUICK.map(v => (
             <button key={v} onClick={() => setAmount(v)} type="button"
@@ -52,27 +108,32 @@ export default function Wallet() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Pay with</div>
-        {[
-          { id: "transfer", icon: Building2, label: "Bank transfer", sub: "Free • Instant" },
-          { id: "card", icon: CreditCard, label: "Debit card", sub: "1.5% fee" },
-        ].map((m: any) => (
-          <button key={m.id} onClick={() => setMethod(m.id)} type="button"
-            className={`flex w-full items-center justify-between rounded-2xl border p-4 transition ${method === m.id ? "border-primary bg-primary/10" : "border-white/10 bg-white/[0.03]"}`}>
-            <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-primary"><m.icon className="h-4 w-4 text-white" /></span>
-              <div className="text-left"><div className="text-sm font-semibold">{m.label}</div><div className="text-[11px] text-muted-foreground">{m.sub}</div></div>
-            </div>
-            <span className={`h-4 w-4 rounded-full border ${method === m.id ? "border-accent bg-accent" : "border-white/20"}`} />
-          </button>
-        ))}
-      </div>
+      {amount >= 100 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="rounded-xl border border-white/8 bg-white/[0.03] p-3 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+            <Info className="h-3.5 w-3.5" /><span>Breakdown</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">You transfer</span>
+            <span className="font-medium">{naira(amount)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Processing fee ({FEE_PCT}%)</span>
+            <span className="text-red-400">-{naira(fee)}</span>
+          </div>
+          <div className="my-1.5 h-px bg-white/8" />
+          <div className="flex justify-between text-sm font-semibold">
+            <span>Wallet credited</span>
+            <span className="text-green-400">{naira(Math.max(0, netCredit))}</span>
+          </div>
+        </motion.div>
+      )}
 
-      <Button variant="hero" size="xl" className="w-full" disabled={busy || !amount} onClick={topup}>
-        <Plus /> {busy ? "Processing…" : `Add ${amount ? naira(amount) : "funds"}`}
+      <Button onClick={checkoutUrl ? () => window.open(checkoutUrl, "_blank") : initiateFunding}
+        disabled={busy || amount < 100} className="h-14 w-full rounded-2xl text-base font-semibold">
+        {busy ? "Initializing…" : checkoutUrl ? "Open Payment Page ↗" : `Fund Wallet — ${naira(amount || 0)}`}
       </Button>
-      <p className="text-center text-[11px] text-muted-foreground">Demo mode — funds are credited instantly. Real payment gateway integration available on request.</p>
     </div>
   );
 }
