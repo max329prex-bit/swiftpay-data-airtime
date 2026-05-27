@@ -25,30 +25,29 @@ serve(async (req) => {
   try {
     const rawBody = await req.text();
     const kSig = req.headers.get("x-korapay-signature") ?? "";
-    // FIXED: require signature — no sig OR bad sig = silent drop (return 200 to stop retries)
-    if (!kSig) { console.warn("korapay-webhook: no signature"); return new Response(OK, { status: 200, headers: OK_HDR }); }
+    if (!kSig) { console.warn("Korapay: unsigned request dropped"); return new Response(OK, { status: 200, headers: OK_HDR }); }
     const expected = await hmacSha256Hex(KP_SK, rawBody);
-    if (kSig !== expected) { console.error("korapay-webhook: bad signature"); return new Response(OK, { status: 200, headers: OK_HDR }); }
+    if (kSig !== expected) { console.error("Korapay: bad signature dropped"); return new Response(OK, { status: 200, headers: OK_HDR }); }
     const body = JSON.parse(rawBody);
     const { event, data } = body;
     if (event !== "charge.success") return new Response(OK, { status: 200, headers: OK_HDR });
     const ref = (data?.reference ?? "") as string;
     const amount = Number(data?.amount ?? 0);
     const userId = (data?.metadata?.user_id ?? "") as string;
-    if (!ref || !userId || amount < 100) { console.warn("korapay-webhook: missing fields"); return new Response(OK, { status: 200, headers: OK_HDR }); }
+    if (!ref || !userId || amount < 100) { console.warn("Korapay: missing fields"); return new Response(OK, { status: 200, headers: OK_HDR }); }
     const sb = createClient(SUPA_URL, SUPA_SVC);
     const { error: dupErr } = await sb.from("webhook_events").insert({ event_id: `korapay-${ref}`, provider: "korapay", event_type: event, payload: body });
-    if (dupErr) { console.warn("korapay-webhook: duplicate", ref); return new Response(OK, { status: 200, headers: OK_HDR }); }
+    if (dupErr) { console.warn("Korapay: duplicate", ref); return new Response(OK, { status: 200, headers: OK_HDR }); }
     const { error: creditErr } = await sb.rpc("credit_wallet_from_korapay", { _user_id: userId, _amount: amount, _korapay_ref: ref });
     if (creditErr) {
       if (!creditErr.message?.includes("DUPLICATE")) {
-        console.error("korapay-webhook: credit failed:", creditErr.message);
-        await tg(`⚠️ *Korapay credit failed*\nRef: \`${ref}\`\nAmount: \u20a6${amount}\nError: ${creditErr.message}`);
+        console.error("Korapay: credit failed:", creditErr.message);
+        await tg(`⚠️ *Korapay credit failed*\nRef: \`${ref}\`\nAmount: ₦${amount}\nError: ${creditErr.message}`);
       }
     } else {
-      console.log(`korapay-webhook: credited \u20a6${amount} to ${userId}`);
-      await tg(`✅ *Wallet funded*\n\u20a6${amount.toLocaleString()} credited to ${userId.substring(0,8)}...\nRef: \`${ref}\``);
+      console.log(`Korapay: credited ₦${amount} to ${userId}`);
+      await tg(`✅ *Wallet funded*\n₦${amount.toLocaleString()} credited to ${userId.substring(0,8)}...\nRef: \`${ref}\``);
     }
     return new Response(OK, { status: 200, headers: OK_HDR });
-  } catch (e) { console.error("korapay-webhook error:", e); return new Response(OK, { status: 200, headers: OK_HDR }); }
+  } catch (e) { console.error("Korapay webhook:", e); return new Response(OK, { status: 200, headers: OK_HDR }); }
 });
