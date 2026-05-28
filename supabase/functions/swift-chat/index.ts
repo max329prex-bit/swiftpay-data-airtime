@@ -107,9 +107,9 @@ serve(async (req) => {
       method: "POST",
       headers: { "Authorization": `Bearer ${CEREBRAS_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b",
+        model: "gpt-oss-120b",
         messages: [{ role: "system", content: sysPrompt }, ...messages],
-        max_tokens: 800,
+        max_tokens: 2000,
         temperature: 0.65,
         top_p: 0.9,
       }),
