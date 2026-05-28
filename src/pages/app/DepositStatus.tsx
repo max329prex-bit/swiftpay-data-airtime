@@ -10,12 +10,13 @@ type TxStatus = "pending" | "processing" | "success" | "failed" | "verifying";
 export default function DepositStatus() {
   const [params] = useSearchParams();
   const ref = params.get("ref") || sessionStorage.getItem("bp_pending_ref") || "";
+  const txnStatus = params.get("txn-status") || "";  // Korapay's redirect status
   const pendingAmount = Number(sessionStorage.getItem("bp_pending_amount") || 0);
   const [tx, setTx] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState<TxStatus>("pending");
   const [dots, setDots] = useState("");
-  // FIX: use ref to track latest status inside interval (avoids stale closure)
   const statusRef = useRef<TxStatus>("pending");
+  const verifiedRef = useRef(false);  // prevent double-verify
 
   function updateStatus(s: TxStatus, txData?: Record<string, unknown>) {
     setStatus(s);
@@ -26,6 +27,36 @@ export default function DepositStatus() {
       sessionStorage.removeItem("bp_pending_amount");
     }
   }
+
+  // When Korapay redirects back with txn-status=success, immediately verify + credit
+  useEffect(() => {
+    if (!ref || !txnStatus || verifiedRef.current) return;
+    if (txnStatus !== "success" && txnStatus !== "paid") return;
+    verifiedRef.current = true;
+
+    async function verifyNow() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-deposit`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ reference: ref })
+          }
+        );
+        const data = await res.json();
+        if (data.success) {
+          console.log("[DepositStatus] verify-deposit confirmed credit");
+          // Poll will pick it up within 4s — no need to force state here
+        }
+      } catch (e) {
+        console.warn("[DepositStatus] verify-deposit call failed:", e);
+      }
+    }
+    verifyNow();
+  }, [ref, txnStatus]);
 
   // Animate dots
   useEffect(() => {
@@ -50,7 +81,6 @@ export default function DepositStatus() {
 
     check();
 
-    // FIX: check statusRef.current (not stale state variable) to stop polling
     const interval = setInterval(() => {
       if (statusRef.current === "success" || statusRef.current === "failed") {
         clearInterval(interval);
@@ -59,9 +89,8 @@ export default function DepositStatus() {
       check();
     }, 4000);
 
-    // Real-time listener
     const ch = supabase.channel("deposit-status-" + ref)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "transactions" },
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" },
         (p) => {
           if (p.new?.reference === ref) {
             updateStatus(p.new.status as TxStatus, p.new as Record<string, unknown>);
@@ -73,7 +102,7 @@ export default function DepositStatus() {
       clearInterval(interval);
       supabase.removeChannel(ch);
     };
-  }, [ref]); // only depends on ref — status changes don't re-create the interval
+  }, [ref]);
 
   const amount = tx?.amount ? Number(tx.amount) : pendingAmount;
 
@@ -130,7 +159,6 @@ export default function DepositStatus() {
     );
   }
 
-  // Pending / processing / verifying
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-6 pb-10 px-4">
@@ -141,10 +169,12 @@ export default function DepositStatus() {
         <h1 className="font-display text-3xl font-bold">Verifying Payment{dots}</h1>
         {amount > 0 && <p className="mt-2 text-muted-foreground">{naira(amount)} payment in progress</p>}
         <p className="mt-3 text-xs text-muted-foreground max-w-xs mx-auto">
-          Complete the bank transfer on the Korapay page. This screen will update automatically once your payment is confirmed.
+          Complete the bank transfer on the Korapay page. This screen updates automatically once confirmed.
         </p>
       </div>
-      <Link to="/app" className="text-sm text-muted-foreground underline">Back to Home (payment continues in background)</Link>
+      <Link to="/app" className="text-sm text-muted-foreground underline">
+        Back to Home (payment continues in background)
+      </Link>
     </motion.div>
   );
 }
