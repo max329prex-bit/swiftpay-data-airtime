@@ -38,6 +38,13 @@ export function AppShell() {
   const broadcast = useBroadcast();
   usePushNotifications();
 
+  // Listen for open-blitzi-chat event dispatched from Support page
+  useEffect(() => {
+    function handleOpenChat() { setShowChat(true); }
+    window.addEventListener("open-blitzi-chat", handleOpenChat);
+    return () => window.removeEventListener("open-blitzi-chat", handleOpenChat);
+  }, []);
+
   useEffect(() => {
     if (!loading && !user) nav("/auth", { replace: true });
   }, [user, loading, nav]);
