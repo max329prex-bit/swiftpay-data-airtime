@@ -157,8 +157,8 @@ export default function Dashboard() {
                   <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` · ${t.network}` : ""}</div>
                   <div className="text-[11px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
-                <div className={`text-sm font-semibold ${t.type === "wallet_topup" ? "text-accent" : ""}`}>
-                  {t.type === "wallet_topup" ? "+" : "-"}{naira(Number(t.amount))}
+                <div className={`text-sm font-semibold ${t.type === "wallet_topup" || t.type === "wallet_fund" ? "text-green-400" : ""}`}>
+                  {t.type === "wallet_topup" || t.type === "wallet_fund" ? "+" : "-"}{naira(Number(t.amount))}
                 </div>
               </div>
             ))}
