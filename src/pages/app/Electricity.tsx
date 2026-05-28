@@ -1,20 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ELECTRICITY_PROVIDERS, naira } from "@/lib/networks";
+import { naira } from "@/lib/networks";
 import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, X, ChevronDown, Zap, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle2, X, ChevronDown, Zap, Clock, Loader2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const QUICK_AMOUNTS = [1000, 2000, 3000, 5000, 10000, 20000];
 type Step = "form" | "pin";
 
-// AidaPay electricity is live
-const ELECTRICITY_LIVE = true;
+interface ElectricityProvider { name: string; code: string; }
 
 /** Extract a human-readable error from Supabase FunctionsHttpError or any thrown error */
 async function extractError(e: unknown, fallback = "Service temporarily unavailable. Please try again."): Promise<string> {
@@ -27,11 +26,27 @@ async function extractError(e: unknown, fallback = "Service temporarily unavaila
   return (e as any).message || fallback;
 }
 
+// Fallback providers if API fails
+const FALLBACK_PROVIDERS: ElectricityProvider[] = [
+  { name: "Ikeja Electric (IKEDC)", code: "ikedc-prepaid" },
+  { name: "Eko Electricity (EKEDC)", code: "ekedc-prepaid" },
+  { name: "Abuja Electricity (AEDC)", code: "aedc-prepaid" },
+  { name: "Port Harcourt Electric (PHEDC)", code: "phedc-prepaid" },
+  { name: "Enugu Electricity (EEDC)", code: "eedc-prepaid" },
+  { name: "Benin Electricity (BEDC)", code: "bedc-prepaid" },
+  { name: "Ibadan Electricity (IBEDC)", code: "ibedc-prepaid" },
+  { name: "Kaduna Electricity (KAEDCO)", code: "kaedco-prepaid" },
+  { name: "Kano Electricity (KEDCO)", code: "kedco-prepaid" },
+  { name: "Jos Electricity (JEDC)", code: "jos-prepaid" },
+  { name: "Yola Electricity (YEDC)", code: "yedc-prepaid" },
+];
+
 export default function Electricity() {
-  const [provider, setProvider] = useState(ELECTRICITY_PROVIDERS[0]);
+  const [providers, setProviders] = useState<ElectricityProvider[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+  const [provider, setProvider] = useState<ElectricityProvider | null>(null);
   const [showProviders, setShowProviders] = useState(false);
   const [meter, setMeter] = useState("");
-  const [meterType, setMeterType] = useState<"prepaid" | "postpaid">("prepaid");
   const [customerName, setCustomerName] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -42,36 +57,34 @@ export default function Electricity() {
   const { balance, refresh } = useWallet();
   const nav = useNavigate();
 
-  if (!ELECTRICITY_LIVE) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 text-center px-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/20"
-        >
-          <Clock className="h-9 w-9 text-amber-400" />
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div className="font-display text-2xl font-bold mb-2">Electricity Payment</div>
-          <div className="font-display text-base font-semibold text-amber-400 mb-2">Coming Soon</div>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            We are activating electricity payments for all DISCOs. Check back shortly!
-          </p>
-        </motion.div>
-        <Button variant="hero" onClick={() => nav("/app")} className="mt-2">
-          Back to Dashboard
-        </Button>
-      </div>
-    );
-  }
+  // Load actual provider codes from AidaPay
+  useEffect(() => {
+    supabase.functions.invoke("get-electricity-providers")
+      .then(({ data, error }) => {
+        if (!error && data?.success && Array.isArray(data.providers) && data.providers.length > 0) {
+          setProviders(data.providers);
+          setProvider(data.providers[0]);
+        } else {
+          // Fallback to hardcoded list
+          setProviders(FALLBACK_PROVIDERS);
+          setProvider(FALLBACK_PROVIDERS[0]);
+        }
+      })
+      .catch(() => {
+        setProviders(FALLBACK_PROVIDERS);
+        setProvider(FALLBACK_PROVIDERS[0]);
+      })
+      .finally(() => setLoadingProviders(false));
+  }, []);
 
   async function verifyMeter() {
+    if (!provider) return;
     if (meter.length < 10) return toast.error("Enter valid meter number");
     setVerifying(true);
     try {
+      // Pass provider code as-is (already includes meter type from AidaPay)
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
-        body: { type: "electricity_verify", provider: provider.code, meter_number: meter, meter_type: meterType }
+        body: { type: "electricity_verify", provider_code: provider.code, meter_number: meter }
       });
       if (error) {
         const msg = await extractError(error, "Meter verification failed — please try again");
@@ -92,13 +105,14 @@ export default function Electricity() {
   }
 
   async function pay() {
+    if (!provider) return;
     if (pin.length < 4) return toast.error("Enter 4-digit PIN");
     if (amount < 1000) return toast.error("Min \u20a61,000");
     if (amount > balance) return toast.error("Insufficient balance");
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
-        body: { type: "electricity", provider: provider.code, meter, meter_type: meterType, amount, pin }
+        body: { type: "electricity", provider_code: provider.code, meter: meter, amount, pin }
       });
       if (error) {
         const msg = await extractError(error, "Payment failed — please try again");
@@ -113,6 +127,17 @@ export default function Electricity() {
       setBusy(false);
     }
   }
+
+  if (loadingProviders) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        <div className="text-sm text-muted-foreground">Loading electricity providers...</div>
+      </div>
+    );
+  }
+
+  if (!provider) return null;
 
   return (
     <div className="space-y-4 pb-10">
@@ -141,7 +166,7 @@ export default function Electricity() {
         </button>
         {showProviders && (
           <div className="glass rounded-2xl overflow-hidden">
-            {ELECTRICITY_PROVIDERS.map(p => (
+            {providers.map(p => (
               <button key={p.code} onClick={() => { setProvider(p); setShowProviders(false); setVerified(false); setCustomerName(""); }}
                 className="flex w-full items-center gap-3 p-4 hover:bg-white/5 text-left">
                 <span className="font-medium text-sm">{p.name}</span>
@@ -150,14 +175,6 @@ export default function Electricity() {
           </div>
         )}
       </div>
-      <div className="flex gap-2">
-        {(["prepaid", "postpaid"] as const).map(t => (
-          <button key={t} onClick={() => { setMeterType(t); setVerified(false); setCustomerName(""); }}
-            className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${meterType === t ? "bg-primary text-white" : "glass text-muted-foreground"}`}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
       <div className="space-y-2">
         <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Meter Number</div>
         <div className="flex gap-2">
@@ -165,7 +182,7 @@ export default function Electricity() {
             className="h-14 rounded-2xl bg-secondary/40 text-base flex-1" />
           <Button onClick={verifyMeter} disabled={verifying || meter.length < 10} variant="hero"
             className="h-14 rounded-2xl px-5">
-            {verifying ? "\u2026" : "Verify"}
+            {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
           </Button>
         </div>
         {verified && customerName && (
@@ -209,7 +226,7 @@ export default function Electricity() {
               </div>
               <div className="space-y-3 mb-6">
                 {[
-                  { label: "Service", value: `${provider.name} (${meterType})` },
+                  { label: "Service", value: provider.name },
                   { label: "Meter", value: meter },
                   { label: "Customer", value: customerName },
                   { label: "Amount", value: naira(amount), bold: true },
