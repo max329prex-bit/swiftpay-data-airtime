@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { naira } from "@/lib/networks";
 import { motion } from "framer-motion";
-import { CheckCircle2, Clock, XCircle, RefreshCw, Home, Receipt } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, RefreshCw, Home } from "lucide-react";
 
 type TxStatus = "pending" | "processing" | "success" | "failed" | "verifying";
 
@@ -11,10 +11,21 @@ export default function DepositStatus() {
   const [params] = useSearchParams();
   const ref = params.get("ref") || sessionStorage.getItem("bp_pending_ref") || "";
   const pendingAmount = Number(sessionStorage.getItem("bp_pending_amount") || 0);
-  const nav = useNavigate();
-  const [tx, setTx] = useState<any>(null);
+  const [tx, setTx] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState<TxStatus>("pending");
   const [dots, setDots] = useState("");
+  // FIX: use ref to track latest status inside interval (avoids stale closure)
+  const statusRef = useRef<TxStatus>("pending");
+
+  function updateStatus(s: TxStatus, txData?: Record<string, unknown>) {
+    setStatus(s);
+    statusRef.current = s;
+    if (txData) setTx(txData);
+    if (s === "success") {
+      sessionStorage.removeItem("bp_pending_ref");
+      sessionStorage.removeItem("bp_pending_amount");
+    }
+  }
 
   // Animate dots
   useEffect(() => {
@@ -22,7 +33,7 @@ export default function DepositStatus() {
     return () => clearInterval(t);
   }, []);
 
-  // Poll transaction status
+  // Poll + realtime listener
   useEffect(() => {
     if (!ref) return;
 
@@ -33,19 +44,15 @@ export default function DepositStatus() {
         .eq("reference", ref)
         .maybeSingle();
       if (data) {
-        setTx(data);
-        setStatus(data.status as TxStatus);
-        if (data.status === "success") {
-          sessionStorage.removeItem("bp_pending_ref");
-          sessionStorage.removeItem("bp_pending_amount");
-        }
+        updateStatus(data.status as TxStatus, data as Record<string, unknown>);
       }
     }
 
     check();
-    // Poll every 4 seconds while pending
+
+    // FIX: check statusRef.current (not stale state variable) to stop polling
     const interval = setInterval(() => {
-      if (status === "success" || status === "failed") {
+      if (statusRef.current === "success" || statusRef.current === "failed") {
         clearInterval(interval);
         return;
       }
@@ -53,16 +60,11 @@ export default function DepositStatus() {
     }, 4000);
 
     // Real-time listener
-    const ch = supabase.channel("deposit-status")
+    const ch = supabase.channel("deposit-status-" + ref)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "transactions" },
         (p) => {
           if (p.new?.reference === ref) {
-            setTx(p.new);
-            setStatus(p.new.status as TxStatus);
-            if (p.new.status === "success") {
-              sessionStorage.removeItem("bp_pending_ref");
-              sessionStorage.removeItem("bp_pending_amount");
-            }
+            updateStatus(p.new.status as TxStatus, p.new as Record<string, unknown>);
           }
         }
       ).subscribe();
@@ -71,9 +73,9 @@ export default function DepositStatus() {
       clearInterval(interval);
       supabase.removeChannel(ch);
     };
-  }, [ref, status]);
+  }, [ref]); // only depends on ref — status changes don't re-create the interval
 
-  const amount = tx?.amount || pendingAmount;
+  const amount = tx?.amount ? Number(tx.amount) : pendingAmount;
 
   if (status === "success") {
     return (
@@ -89,8 +91,8 @@ export default function DepositStatus() {
         </div>
         <div className="glass rounded-2xl p-5 w-full max-w-sm text-left space-y-2">
           {[
-            { label: "Reference", value: ref || tx?.reference },
-            { label: "Amount", value: naira(amount) },
+            { label: "Reference", value: ref || String(tx?.reference) },
+            { label: "Amount credited", value: naira(amount) },
             { label: "Status", value: "Successful" },
           ].map(r => (
             <div key={r.label} className="flex justify-between text-sm border-b border-white/5 pb-2 last:border-0 last:pb-0">
@@ -100,8 +102,8 @@ export default function DepositStatus() {
           ))}
         </div>
         <Link to="/app" className="w-full max-w-sm">
-          <button className="w-full h-14 rounded-2xl bg-gradient-primary text-white font-semibold text-base shadow-glow flex items-center justify-center gap-2">
-            <Home className="h-4 w-4" /> Back to Home
+          <button className="w-full h-14 rounded-2xl bg-gradient-primary text-white font-semibold text-base flex items-center justify-center gap-2">
+            <Home className="w-4 h-4" /> Back to Home
           </button>
         </Link>
       </motion.div>
@@ -110,27 +112,20 @@ export default function DepositStatus() {
 
   if (status === "failed") {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-6 pb-10 px-4">
-        <div className="h-24 w-24 rounded-full bg-destructive/10 border border-destructive/30 grid place-items-center">
-          <XCircle className="h-12 w-12 text-destructive" />
+        <div className="h-24 w-24 rounded-full bg-red-400/15 border border-red-400/30 grid place-items-center">
+          <XCircle className="h-12 w-12 text-red-400" />
         </div>
         <div>
-          <h1 className="font-display text-2xl font-bold text-destructive">Deposit Failed</h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-xs">
-            {tx?.failure_reason || "The deposit could not be processed. If you made a transfer, it will be reversed within 24 hours."}
-          </p>
+          <h1 className="font-display text-3xl font-bold text-red-400">Payment Failed</h1>
+          <p className="mt-2 text-muted-foreground text-sm">Your wallet was not charged. Try again.</p>
         </div>
-        <div className="flex gap-3 w-full max-w-sm">
-          <button onClick={() => nav("/app/wallet")}
-            className="flex-1 h-12 rounded-2xl bg-gradient-primary text-white font-semibold">
-            Try Again
+        <Link to="/app/wallet" className="w-full max-w-sm">
+          <button className="w-full h-14 rounded-2xl bg-gradient-primary text-white font-semibold text-base flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4" /> Try Again
           </button>
-          <Link to="/app/support" state={{ txRef: ref }}
-            className="flex-1 h-12 rounded-2xl glass border border-white/10 font-semibold flex items-center justify-center text-sm">
-            Contact Support
-          </Link>
-        </div>
+        </Link>
       </motion.div>
     );
   }
@@ -139,36 +134,17 @@ export default function DepositStatus() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-6 pb-10 px-4">
-      <div className="relative h-24 w-24">
-        <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
-        <div className="h-24 w-24 rounded-full bg-primary/10 border border-primary/30 grid place-items-center">
-          <Clock className="h-10 w-10 text-primary" />
-        </div>
+      <div className="h-24 w-24 rounded-full bg-primary/15 border border-primary/30 grid place-items-center">
+        <Clock className="h-12 w-12 text-primary animate-pulse" />
       </div>
       <div>
-        <h1 className="font-display text-2xl font-bold">Waiting for Payment</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {amount > 0 ? `Checking ${naira(amount)} deposit` : "Checking your deposit"}{dots}
+        <h1 className="font-display text-3xl font-bold">Verifying Payment{dots}</h1>
+        {amount > 0 && <p className="mt-2 text-muted-foreground">{naira(amount)} payment in progress</p>}
+        <p className="mt-3 text-xs text-muted-foreground max-w-xs mx-auto">
+          Complete the bank transfer on the Korapay page. This screen will update automatically once your payment is confirmed.
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">This page updates automatically once your transfer is confirmed</p>
       </div>
-      {ref && (
-        <div className="glass rounded-xl px-5 py-3 text-xs font-mono text-muted-foreground max-w-sm w-full text-center truncate">
-          Ref: {ref}
-        </div>
-      )}
-      <div className="flex gap-3 w-full max-w-sm">
-        <button onClick={() => nav("/app")} className="flex-1 h-12 rounded-2xl glass border border-white/10 font-semibold text-sm flex items-center justify-center gap-2">
-          <Home className="h-4 w-4" /> Go Home
-        </button>
-        <Link to={`/app/transaction/${tx?.id || ""}`}
-          className="flex-1 h-12 rounded-2xl glass border border-white/10 font-semibold text-sm flex items-center justify-center gap-2">
-          <Receipt className="h-4 w-4" /> View Transaction
-        </Link>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Made a transfer but waiting? Bank transfers typically confirm within 1-5 minutes.
-      </p>
+      <Link to="/app" className="text-sm text-muted-foreground underline">Back to Home (payment continues in background)</Link>
     </motion.div>
   );
 }
