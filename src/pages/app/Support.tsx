@@ -3,44 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Clock, Wifi, Wallet, RefreshCw, HelpCircle,
-  CheckCircle2, ChevronRight, AlertTriangle,
-} from "lucide-react";
-
-type Intent =
-  | "transaction_pending"
-  | "wallet_not_credited"
-  | "data_not_received"
-  | "refund_issue"
-  | "other";
-
-interface RecentTx {
-  id: string;
-  reference: string;
-  type: string;
-  network: string | null;
-  amount: number;
-  status: string;
-  created_at: string;
-}
-
-const INTENTS: { id: Intent; label: string; icon: React.ReactNode; desc: string }[] = [
-  { id: "transaction_pending",  label: "Transaction Pending",   icon: <Clock className="w-4 h-4" />,        desc: "Purchase is stuck in processing" },
-  { id: "wallet_not_credited",  label: "Wallet Not Credited",   icon: <Wallet className="w-4 h-4" />,       desc: "Funded wallet but balance didn\'t update" },
-  { id: "data_not_received",    label: "Data Not Received",     icon: <Wifi className="w-4 h-4" />,         desc: "Paid but data wasn\'t delivered" },
-  { id: "refund_issue",         label: "Refund Issue",          icon: <RefreshCw className="w-4 h-4" />,    desc: "Expecting a refund that hasn\'t arrived" },
-  { id: "other",                label: "Other Issue",           icon: <HelpCircle className="w-4 h-4" />,   desc: "Something else went wrong" },
-];
+import { MessageCircle, Mail, CheckCircle2, AlertTriangle, Loader2, Send } from "lucide-react";
 
 export default function Support() {
   const { user } = useAuth();
-  const [step, setStep] = useState<"intent" | "detail" | "done">("intent");
-  const [intent, setIntent] = useState<Intent | null>(null);
-  const [recentTxs, setRecentTxs] = useState<RecentTx[]>([]);
-  const [selectedTx, setSelectedTx] = useState<string | null>(null);
+  const [showTicket, setShowTicket] = useState(false);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [ticketRef, setTicketRef] = useState<string | null>(null);
@@ -48,20 +16,9 @@ export default function Support() {
 
   useEffect(() => {
     if (!user) return;
-
-    // Load recent transactions for context auto-attach
-    supabase
-      .from("transactions")
-      .select("id, reference, type, network, amount, status, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(5)
-      .then(({ data }) => setRecentTxs((data as RecentTx[]) ?? []));
-
-    // Check for degraded providers (emergency broadcast)
     supabase
       .from("bundle_status")
-      .select("package_code, auto_paused_at, auto_paused_reason")
+      .select("package_code, auto_paused_at")
       .not("auto_paused_at", "is", null)
       .limit(5)
       .then(({ data }) => {
@@ -74,25 +31,17 @@ export default function Support() {
       });
   }, [user]);
 
-  async function submit() {
-    if (!intent || !user) return;
+  async function submitTicket() {
+    if (!message.trim() || !user) return;
     setSubmitting(true);
     try {
       const { data, error } = await supabase
         .from("support_tickets")
-        .insert({
-          user_id: user.id,
-          intent,
-          message: message.trim() || null,
-          related_transaction_id: selectedTx || null,
-          status: "open",
-        })
+        .insert({ user_id: user.id, intent: "other", message: message.trim(), status: "open" })
         .select("ticket_ref")
         .single();
-
       if (error) throw error;
       setTicketRef((data as Record<string, string>).ticket_ref);
-      setStep("done");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to submit ticket");
     } finally {
@@ -100,160 +49,109 @@ export default function Support() {
     }
   }
 
-  function restart() {
-    setStep("intent"); setIntent(null); setSelectedTx(null);
-    setMessage(""); setTicketRef(null);
+  function openBlitziChat() {
+    window.dispatchEvent(new CustomEvent("open-blitzi-chat"));
   }
-
-  const selectedIntentObj = INTENTS.find(i => i.id === intent);
 
   return (
     <div className="space-y-5 pb-10">
       <div>
         <h1 className="font-display text-2xl font-semibold">Support</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          We\'ll help resolve your issue quickly.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">We'll help resolve your issue quickly.</p>
       </div>
 
-      {/* Emergency banner if providers are degraded */}
       {degradedProviders.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4"
-        >
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
           <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
           <div className="text-sm text-yellow-300">
             <strong>Service Notice:</strong> Some {degradedProviders.join(", ")} plans are temporarily
-            paused for maintenance. Funds are safe. Avoid retrying — we\'re on it.
+            paused. Funds are safe. Avoid retrying — we're on it.
           </div>
         </motion.div>
       )}
 
       <AnimatePresence mode="wait">
+        {!showTicket && !ticketRef && (
+          <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="space-y-3">
 
-        {/* STEP 1: Intent selection */}
-        {step === "intent" && (
-          <motion.div key="intent" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="space-y-3"
-          >
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
-              What\'s the issue?
-            </p>
-            {INTENTS.map(({ id, label, icon, desc }) => (
-              <button
-                key={id}
-                onClick={() => { setIntent(id); setStep("detail"); }}
-                className="w-full flex items-center justify-between gap-3 rounded-2xl bg-secondary/40 border border-white/5 p-4 text-left transition hover:bg-secondary/60 active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-primary">{icon}</span>
-                  <div>
-                    <div className="text-sm font-semibold">{label}</div>
-                    <div className="text-xs text-muted-foreground">{desc}</div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
+            {/* Chat with Blitzi */}
+            <button onClick={openBlitziChat}
+              className="w-full flex items-center gap-4 rounded-2xl bg-gradient-primary p-5 text-left shadow-glow transition active:scale-[0.98]">
+              <div className="h-11 w-11 rounded-xl bg-white/20 grid place-items-center shrink-0">
+                <MessageCircle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-base font-bold text-white">Chat with Blitzi</div>
+                <div className="text-sm text-white/70 mt-0.5">Instant AI support · Available 24/7</div>
+              </div>
+            </button>
 
-            <div className="mt-4 rounded-2xl bg-secondary/20 p-4 text-center text-sm text-muted-foreground">
+            {/* Email Ticket */}
+            <button onClick={() => setShowTicket(true)}
+              className="w-full flex items-center gap-4 rounded-2xl bg-secondary/40 border border-white/5 p-5 text-left transition hover:bg-secondary/60 active:scale-[0.98]">
+              <div className="h-11 w-11 rounded-xl bg-primary/15 border border-primary/20 grid place-items-center shrink-0">
+                <Mail className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="text-base font-bold">Send a Ticket</div>
+                <div className="text-sm text-muted-foreground mt-0.5">We'll reply to your email within 24h</div>
+              </div>
+            </button>
+
+            <p className="text-center text-xs text-muted-foreground pt-2">
               Urgent? Email us at{" "}
               <a href="mailto:blitzpaysup@gmail.com" className="text-primary underline">
                 blitzpaysup@gmail.com
               </a>
+            </p>
+          </motion.div>
+        )}
+
+        {showTicket && !ticketRef && (
+          <motion.div key="ticket-form" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+            className="space-y-4">
+            <div>
+              <div className="text-sm font-semibold mb-1">Describe your issue</div>
+              <Textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="Tell us what happened — include your phone number, transaction reference, or any details that help..."
+                rows={5}
+                className="rounded-2xl bg-secondary/40 border-white/10 resize-none text-sm"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowTicket(false)}
+                className="flex-1 h-12 rounded-2xl bg-secondary/40 border border-white/10 text-sm font-semibold transition hover:bg-secondary/60">
+                Back
+              </button>
+              <button onClick={submitTicket} disabled={!message.trim() || submitting}
+                className="flex-1 h-12 rounded-2xl bg-gradient-primary text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition active:scale-[0.98]">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Send Ticket</>}
+              </button>
             </div>
           </motion.div>
         )}
 
-        {/* STEP 2: Detail + transaction attach */}
-        {step === "detail" && (
-          <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0 }} className="space-y-4"
-          >
-            <button onClick={() => setStep("intent")} className="text-sm text-muted-foreground flex items-center gap-1">
-              ← Back
-            </button>
-
-            <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3 flex items-center gap-2">
-              <span className="text-primary">{selectedIntentObj?.icon}</span>
-              <span className="text-sm font-medium">{selectedIntentObj?.label}</span>
-            </div>
-
-            {/* Auto-attach recent transaction */}
-            {recentTxs.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                  Related transaction (optional)
-                </p>
-                {recentTxs.map(tx => (
-                  <button
-                    key={tx.id}
-                    onClick={() => setSelectedTx(selectedTx === tx.id ? null : tx.id)}
-                    className={`w-full flex items-center justify-between rounded-xl border p-3 text-sm transition ${
-                      selectedTx === tx.id
-                        ? "border-primary bg-primary/10"
-                        : "border-white/10 bg-white/[0.03] hover:bg-white/5"
-                    }`}
-                  >
-                    <div className="text-left">
-                      <div className="font-mono text-xs text-muted-foreground">{tx.reference}</div>
-                      <div className="font-medium">
-                        {tx.type} {tx.network && `· ${tx.network}`} · ₦{tx.amount.toLocaleString()}
-                      </div>
-                    </div>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      tx.status === "success" ? "text-green-400 bg-green-400/10" :
-                      tx.status === "failed"  ? "text-red-400 bg-red-400/10" :
-                      "text-yellow-400 bg-yellow-400/10"
-                    }`}>
-                      {tx.status}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Message */}
-            <Textarea
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              placeholder="Describe your issue in a few words (optional)..."
-              className="h-24 resize-none rounded-2xl bg-secondary/40"
-            />
-
-            <Button onClick={submit} disabled={submitting} className="w-full h-12 rounded-2xl">
-              {submitting ? "Submitting..." : "Submit Support Ticket"}
-            </Button>
-          </motion.div>
-        )}
-
-        {/* STEP 3: Done */}
-        {step === "done" && (
+        {ticketRef && (
           <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center gap-4 py-8 text-center"
-          >
-            <div className="rounded-full bg-green-500/10 border border-green-500/30 p-5">
-              <CheckCircle2 className="w-8 h-8 text-green-400" />
+            className="flex flex-col items-center text-center space-y-4 py-10">
+            <div className="h-20 w-20 rounded-full bg-green-400/15 border border-green-400/30 grid place-items-center">
+              <CheckCircle2 className="w-10 h-10 text-green-400" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Ticket Submitted</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                We\'ll review and get back to you via email.
-              </p>
+              <h2 className="font-display text-xl font-bold">Ticket Submitted</h2>
+              <p className="text-sm text-muted-foreground mt-1">Ref: <span className="font-mono text-primary">{ticketRef}</span></p>
+              <p className="text-xs text-muted-foreground mt-2">We'll get back to you within 24 hours.</p>
             </div>
-            {ticketRef && (
-              <div className="rounded-xl bg-secondary/40 border border-white/10 px-4 py-3 w-full">
-                <div className="text-xs text-muted-foreground mb-1">Your ticket reference</div>
-                <div className="font-mono text-sm font-semibold text-primary">{ticketRef}</div>
-              </div>
-            )}
-            <Button variant="outline" onClick={restart} className="mt-2 rounded-xl">
-              Submit Another
-            </Button>
+            <button onClick={() => { setTicketRef(null); setShowTicket(false); setMessage(""); }}
+              className="h-11 px-6 rounded-xl bg-secondary/40 border border-white/10 text-sm font-semibold">
+              Done
+            </button>
           </motion.div>
         )}
-
       </AnimatePresence>
     </div>
   );
