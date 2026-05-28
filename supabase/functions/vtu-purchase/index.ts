@@ -125,13 +125,13 @@ serve(async (req) => {
 
     if(type==="data"&&prvCode==="iacafe"){
       const planId=parseInt((pkgCode||"").replace("IAC-",""),10);
-      if(!planId){ if(reservationId)admin.rpc("release_provider_liquidity",{_reservation_id:reservationId,_outcome:"failed"}).catch(()=>{}); return json({error:"Invalid IA Cafe plan"},400); }
+      if(!planId){ if(reservationId)await admin.rpc("release_provider_liquidity",{_reservation_id:reservationId,_outcome:"failed"}).catch(()=>{}); return json({error:"Invalid IA Cafe plan"},400); }
       const reqId=`IAC-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.iacafe_request_id=reqId; pr=await iacafeBuy(planId,phone,reqId);
     } else if(type==="data"&&prvCode?.startsWith("bsplug")){
       const nId=parseInt(prvCode.split("-")[1]||"1",10);
       const pId=parseInt((pkgCode||"").replace("BSP-",""),10);
-      if(!pId||!nId){ if(reservationId)admin.rpc("release_provider_liquidity",{_reservation_id:reservationId,_outcome:"failed"}).catch(()=>{}); return json({error:"Invalid BSPlug plan"},400); }
+      if(!pId||!nId){ if(reservationId)await admin.rpc("release_provider_liquidity",{_reservation_id:reservationId,_outcome:"failed"}).catch(()=>{}); return json({error:"Invalid BSPlug plan"},400); }
       pr=await bsplugBuy(nId,pId,phone);
     } else {
       let apCode:string;
@@ -148,11 +148,12 @@ serve(async (req) => {
       if(pr.meter_unit)txMeta.meter_unit=pr.meter_unit;
     }
 
-    // ── Treasury: Release reservation ─────────────────────────────────────
+    // ── Treasury: Release reservation (MUST be awaited — Deno kills context on return) ───
     if(reservationId){
-      admin.rpc("release_provider_liquidity",{
+      await admin.rpc("release_provider_liquidity",{
         _reservation_id:reservationId, _outcome:pr.success?"used":"failed"
       }).catch(e=>console.error("release_liquidity:",e));
+      console.log(`[vtu] reservation ${reservationId} released: ${pr.success?"used":"failed"}`);
     }
     // ─────────────────────────────────────────────────────────────────────
 
