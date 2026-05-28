@@ -106,7 +106,7 @@ serve(async (req) => {
 
     // ── Electricity / Cable verify (no purchase, no wallet touch) ─────────────
     if(type==="electricity_verify"||type==="cable_verify"){
-      const apCode=type==="electricity_verify"?`${prvCode}-${meter_type||"prepaid"}`:prvCode;
+      const apCode=prvCode; // provider_code from AidaPay already includes meter type (e.g. ikedc-prepaid)
       const id=meter_number||phone;
       if(!id)return json({error:"Identifier required"},400);
       try{
@@ -176,7 +176,7 @@ serve(async (req) => {
     } else {
       let apCode:string;
       if(type==="airtime")apCode=AIRTIME_MAP[network?.toUpperCase()]||"mtn-airtime";
-      else if(type==="electricity")apCode=`${prvCode}-${meter_type||"prepaid"}`;
+      else if(type==="electricity")apCode=prvCode; // provider_code from AidaPay already includes meter type
       else apCode=prvCode;
       const recipient=type==="electricity"?(meter_number||phone||""):(phone||"");
       const ap:Record<string,string>={recipient,provider_code:apCode,account_pin:AIDAPAY_PIN,ref};
