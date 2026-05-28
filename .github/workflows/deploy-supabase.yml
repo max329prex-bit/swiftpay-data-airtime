@@ -22,6 +22,7 @@ jobs:
           supabase functions deploy vtu-purchase --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy aidapay-webhook --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy get-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy get-electricity-providers --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy transaction-recovery --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy provider-health --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy sync-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
