@@ -247,7 +247,14 @@ export default function Data() {
       }
       refresh();
       nav(`/app/success?ref=${data.reference}&type=data&amount=${plan.sell_price}&network=${network}&bundle=${encodeURIComponent(plan.size)}`);
-    } catch (e: any) { toast.error(e.message ?? "Failed"); }
+    } catch (e: any) {
+      // Extract actual error from Supabase FunctionsHttpError
+      let msg = e.message ?? "Failed";
+      if (e?.context?.json) {
+        try { const body = await e.context.json(); msg = body?.error || msg; } catch {}
+      }
+      toast.error(msg);
+    }
     finally { setBusy(false); }
   }
 
