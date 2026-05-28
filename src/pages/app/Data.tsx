@@ -166,7 +166,7 @@ export default function Data() {
           else if (p.size?.includes("10") || p.size?.includes("15") || p.size?.includes("20")) badge = "best_value";
           else if ((p.success_rate ?? 92) >= 95) badge = "hot";
           return {
-            id: p.id || p.package_code,
+            id: p.package_code || p.id,   // use package_code (e.g. IAC-177) not UUID
             name: p.name,
             size: p.size,
             validity: p.validity,
