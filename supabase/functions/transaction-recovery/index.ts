@@ -25,7 +25,7 @@ serve(async(req)=>{
   const sb=createClient(SUPA_URL,SUPA_SVC);
   try{
     const cutoff=new Date(Date.now()-2*60*1000).toISOString();
-    const{data:stuck,error:qe}=await sb.from("transactions").select("*").in("status",["processing","verifying"]).lt("updated_at",cutoff).lt("retry_count",MAX_RETRIES).order("updated_at",{ascending:true}).limit(20);
+    const{data:stuck,error:qe}=await sb.from("transactions").select("*").in("status",["processing","verifying"]).lt("created_at",cutoff).lt("retry_count",MAX_RETRIES).order("created_at",{ascending:true}).limit(20);
     if(qe)throw qe;
     if(!stuck||stuck.length===0)return new Response(JSON.stringify({checked:0,resolved:0}),{headers:{...cors,"Content-Type":"application/json"}});
     console.log(`Recovery: checking ${stuck.length} stuck txs`);
@@ -38,7 +38,7 @@ serve(async(req)=>{
         let status:"success"|"failed"|"pending"|"unknown"="unknown";
 
         if(!prvCode.startsWith("bsplug")&&!prvCode.startsWith("iacafe")){
-          const hash=meta.aidapay_ref as string||tx.provider_reference;
+          const hash=(meta.aidapay_ref as string)||tx.provider_reference||tx.aidapay_hash;
           if(hash)status=await checkAidapay(hash);
         }
 
@@ -47,15 +47,13 @@ serve(async(req)=>{
           resolved++;console.log(`Recovery: ${tx.reference} -> SUCCESS`);
         }else if(status==="failed"){
           await sb.from("transactions").update({status:"failed",failure_reason:"Provider confirmed failed (recovery)",last_verification_at:now}).eq("id",tx.id);
-          await sb.rpc("credit_wallet_from_monnify",{_user_id:tx.user_id,_amount:tx.amount,_monnify_ref:`REFUND-${tx.reference}`});
+          // Refund via refund_wallet (Korapay-only — no Monnify)
+          await sb.rpc("refund_wallet",{_user_id:tx.user_id,_amount:tx.amount,_ref:tx.reference});
           resolved++;console.log(`Recovery: ${tx.reference} -> FAILED + refunded`);
         }else if(newRetry>=MAX_RETRIES){
-          await sb.from("transactions").update({status:"escalated_manual_review",retry_count:newRetry,last_verification_at:now,failure_reason:`Max ${MAX_RETRIES} retries. Provider: ${status}`}).eq("id",tx.id);
-          await tg(`🚨 *BlitzPay Manual Review*
-Ref: \`${tx.reference}\`
-Amount: NGN${tx.amount}
-Type: ${tx.type}/${tx.network}
-Provider: ${prvCode||"aidapay"}`);
+          await sb.from("transactions").update({status:"failed",retry_count:newRetry,last_verification_at:now,failure_reason:`Max ${MAX_RETRIES} retries. Provider status: ${status}`}).eq("id",tx.id);
+          await sb.rpc("refund_wallet",{_user_id:tx.user_id,_amount:tx.amount,_ref:tx.reference});
+          await tg(`🚨 *BlitzPay Manual Review*\nRef: \`${tx.reference}\`\nAmount: NGN${tx.amount}\nType: ${tx.type}/${tx.network}\nProvider: ${prvCode||"aidapay"}\nRefunded to wallet.`);
         }else{
           await sb.from("transactions").update({retry_count:newRetry,last_verification_at:now,failure_reason:`Attempt ${newRetry}: provider=${status}`}).eq("id",tx.id);
         }
