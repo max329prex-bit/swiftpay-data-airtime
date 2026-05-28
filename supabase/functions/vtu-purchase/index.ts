@@ -180,7 +180,7 @@ serve(async (req) => {
     console.error("vtu-purchase error:",e);
     // Always release reservation on any uncaught exception (prevent leak)
     if(typeof reservationId === "string" && reservationId){
-      admin.rpc("release_provider_liquidity",{_reservation_id:reservationId,_outcome:"failed"}).catch(()=>{});
+      await admin.rpc("release_provider_liquidity",{_reservation_id:reservationId,_outcome:"failed"}).catch(()=>{});
     }
     return json({error:e instanceof Error?e.message:"Unknown"},500);
   }
