@@ -97,7 +97,12 @@ export function AppShell() {
     setChatMsgs(prev => [...prev, { role: "user", text: msg }]);
     setChatBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("swift-chat", { body: { message: msg } });
+      // Build full conversation history (fixes: was sending {message} instead of {messages})
+      const history = [...chatMsgs, { role: "user", text: msg }].map(m => ({
+        role: m.role === "blitzi" ? "assistant" : "user",
+        content: m.text,
+      }));
+      const { data, error } = await supabase.functions.invoke("swift-chat", { body: { messages: history } });
       if (error) throw error;
       const reply = data?.reply || data?.message || "Sorry, I couldn\'t get a response. Try again!";
       setChatMsgs(prev => [...prev, { role: "blitzi", text: reply }]);
