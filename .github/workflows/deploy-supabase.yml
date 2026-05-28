@@ -25,7 +25,7 @@ jobs:
           supabase functions deploy transaction-recovery --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy provider-health --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy sync-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
-          # Wallet funding (Korapay — replaces Monnify)
+          # Wallet funding (Korapay only)
           supabase functions deploy korapay-topup --project-ref tljnhlhzyntotadxoypz
           supabase functions deploy korapay-webhook --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           # Treasury automation
