@@ -28,29 +28,63 @@ serve(async (req) => {
     if (!kSig) { console.warn("Korapay: unsigned request dropped"); return new Response(OK, { status: 200, headers: OK_HDR }); }
     const expected = await hmacSha256Hex(KP_SK, rawBody);
     if (kSig !== expected) { console.error("Korapay: bad signature dropped"); return new Response(OK, { status: 200, headers: OK_HDR }); }
+
     const body = JSON.parse(rawBody);
     const { event, data } = body;
     if (event !== "charge.success") return new Response(OK, { status: 200, headers: OK_HDR });
+
     const ref = (data?.reference ?? "") as string;
     const amount = Number(data?.amount ?? 0);
-    // Use net_credit from metadata (amount after BlitzPay 2% fee)
     const netCredit = Number(data?.metadata?.net_credit ?? 0);
     const creditAmount = netCredit > 0 ? netCredit : amount;
     const userId = (data?.metadata?.user_id ?? "") as string;
-    if (!ref || !userId || amount < 100) { console.warn("Korapay: missing fields"); return new Response(OK, { status: 200, headers: OK_HDR }); }
+
+    if (!ref || !userId || amount < 100) { console.warn("Korapay: missing fields", { ref, userId, amount }); return new Response(OK, { status: 200, headers: OK_HDR }); }
+
     const sb = createClient(SUPA_URL, SUPA_SVC);
-    const { error: dupErr } = await sb.from("webhook_events").insert({ event_id: `korapay-${ref}`, provider: "korapay", event_type: event, payload: body });
-    if (dupErr) { console.warn("Korapay: duplicate", ref); return new Response(OK, { status: 200, headers: OK_HDR }); }
-    const { error: creditErr } = await sb.rpc("credit_wallet_from_korapay", { _user_id: userId, _amount: creditAmount, _korapay_ref: ref });
-    if (creditErr) {
-      if (!creditErr.message?.includes("DUPLICATE")) {
-        console.error("Korapay: credit failed:", creditErr.message);
-        await tg(`⚠️ *Korapay credit failed*\nRef: \`${ref}\`\nAmount: ₦${amount}\nError: ${creditErr.message}`);
+
+    // Deduplication — ON CONFLICT DO NOTHING approach
+    // If it's a genuine duplicate, the unique constraint fires and we get a specific error code
+    const { error: dupErr } = await sb.from("webhook_events").insert({
+      event_id: `korapay-${ref}`,
+      provider: "korapay",
+      event_type: event,
+      payload: body
+    });
+
+    if (dupErr) {
+      // 23505 = unique_violation (actual duplicate), stop processing
+      if (dupErr.code === "23505") {
+        console.warn("Korapay: duplicate webhook", ref);
+        return new Response(OK, { status: 200, headers: OK_HDR });
       }
-    } else {
-      console.log(`Korapay: credited ₦${creditAmount} (net of ${netCredit}) to ${userId}`);
-      await tg(`✅ *Wallet funded*\n₦${amount.toLocaleString()} credited to ${userId.substring(0,8)}...\nRef: \`${ref}\``);
+      // Any OTHER insert error: log but CONTINUE — don't block wallet credit over a table issue
+      console.error("Korapay: webhook_events insert failed (non-fatal):", dupErr.code, dupErr.message);
     }
+
+    // Credit wallet via security-definer function
+    const { error: creditErr } = await sb.rpc("credit_wallet_from_korapay", {
+      _user_id: userId,
+      _amount: creditAmount,
+      _korapay_ref: ref
+    });
+
+    if (creditErr) {
+      if (creditErr.message?.includes("DUPLICATE")) {
+        console.warn("Korapay: already credited", ref);
+        return new Response(OK, { status: 200, headers: OK_HDR });
+      }
+      console.error("Korapay: credit failed:", creditErr.message);
+      await tg(`\u26a0\ufe0f *Korapay credit FAILED*\nRef: \`${ref}\`\nAmount: \u20a6${creditAmount}\nUser: ${userId}\nError: ${creditErr.message}`);
+      return new Response(OK, { status: 200, headers: OK_HDR });
+    }
+
+    console.log(`Korapay: credited \u20a6${creditAmount} to ${userId} for ref ${ref}`);
+    await tg(`\u2705 *BlitzPay Deposit*\n\u20a6${creditAmount.toLocaleString()} credited\nRef: \`${ref}\``);
     return new Response(OK, { status: 200, headers: OK_HDR });
-  } catch (e) { console.error("Korapay webhook:", e); return new Response(OK, { status: 200, headers: OK_HDR }); }
+
+  } catch (e: unknown) {
+    console.error("Korapay webhook crash:", e);
+    return new Response(OK, { status: 200, headers: OK_HDR }); // always 200 to Korapay
+  }
 });
