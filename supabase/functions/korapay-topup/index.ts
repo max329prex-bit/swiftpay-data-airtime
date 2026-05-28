@@ -54,10 +54,11 @@ serve(async (req) => {
     const kData = await kRes.json();
     if (!kData.status) throw new Error(kData.message || "Payment initialization failed");
 
-    await uc.from("transactions").insert({
+    const { error: txErr } = await uc.from("transactions").insert({
       user_id: user.id, type: "wallet_fund", amount: grossAmount, reference: ref, status: "pending",
       meta: { provider: "korapay", checkout_url: kData.data.checkout_url, fee, net_credit: amount }
     });
+    if (txErr) console.error("[korapay-topup] pending tx insert failed:", txErr.code, txErr.message);
 
     return new Response(JSON.stringify({
       success: true,
