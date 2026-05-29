@@ -33,8 +33,18 @@ export default function History() {
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right">
-                  <div className={"text-sm font-bold " + (t.type === "wallet_topup" || t.type === "wallet_fund" ? "text-accent" : "")}>
-                    {t.type === "wallet_topup" || t.type === "wallet_fund" ? "+" : "-"}{naira(Number(t.amount))}
+                  <div className={"text-sm font-bold " + (
+                    (t.type === "wallet_topup" || t.type === "wallet_fund") && t.status === "success"
+                      ? "text-accent"
+                      : (t.type === "wallet_topup" || t.type === "wallet_fund")
+                        ? "text-muted-foreground"
+                        : ""
+                  )}>
+                    {(t.type === "wallet_topup" || t.type === "wallet_fund") && t.status === "success" ? "+" :
+                     (t.type === "wallet_topup" || t.type === "wallet_fund") ? "" : "-"}
+                    {(t.type === "wallet_topup" || t.type === "wallet_fund") && t.meta?.net_credit
+                      ? naira(Number(t.meta.net_credit))
+                      : naira(Number(t.amount))}
                   </div>
                   <div className={"text-[10px] font-medium uppercase " + (t.status === "success" ? "text-success" : t.status === "failed" ? "text-destructive" : t.status === "verifying" || t.status === "processing" ? "text-blue-400" : "text-warning")}>{t.status}</div>
                 </div>
