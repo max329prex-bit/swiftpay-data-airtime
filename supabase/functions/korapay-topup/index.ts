@@ -22,9 +22,11 @@ serve(async (req) => {
     if (!amount || amount < 100) throw new Error("Minimum deposit is ₦100");
     if (amount > 500_000) throw new Error("Maximum single deposit is ₦500,000");
 
-    // FIX: User pays gross (amount + 2% fee), wallet gets the full amount they typed
-    const fee = Math.round(amount * (FEE_PCT / 100) * 100) / 100;          // e.g. ₦4 on ₦200
-    const grossAmount = Math.round((amount + fee) * 100) / 100;             // e.g. ₦204 — shown on Korapay checkout
+    // ROUNDING FIX: Always ceil to whole naira — Nigerian bank transfers truncate decimals
+    // e.g. ₦163.20 checkout → bank sends ₦163 → Korapay rejects (mismatch)
+    // Fix: ₦160 input → grossAmount = ceil(163.2) = ₦164 → no decimal, no rejection
+    const grossAmount = Math.ceil(amount * (1 + FEE_PCT / 100));  // Always whole naira
+    const fee = grossAmount - amount;                               // Actual fee (e.g. ₦4 on ₦160)
     // netCredit = amount (the full input) — credited after payment
 
     const ref = `BP-${user.id.replace(/-/g,"").substring(0,8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
