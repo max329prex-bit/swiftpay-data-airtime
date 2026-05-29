@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/swift/Logo";
 import { toast } from "sonner";
-import { ArrowRight, ShieldCheck, RefreshCw } from "lucide-react";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { ArrowRight, Mail, RefreshCw } from "lucide-react";
 
 type Step = "form" | "verify";
 
@@ -18,10 +17,24 @@ export default function Auth() {
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState(""); const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const nav = useNavigate();
+
+  // Handle when user returns from email confirmation link
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        nav("/app");
+      }
+    });
+    return () => listener.subscription.unsubscribe();
+  }, [nav]);
+
+  function startCooldown(secs: number) {
+    setResendCooldown(secs);
+    const t = setInterval(() => setResendCooldown(p => { if (p <= 1) { clearInterval(t); return 0; } return p - 1; }), 1000);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setLoading(true);
@@ -29,19 +42,22 @@ export default function Auth() {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { full_name: fullName, phone } },
+          options: {
+            data: { full_name: fullName, phone },
+            emailRedirectTo: `${window.location.origin}/app`,
+          },
         });
         if (error) throw error;
 
-        // Detect already-registered email (Supabase returns empty identities, no error)
+        // Detect already-registered email (empty identities = existing confirmed user)
         if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          toast.error("An account with this email already exists. Please sign in instead.");
+          toast.error("An account with this email already exists. Please sign in.");
           setMode("signin"); setPassword(""); return;
         }
 
-        toast.success("Verification code sent to your email!");
         setStep("verify");
-        startResendCooldown(60);
+        startCooldown(60);
+        toast.success("Check your email for the confirmation link!");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -59,66 +75,23 @@ export default function Auth() {
     } finally { setLoading(false); }
   }
 
-  function startResendCooldown(seconds: number) {
-    setResendCooldown(seconds);
-    const interval = setInterval(() => {
-      setResendCooldown(prev => {
-        if (prev <= 1) { clearInterval(interval); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-  }
-
-  async function verifyCode() {
-    if (otp.length < 6) return toast.error("Enter the full 6-digit code");
-    setLoading(true);
-    try {
-      // Try "email" type first (works with PKCE flow), fall back to "signup"
-      let result = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
-      if (result.error && result.error.message?.toLowerCase().includes("invalid")) {
-        result = await supabase.auth.verifyOtp({ email, token: otp, type: "signup" });
-      }
-      if (result.error) throw result.error;
-      toast.success("Email verified! Welcome to BlitzPay!");
-      nav("/app");
-    } catch (err: any) {
-      const msg: string = err.message ?? "Verification failed";
-      if (msg.toLowerCase().includes("expired")) {
-        toast.error("Code expired — click Resend to get a new one.");
-        setOtp("");
-      } else if (msg.toLowerCase().includes("invalid")) {
-        toast.error("Wrong code — double-check and try again.");
-        setOtp("");
-      } else {
-        toast.error(msg);
-      }
-    } finally { setLoading(false); }
-  }
-
-  async function resendCode() {
+  async function resendEmail() {
     if (resendCooldown > 0) return;
     setLoading(true);
     try {
-      // Use signInWithOtp to resend — more reliable than supabase.auth.resend
-      const { error } = await supabase.auth.resend({ type: "signup", email });
-      if (error) {
-        // Fallback: use signInWithOtp
-        const { error: otpErr } = await supabase.auth.signInWithOtp({
-          email, options: { shouldCreateUser: false }
-        });
-        if (otpErr) throw otpErr;
-      }
-      toast.success("New code sent! Check your inbox.");
-      setOtp("");
-      startResendCooldown(60);
+      const { error } = await supabase.auth.resend({
+        type: "signup", email,
+        options: { emailRedirectTo: `${window.location.origin}/app` }
+      });
+      if (error) throw error;
+      toast.success("Confirmation email resent! Check your inbox.");
+      startCooldown(60);
     } catch (err: any) {
-      const msg: string = err.message ?? "Could not resend";
+      const msg = err.message ?? "Could not resend";
       if (msg.toLowerCase().includes("rate") || msg.toLowerCase().includes("limit")) {
-        toast.error("Please wait a minute before requesting a new code.");
-        startResendCooldown(60);
-      } else {
-        toast.error(msg);
-      }
+        toast.error("Please wait 60 seconds before resending.");
+        startCooldown(60);
+      } else { toast.error(msg); }
     } finally { setLoading(false); }
   }
 
@@ -143,45 +116,42 @@ export default function Auth() {
           {step === "verify" ? (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
               <div className="flex justify-center">
-                <span className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10">
-                  <ShieldCheck className="h-8 w-8 text-primary" />
+                <span className="grid h-20 w-20 place-items-center rounded-2xl bg-primary/10">
+                  <Mail className="h-10 w-10 text-primary" />
                 </span>
               </div>
-              <div className="text-center">
-                <h1 className="font-display text-2xl font-bold">Verify your email</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  We sent a 6-digit code to<br />
-                  <span className="font-semibold text-foreground">{email}</span>
+              <div className="text-center space-y-2">
+                <h1 className="font-display text-2xl font-bold">Check your email</h1>
+                <p className="text-sm text-muted-foreground">
+                  We sent a confirmation link to
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">Check your inbox and spam folder</p>
+                <p className="font-semibold text-foreground text-sm">{email}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Click the link in the email to verify your account and open BlitzPay.
+                </p>
               </div>
-              <div className="flex justify-center">
-                <InputOTP maxLength={6} value={otp} onChange={setOtp} autoFocus>
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+
+              <div className="glass rounded-2xl p-4 text-center space-y-1 border border-primary/20">
+                <p className="text-xs text-muted-foreground">The email comes from</p>
+                <p className="text-sm font-semibold text-primary">onojav79@gmail.com</p>
+                <p className="text-xs text-muted-foreground">Also check your spam folder</p>
               </div>
-              <Button variant="hero" size="lg" className="w-full" disabled={loading || otp.length < 6} onClick={verifyCode}>
-                {loading ? "Verifying..." : "Verify & continue"} <ArrowRight />
-              </Button>
-              <div className="text-center text-sm text-muted-foreground">
-                Didn't get a code?{" "}
+
+              <div className="text-center">
                 {resendCooldown > 0 ? (
-                  <span className="text-muted-foreground">Resend in {resendCooldown}s</span>
+                  <p className="text-sm text-muted-foreground">Resend in {resendCooldown}s</p>
                 ) : (
-                  <button onClick={resendCode} disabled={loading} className="text-primary hover:underline inline-flex items-center gap-1">
-                    <RefreshCw className="h-3 w-3" /> Resend
+                  <button onClick={resendEmail} disabled={loading}
+                    className="text-sm text-primary hover:underline inline-flex items-center gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Didn't receive it? Resend email
                   </button>
                 )}
               </div>
+
               <div className="text-center">
-                <button onClick={() => { setStep("form"); setOtp(""); setResendCooldown(0); }} className="text-xs text-muted-foreground hover:text-foreground">
+                <button onClick={() => { setStep("form"); setResendCooldown(0); }}
+                  className="text-xs text-muted-foreground hover:text-foreground">
                   Back to sign up
                 </button>
               </div>
