@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { balance } = useWallet();
+  const { balance, refresh: refreshWallet } = useWallet();
   const { points, refresh: refreshPts } = useBlitzPoints();
   const { hide, toggle: toggleHide } = useHideBalance();
   const [name, setName] = useState("");
@@ -32,6 +32,27 @@ export default function Dashboard() {
       .order("created_at", { ascending: false }).limit(4)
       .then(({ data }) => setRecent(data ?? []));
   }, [user, balance]);
+
+  // Realtime: keep recent activity in sync + close the balance/tx race condition
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase.channel("dashboard-tx-live-" + user.id)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "transactions",
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        // Update the row in recent activity instantly
+        setRecent(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+        // If a deposit just succeeded, also refresh wallet balance immediately
+        if (payload.new?.type === "wallet_fund" && payload.new?.status === "success") {
+          refreshWallet();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, refreshWallet]);
 
   const first = name.split(" ")[0] || "there";
   const pct = Math.min(100, (points / 100) * 100);
@@ -166,8 +187,9 @@ export default function Dashboard() {
                     const sign = isDeposit
                       ? (isSuccess ? "+" : "")
                       : "-";
+                    const isPending = ["pending", "processing", "verifying"].includes(t.status);
                     const amtColor = isDeposit
-                      ? (isSuccess ? "text-green-400" : "text-muted-foreground")
+                      ? (isSuccess ? "text-green-400" : isPending ? "text-amber-400" : "text-muted-foreground")
                       : (isSuccess ? "text-red-400" : "text-muted-foreground");
                     const statusLabel = t.status !== "success"
                       ? t.status === "refunded" ? "Refunded" : t.status.charAt(0).toUpperCase() + t.status.slice(1)
