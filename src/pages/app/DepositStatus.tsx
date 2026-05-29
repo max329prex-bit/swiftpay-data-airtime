@@ -109,6 +109,9 @@ export default function DepositStatus() {
     ? Number((tx.meta as Record<string, unknown>).net_credit)
     : (tx?.amount ? Number(tx.amount) : pendingAmount);
   const amount = walletCredit;
+  // pendingDisplayAmount: always use sessionStorage amount (what the user originally typed).
+  // walletCredit can be unreliable if the initial DB insert failed or meta was overwritten.
+  const pendingDisplayAmount = pendingAmount > 0 ? pendingAmount : walletCredit;
 
   if (status === "success") {
     return (
@@ -171,7 +174,7 @@ export default function DepositStatus() {
       </div>
       <div>
         <h1 className="font-display text-3xl font-bold">Verifying Payment{dots}</h1>
-        {amount > 0 && <p className="mt-2 text-muted-foreground">{naira(amount)} payment in progress</p>}
+        {pendingDisplayAmount > 0 && <p className="mt-2 text-muted-foreground">{naira(pendingDisplayAmount)} payment in progress</p>}
         <p className="mt-3 text-xs text-muted-foreground max-w-xs mx-auto">
           Complete the bank transfer on the Korapay page. This screen updates automatically once confirmed.
         </p>
