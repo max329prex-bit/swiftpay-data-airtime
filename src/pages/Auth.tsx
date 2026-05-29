@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/swift/Logo";
 import { toast } from "sonner";
-import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type Step = "form" | "verify";
@@ -26,11 +26,21 @@ export default function Auth() {
     e.preventDefault(); setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: { data: { full_name: fullName, phone } },
         });
         if (error) throw error;
+
+        // Supabase returns success even for existing emails (email enumeration protection).
+        // Detect this: confirmed existing user has empty identities array.
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          toast.error("An account with this email already exists. Please sign in instead.");
+          setMode("signin");
+          setPassword("");
+          return;
+        }
+
         toast.success("Verification code sent to your email!");
         setStep("verify");
       } else {
@@ -38,7 +48,19 @@ export default function Auth() {
         if (error) throw error;
         nav("/app");
       }
-    } catch (err: any) { toast.error(err.message ?? "Something went wrong"); }
+    } catch (err: any) {
+      // Friendly error messages
+      const msg: string = err.message ?? "Something went wrong";
+      if (msg.toLowerCase().includes("already registered")) {
+        toast.error("This email is already registered. Please sign in.");
+        setMode("signin");
+        setPassword("");
+      } else if (msg.toLowerCase().includes("invalid login") || msg.toLowerCase().includes("invalid credentials")) {
+        toast.error("Incorrect email or password.");
+      } else {
+        toast.error(msg);
+      }
+    }
     finally { setLoading(false); }
   }
 
@@ -50,7 +72,14 @@ export default function Auth() {
       if (error) throw error;
       toast.success("Email verified! Welcome to BlitzPay!");
       nav("/app");
-    } catch (err: any) { toast.error(err.message ?? "Invalid code"); }
+    } catch (err: any) {
+      const msg: string = err.message ?? "Invalid code";
+      if (msg.toLowerCase().includes("expired")) {
+        toast.error("Code expired. Click Resend to get a new one.");
+      } else {
+        toast.error(msg);
+      }
+    }
     finally { setLoading(false); }
   }
 
@@ -109,11 +138,16 @@ export default function Auth() {
                 </InputOTP>
               </div>
               <Button variant="hero" size="lg" className="w-full" disabled={loading || otp.length < 6} onClick={verifyCode}>
-                {loading ? "Verifying…" : "Verify & continue"} <ArrowRight />
+                {loading ? "Verifying..." : "Verify & continue"} <ArrowRight />
               </Button>
               <div className="text-center text-sm text-muted-foreground">
                 Didn't get a code?{" "}
                 <button onClick={resendCode} disabled={loading} className="text-primary hover:underline">Resend</button>
+              </div>
+              <div className="text-center">
+                <button onClick={() => { setStep("form"); setOtp(""); }} className="text-xs text-muted-foreground hover:text-foreground">
+                  Back to sign up
+                </button>
               </div>
             </motion.div>
           ) : (
@@ -136,20 +170,20 @@ export default function Auth() {
                 <div><Label htmlFor="em">Email</Label><Input id="em" type="email" required value={email} onChange={e => setEmail(e.target.value)} className="mt-1" placeholder="you@blitzpay.ng" /></div>
                 <div><Label htmlFor="pw">Password</Label><Input id="pw" type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className="mt-1" placeholder="••••••••" /></div>
                 <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={loading}>
-                  {loading ? "Please wait…" : mode === "signup" ? "Create wallet" : "Sign in"} <ArrowRight />
+                  {loading ? "Please wait..." : mode === "signup" ? "Create wallet" : "Sign in"} <ArrowRight />
                 </Button>
               </form>
 
               <div className="mt-5 text-center text-sm text-muted-foreground">
                 {mode === "signup" ? "Already have an account? " : "New to BlitzPay? "}
-                <button onClick={() => setMode(mode === "signup" ? "signin" : "signup")} className="text-primary hover:underline">
+                <button onClick={() => { setMode(mode === "signup" ? "signin" : "signup"); setPassword(""); }} className="text-primary hover:underline">
                   {mode === "signup" ? "Sign in" : "Create one"}
                 </button>
               </div>
             </>
           )}
         </div>
-        <div className="mt-4 text-center"><Link to="/" className="text-xs text-muted-foreground hover:text-foreground">← Back to home</Link></div>
+        <div className="mt-4 text-center"><Link to="/" className="text-xs text-muted-foreground hover:text-foreground">Back to home</Link></div>
       </motion.div>
     </div>
   );
