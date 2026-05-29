@@ -10,6 +10,33 @@ import { useBroadcast } from "@/hooks/useBroadcast";
 import { naira } from "@/lib/networks";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Renders Blitzi chat text: converts **bold** markers + newlines to styled JSX
+function BlitziText({ text }: { text: string }) {
+  const lines = text.split("\n").filter(l => l.trim() !== "" || true);
+  return (
+    <span>
+      {lines.map((line, li) => {
+        // Split by **bold** markers
+        const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+        return (
+          <span key={li}>
+            {parts.map((part, pi) => {
+              if (part.startsWith("**") && part.endsWith("**")) {
+                return <strong key={pi} className="font-semibold">{part.slice(2, -2)}</strong>;
+              }
+              if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+                return <em key={pi}>{part.slice(1, -1)}</em>;
+              }
+              return <span key={pi}>{part}</span>;
+            })}
+            {li < lines.length - 1 && <br />}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 const TABS = [
   { to: "/app", icon: Home, label: "Home", end: true },
   { to: "/app/bills", icon: Receipt, label: "Bills" },
@@ -221,7 +248,7 @@ export function AppShell() {
                         ? "bg-gradient-primary text-white rounded-br-sm"
                         : "bg-white/[0.07] text-foreground rounded-bl-sm"
                     }`}>
-                      {m.text}
+                      <BlitziText text={m.text} />
                     </div>
                   </div>
                 ))}
