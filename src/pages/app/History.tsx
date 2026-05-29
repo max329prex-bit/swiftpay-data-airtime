@@ -33,20 +33,29 @@ export default function History() {
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right">
-                  <div className={"text-sm font-bold " + (
-                    (t.type === "wallet_topup" || t.type === "wallet_fund") && t.status === "success"
-                      ? "text-accent"
-                      : (t.type === "wallet_topup" || t.type === "wallet_fund")
-                        ? "text-muted-foreground"
-                        : ""
-                  )}>
-                    {(t.type === "wallet_topup" || t.type === "wallet_fund") && t.status === "success" ? "+" :
-                     (t.type === "wallet_topup" || t.type === "wallet_fund") ? "" : "-"}
-                    {(t.type === "wallet_topup" || t.type === "wallet_fund") && t.meta?.net_credit
+                  {/* Deposits: + green if success, muted no-sign if pending/failed */}
+                  {/* Purchases: - red if success, - muted if failed/refunded */}
+                  <div className={`text-sm font-bold ${
+                    (t.type === "wallet_fund" || t.type === "wallet_topup")
+                      ? (t.status === "success" ? "text-green-400" : "text-muted-foreground")
+                      : (t.status === "success" ? "text-red-400" : "text-muted-foreground")
+                  }`}>
+                    {(t.type === "wallet_fund" || t.type === "wallet_topup")
+                      ? (t.status === "success" ? "+" : "")
+                      : "-"}
+                    {(t.type === "wallet_fund" || t.type === "wallet_topup") && t.meta?.net_credit
                       ? naira(Number(t.meta.net_credit))
                       : naira(Number(t.amount))}
                   </div>
-                  <div className={"text-[10px] font-medium uppercase " + (t.status === "success" ? "text-success" : t.status === "failed" ? "text-destructive" : t.status === "verifying" || t.status === "processing" ? "text-blue-400" : "text-warning")}>{t.status}</div>
+                  <div className={`text-[10px] font-medium uppercase ${
+                    t.status === "success" ? "text-success"
+                    : t.status === "failed" ? "text-destructive"
+                    : t.status === "refunded" ? "text-destructive"
+                    : t.status === "verifying" || t.status === "processing" ? "text-blue-400"
+                    : "text-warning"
+                  }`}>
+                    {t.status === "refunded" ? "Refunded" : t.status}
+                  </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
               </div>
