@@ -1,10 +1,11 @@
-name: Deploy Supabase Edge Functions
+name: Deploy Supabase
 
 on:
   workflow_dispatch:
   push:
     paths:
       - 'supabase/functions/**'
+      - 'supabase/migrations/**'
 
 jobs:
   deploy:
@@ -15,6 +16,12 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+
+      - name: Apply database migrations
+        run: |
+          supabase db push --project-ref tljnhlhzyntotadxoypz
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Deploy all edge functions
         run: |
@@ -29,6 +36,7 @@ jobs:
           # Wallet funding (Korapay only)
           supabase functions deploy korapay-topup --project-ref tljnhlhzyntotadxoypz
           supabase functions deploy korapay-webhook --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy verify-deposit --project-ref tljnhlhzyntotadxoypz
           # Treasury automation
           supabase functions deploy treasury-manager --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy treasury-reconcile --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
