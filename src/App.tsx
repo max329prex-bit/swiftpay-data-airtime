@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -29,8 +29,25 @@ import TreasuryDashboard from "./pages/app/admin/TreasuryDashboard.tsx";
 import SupportCenter from "./pages/app/admin/SupportCenter.tsx";
 import FraudMonitor from "./pages/app/admin/FraudMonitor.tsx";
 import Broadcast from "./pages/app/admin/Broadcast.tsx";
+import { useAdminRole } from "./hooks/useAdminRole.tsx";
+import { BoltLoader } from "./components/swift/BoltLoader.tsx";
 
 const queryClient = new QueryClient();
+
+/**
+ * Protects admin routes — redirects non-admins to /app.
+ * Shows a loader while the role check is in flight.
+ */
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { isAdmin, loading } = useAdminRole();
+  if (loading) return (
+    <div className="py-24 grid place-items-center">
+      <BoltLoader size={40} label="Checking access..." />
+    </div>
+  );
+  if (!isAdmin) return <Navigate to="/app" replace />;
+  return <>{children}</>;
+}
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
@@ -60,10 +77,11 @@ const App = () => (
               <Route path="provider-status" element={<ProviderStatus />} />
               <Route path="ledger" element={<Ledger />} />
               <Route path="deposit-status" element={<DepositStatus />} />
-              <Route path="admin/treasury" element={<TreasuryDashboard />} />
-              <Route path="admin/support" element={<SupportCenter />} />
-              <Route path="admin/fraud" element={<FraudMonitor />} />
-              <Route path="admin/broadcast" element={<Broadcast />} />
+              {/* Admin-only routes — non-admins are redirected to /app */}
+              <Route path="admin/treasury" element={<RequireAdmin><TreasuryDashboard /></RequireAdmin>} />
+              <Route path="admin/support" element={<RequireAdmin><SupportCenter /></RequireAdmin>} />
+              <Route path="admin/fraud" element={<RequireAdmin><FraudMonitor /></RequireAdmin>} />
+              <Route path="admin/broadcast" element={<RequireAdmin><Broadcast /></RequireAdmin>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
