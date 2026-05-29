@@ -157,28 +157,38 @@ export default function Dashboard() {
                   <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` · ${t.network}` : ""}</div>
                   <div className="text-[11px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
-                <div className="text-right">
-                  <div className={`text-sm font-semibold ${
-                    (t.type === "wallet_topup" || t.type === "wallet_fund") && t.status === "success"
-                      ? "text-green-400"
-                      : (t.type === "wallet_topup" || t.type === "wallet_fund") && t.status !== "success"
-                        ? "text-muted-foreground"
-                        : ""
-                  }`}>
-                    {(t.type === "wallet_topup" || t.type === "wallet_fund") && t.status === "success" ? "+" : 
-                     (t.type === "wallet_topup" || t.type === "wallet_fund") ? "" : "-"}
-                    {(t.type === "wallet_topup" || t.type === "wallet_fund") && t.meta?.net_credit
+                (() => {
+                    const isDeposit = t.type === "wallet_fund" || t.type === "wallet_topup";
+                    const isSuccess = t.status === "success";
+                    const displayAmt = isDeposit && t.meta?.net_credit
                       ? naira(Number(t.meta.net_credit))
-                      : naira(Number(t.amount))}
-                  </div>
-                  {t.status !== "success" && (
-                    <div className={`text-[10px] font-medium uppercase ${
-                      t.status === "failed" ? "text-destructive" :
-                      t.status === "processing" || t.status === "verifying" ? "text-blue-400" :
-                      "text-warning"
-                    }`}>{t.status}</div>
-                  )}
-                </div>
+                      : naira(Number(t.amount));
+                    const sign = isDeposit
+                      ? (isSuccess ? "+" : "")
+                      : "-";
+                    const amtColor = isDeposit
+                      ? (isSuccess ? "text-green-400" : "text-muted-foreground")
+                      : (isSuccess ? "text-red-400" : "text-muted-foreground");
+                    const statusLabel = t.status !== "success"
+                      ? t.status === "refunded" ? "Refunded" : t.status.charAt(0).toUpperCase() + t.status.slice(1)
+                      : null;
+                    const statusColor = t.status === "failed" || t.status === "refunded"
+                      ? "text-destructive"
+                      : t.status === "processing" || t.status === "verifying" ? "text-blue-400"
+                      : "text-warning";
+                    return (
+                      <div className="text-right">
+                        <div className={`text-sm font-semibold ${amtColor}`}>
+                          {sign}{displayAmt}
+                        </div>
+                        {statusLabel && (
+                          <div className={`text-[10px] font-medium uppercase ${statusColor}`}>
+                            {statusLabel}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
               </div>
             ))}
           </div>
