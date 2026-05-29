@@ -104,7 +104,11 @@ export default function DepositStatus() {
     };
   }, [ref]);
 
-  const amount = tx?.amount ? Number(tx.amount) : pendingAmount;
+  // net_credit is what goes into the wallet (gross = Korapay charge, net = wallet credit)
+  const walletCredit = tx?.meta && typeof tx.meta === 'object' && (tx.meta as Record<string, unknown>).net_credit
+    ? Number((tx.meta as Record<string, unknown>).net_credit)
+    : (tx?.amount ? Number(tx.amount) : pendingAmount);
+  const amount = walletCredit;
 
   if (status === "success") {
     return (
@@ -121,7 +125,7 @@ export default function DepositStatus() {
         <div className="glass rounded-2xl p-5 w-full max-w-sm text-left space-y-2">
           {[
             { label: "Reference", value: ref || String(tx?.reference) },
-            { label: "Amount credited", value: naira(amount) },
+            { label: "Amount credited to wallet", value: naira(amount) },
             { label: "Status", value: "Successful" },
           ].map(r => (
             <div key={r.label} className="flex justify-between text-sm border-b border-white/5 pb-2 last:border-0 last:pb-0">
