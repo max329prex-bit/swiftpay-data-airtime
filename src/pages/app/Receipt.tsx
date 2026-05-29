@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { naira } from "@/lib/networks";
 import { BoltLoader } from "@/components/swift/BoltLoader";
-import { ArrowLeft, Share2, CheckCircle2, XCircle, Clock, Copy, CheckCheck } from "lucide-react";
+import { ArrowLeft, Share2, CheckCircle2, XCircle, Clock, Copy, CheckCheck, Zap, Wifi, Phone, Tv, Bolt } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -25,17 +25,42 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function typeLabel(type: string): string {
+  const map: Record<string, string> = {
+    data: "Data Bundle",
+    airtime: "Airtime",
+    electricity: "Electricity",
+    cable: "Cable TV",
+    wallet_fund: "Wallet Top-up",
+    wallet_topup: "Wallet Top-up",
+  };
+  return map[type] ?? type.replace(/_/g, " ").toUpperCase();
+}
+
 export default function Receipt() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const [tx, setTx] = useState<any>(null);
+  const [pkg, setPkg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     supabase.from("transactions").select("*").eq("id", id).single()
-      .then(({ data }) => { setTx(data); setLoading(false); });
+      .then(async ({ data }) => {
+        setTx(data);
+        // Fetch package details if this is a data purchase
+        if (data?.type === "data" && data?.meta?.package_code) {
+          const { data: pkgData } = await supabase
+            .from("packages")
+            .select("name, size, validity, network, tier")
+            .eq("package_code", data.meta.package_code)
+            .maybeSingle();
+          setPkg(pkgData);
+        }
+        setLoading(false);
+      });
   }, [id]);
 
   function copyRef() {
@@ -48,11 +73,24 @@ export default function Receipt() {
 
   async function shareReceipt() {
     if (!tx) return;
-    const text = `BlitzPay Receipt\n\n${tx.type.replace(/_/g, " ").toUpperCase()}\nAmount: ${naira(Number(tx.amount))}\nNetwork: ${tx.network || "N/A"}\nPhone: ${tx.phone || "N/A"}\nStatus: ${tx.status.toUpperCase()}\nRef: ${tx.reference}\nDate: ${new Date(tx.created_at).toLocaleString("en-NG")}`;
+    const lines = [
+      "BlitzPay Receipt",
+      "",
+      typeLabel(tx.type),
+      pkg ? `Plan: ${pkg.name} (${pkg.size}, ${pkg.validity})` : "",
+      `Amount: ${naira(Number(tx.amount))}`,
+      tx.network ? `Network: ${tx.network}` : "",
+      tx.phone ? `Phone: ${tx.phone}` : "",
+      tx.meta?.meter_number ? `Meter: ${tx.meta.meter_number}` : "",
+      `Status: ${tx.status.toUpperCase()}`,
+      `Ref: ${tx.reference}`,
+      `Date: ${new Date(tx.created_at).toLocaleString("en-NG")}`,
+    ].filter(Boolean).join("\n");
+
     if (navigator.share) {
-      await navigator.share({ title: "BlitzPay Receipt", text });
+      await navigator.share({ title: "BlitzPay Receipt", text: lines });
     } else {
-      navigator.clipboard.writeText(text);
+      navigator.clipboard.writeText(lines);
       toast.success("Receipt text copied to clipboard");
     }
   }
@@ -70,6 +108,41 @@ export default function Receipt() {
   );
 
   const isCredit = tx.type === "wallet_topup" || tx.type === "wallet_fund";
+  const meta = tx.meta || {};
+  const meterToken = meta.meter_token;
+  const meterNumber = meta.meter_number || tx.phone;
+
+  // Build detail rows based on transaction type
+  const rows: { label: string; value: string }[] = [
+    { label: "Service", value: typeLabel(tx.type) },
+  ];
+
+  // Data bundle details
+  if (tx.type === "data" && pkg) {
+    rows.push({ label: "Plan", value: pkg.name });
+    rows.push({ label: "Size", value: pkg.size });
+    rows.push({ label: "Validity", value: pkg.validity });
+  } else if (tx.type === "data" && meta.package_code) {
+    rows.push({ label: "Package", value: String(meta.package_code) });
+  }
+
+  // Network / phone
+  if (tx.network) rows.push({ label: "Network", value: tx.network.toUpperCase() });
+  if (tx.phone && tx.type !== "electricity") rows.push({ label: "Phone Number", value: tx.phone });
+
+  // Electricity specifics
+  if (tx.type === "electricity") {
+    if (meterNumber) rows.push({ label: "Meter Number", value: meterNumber });
+    if (meta.meter_type) rows.push({ label: "Meter Type", value: String(meta.meter_type).toUpperCase() });
+  }
+
+  // Airtime specifics
+  if (tx.type === "airtime") {
+    if (tx.phone) rows.push({ label: "Recharge Number", value: tx.phone });
+  }
+
+  rows.push({ label: "Date & Time", value: new Date(tx.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) });
+  rows.push({ label: "Status", value: tx.status.toUpperCase() });
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="pb-10">
@@ -93,6 +166,11 @@ export default function Receipt() {
             <p className={`font-display text-4xl font-bold ${isCredit ? "text-green-400" : "text-foreground"}`}>
               {isCredit ? "+" : ""}{naira(Number(tx.amount))}
             </p>
+            {pkg && (
+              <p className="mt-2 text-sm text-primary font-semibold">
+                {pkg.size} · {pkg.validity}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-1 overflow-hidden">
@@ -102,19 +180,33 @@ export default function Receipt() {
           </div>
 
           <div className="space-y-0">
-            {[
-              { label: "Type", value: tx.type.replace(/_/g, " ").toUpperCase() },
-              tx.network && { label: "Network", value: tx.network.toUpperCase() },
-              tx.phone && { label: "Phone Number", value: tx.phone },
-              { label: "Date & Time", value: new Date(tx.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) },
-              { label: "Status", value: tx.status.toUpperCase() },
-            ].filter(Boolean).map((row: any) => (
+            {rows.map((row) => (
               <div key={row.label} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0">
                 <span className="text-xs text-muted-foreground">{row.label}</span>
-                <span className="text-xs font-semibold text-foreground">{row.value}</span>
+                <span className="text-xs font-semibold text-foreground text-right max-w-[60%]">{row.value}</span>
               </div>
             ))}
           </div>
+
+          {/* Electricity token — show prominently if available */}
+          {meterToken && (
+            <>
+              <div className="flex items-center gap-1 overflow-hidden">
+                {Array.from({ length: 30 }).map((_, i) => (
+                  <div key={i} className="h-px w-2 bg-white/10 flex-shrink-0" />
+                ))}
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Electricity Token</p>
+                <div className="glass rounded-xl px-4 py-3 border border-primary/20">
+                  <p className="font-mono text-center text-lg font-bold text-primary tracking-widest">{meterToken}</p>
+                  {meta.meter_unit && (
+                    <p className="text-center text-xs text-muted-foreground mt-1">{meta.meter_unit} units</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex items-center gap-1 overflow-hidden">
             {Array.from({ length: 30 }).map((_, i) => (
