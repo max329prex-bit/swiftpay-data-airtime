@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPA_URL=Deno.env.get("SUPABASE_URL")!,SUPA_SVC=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AIDAPAY_BASE="https://www.aidapay.ng/api/v1",AIDAPAY_TOKEN=Deno.env.get("AIDAPAY_TOKEN")!;
 const TG_BOT=Deno.env.get("TELEGRAM_BOT_TOKEN")??"",TG_CHAT=Deno.env.get("TELEGRAM_ADMIN_CHAT_ID")??"";
+const CRON_SECRET=Deno.env.get("CRON_SECRET")??"";
 const MAX_RETRIES=5;
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
 
@@ -22,6 +23,14 @@ async function checkAidapay(hash:string):Promise<"success"|"failed"|"pending"|"u
 
 serve(async(req)=>{
   if(req.method==="OPTIONS")return new Response(null,{headers:cors});
+
+  // SECURITY: Require cron secret header
+  const incoming = req.headers.get("x-cron-secret") ?? "";
+  if(!CRON_SECRET || incoming !== CRON_SECRET){
+    console.warn("transaction-recovery: unauthorized call rejected");
+    return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers:{...cors,"Content-Type":"application/json"}});
+  }
+
   const sb=createClient(SUPA_URL,SUPA_SVC);
   try{
     const cutoff=new Date(Date.now()-2*60*1000).toISOString();
@@ -47,13 +56,12 @@ serve(async(req)=>{
           resolved++;console.log(`Recovery: ${tx.reference} -> SUCCESS`);
         }else if(status==="failed"){
           await sb.from("transactions").update({status:"failed",failure_reason:"Provider confirmed failed (recovery)",last_verification_at:now}).eq("id",tx.id);
-          // Refund via refund_wallet (Korapay-only — no Monnify)
           await sb.rpc("refund_wallet",{_user_id:tx.user_id,_amount:tx.amount,_ref:tx.reference});
           resolved++;console.log(`Recovery: ${tx.reference} -> FAILED + refunded`);
         }else if(newRetry>=MAX_RETRIES){
           await sb.from("transactions").update({status:"failed",retry_count:newRetry,last_verification_at:now,failure_reason:`Max ${MAX_RETRIES} retries. Provider status: ${status}`}).eq("id",tx.id);
           await sb.rpc("refund_wallet",{_user_id:tx.user_id,_amount:tx.amount,_ref:tx.reference});
-          await tg(`🚨 *BlitzPay Manual Review*\nRef: \`${tx.reference}\`\nAmount: NGN${tx.amount}\nType: ${tx.type}/${tx.network}\nProvider: ${prvCode||"aidapay"}\nRefunded to wallet.`);
+          await tg(`[REVIEW] BlitzPay Manual Review needed. Ref: ${tx.reference}. Amount: NGN${tx.amount}. Type: ${tx.type}/${tx.network}. Provider: ${prvCode||"aidapay"}. Refunded to wallet.`);
         }else{
           await sb.from("transactions").update({retry_count:newRetry,last_verification_at:now,failure_reason:`Attempt ${newRetry}: provider=${status}`}).eq("id",tx.id);
         }
