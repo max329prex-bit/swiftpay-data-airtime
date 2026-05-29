@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const AIDAPAY_TOKEN = Deno.env.get("AIDAPAY_TOKEN")!;
 const SUPA_URL      = Deno.env.get("SUPABASE_URL")!;
@@ -17,10 +17,10 @@ serve(async (req) => {
     const rawBody = await req.text();
     const sig     = req.headers.get("Signature") || req.headers.get("signature") || "";
 
-    // Check 1: HMAC-SHA256 signature
+    // SECURITY: Always require a valid HMAC signature — no unsigned requests accepted
     const expected = await hmacSha256Hex(AIDAPAY_TOKEN, rawBody);
-    if (sig && sig !== expected) {
-      console.error("AidaPay: bad signature");
+    if (!sig || sig !== expected) {
+      console.error("AidaPay: missing or invalid signature — request rejected");
       return new Response("Forbidden", { status: 403 });
     }
 
@@ -30,7 +30,7 @@ serve(async (req) => {
 
     const sb = createClient(SUPA_URL, SUPA_SVC);
 
-    // Check 2: verify reference exists in our DB (if ref provided)
+    // Check: verify reference exists in our DB (if ref provided)
     if (ref) {
       const { data: txRow } = await sb.from("transactions")
         .select("id, status").eq("provider_reference", ref).maybeSingle();
@@ -40,7 +40,7 @@ serve(async (req) => {
       }
     }
 
-    // Check 3 & 4: event dedup for success events (prevents double-credit)
+    // Event dedup for success events (prevents double-credit)
     const isSuccess = ["successful", "success"].includes((status || "").toLowerCase());
     if (isSuccess) {
       const eventId = `aidapay-${transaction_hash}`;
