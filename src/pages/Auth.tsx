@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/swift/Logo";
 import { toast } from "sonner";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck, RefreshCw } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type Step = "form" | "verify";
@@ -20,6 +20,7 @@ export default function Auth() {
   const [fullName, setFullName] = useState(""); const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const nav = useNavigate();
 
   async function submit(e: React.FormEvent) {
@@ -32,65 +33,93 @@ export default function Auth() {
         });
         if (error) throw error;
 
-        // Supabase returns success even for existing emails (email enumeration protection).
-        // Detect this: confirmed existing user has empty identities array.
+        // Detect already-registered email (Supabase returns empty identities, no error)
         if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
           toast.error("An account with this email already exists. Please sign in instead.");
-          setMode("signin");
-          setPassword("");
-          return;
+          setMode("signin"); setPassword(""); return;
         }
 
         toast.success("Verification code sent to your email!");
         setStep("verify");
+        startResendCooldown(60);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         nav("/app");
       }
     } catch (err: any) {
-      // Friendly error messages
       const msg: string = err.message ?? "Something went wrong";
       if (msg.toLowerCase().includes("already registered")) {
-        toast.error("This email is already registered. Please sign in.");
-        setMode("signin");
-        setPassword("");
+        toast.error("This email is already registered. Please sign in."); setMode("signin"); setPassword("");
       } else if (msg.toLowerCase().includes("invalid login") || msg.toLowerCase().includes("invalid credentials")) {
         toast.error("Incorrect email or password.");
       } else {
         toast.error(msg);
       }
-    }
-    finally { setLoading(false); }
+    } finally { setLoading(false); }
+  }
+
+  function startResendCooldown(seconds: number) {
+    setResendCooldown(seconds);
+    const interval = setInterval(() => {
+      setResendCooldown(prev => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
   }
 
   async function verifyCode() {
-    if (otp.length < 6) return toast.error("Enter the 6-digit code");
+    if (otp.length < 6) return toast.error("Enter the full 6-digit code");
     setLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: "signup" });
-      if (error) throw error;
+      // Try "email" type first (works with PKCE flow), fall back to "signup"
+      let result = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+      if (result.error && result.error.message?.toLowerCase().includes("invalid")) {
+        result = await supabase.auth.verifyOtp({ email, token: otp, type: "signup" });
+      }
+      if (result.error) throw result.error;
       toast.success("Email verified! Welcome to BlitzPay!");
       nav("/app");
     } catch (err: any) {
-      const msg: string = err.message ?? "Invalid code";
+      const msg: string = err.message ?? "Verification failed";
       if (msg.toLowerCase().includes("expired")) {
-        toast.error("Code expired. Click Resend to get a new one.");
+        toast.error("Code expired — click Resend to get a new one.");
+        setOtp("");
+      } else if (msg.toLowerCase().includes("invalid")) {
+        toast.error("Wrong code — double-check and try again.");
+        setOtp("");
       } else {
         toast.error(msg);
       }
-    }
-    finally { setLoading(false); }
+    } finally { setLoading(false); }
   }
 
   async function resendCode() {
+    if (resendCooldown > 0) return;
     setLoading(true);
     try {
+      // Use signInWithOtp to resend — more reliable than supabase.auth.resend
       const { error } = await supabase.auth.resend({ type: "signup", email });
-      if (error) throw error;
-      toast.success("New code sent!");
-    } catch (err: any) { toast.error(err.message ?? "Could not resend"); }
-    finally { setLoading(false); }
+      if (error) {
+        // Fallback: use signInWithOtp
+        const { error: otpErr } = await supabase.auth.signInWithOtp({
+          email, options: { shouldCreateUser: false }
+        });
+        if (otpErr) throw otpErr;
+      }
+      toast.success("New code sent! Check your inbox.");
+      setOtp("");
+      startResendCooldown(60);
+    } catch (err: any) {
+      const msg: string = err.message ?? "Could not resend";
+      if (msg.toLowerCase().includes("rate") || msg.toLowerCase().includes("limit")) {
+        toast.error("Please wait a minute before requesting a new code.");
+        startResendCooldown(60);
+      } else {
+        toast.error(msg);
+      }
+    } finally { setLoading(false); }
   }
 
   async function signInWithGoogle() {
@@ -124,9 +153,10 @@ export default function Auth() {
                   We sent a 6-digit code to<br />
                   <span className="font-semibold text-foreground">{email}</span>
                 </p>
+                <p className="mt-1 text-xs text-muted-foreground">Check your inbox and spam folder</p>
               </div>
               <div className="flex justify-center">
-                <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                <InputOTP maxLength={6} value={otp} onChange={setOtp} autoFocus>
                   <InputOTPGroup>
                     <InputOTPSlot index={0} />
                     <InputOTPSlot index={1} />
@@ -142,10 +172,16 @@ export default function Auth() {
               </Button>
               <div className="text-center text-sm text-muted-foreground">
                 Didn't get a code?{" "}
-                <button onClick={resendCode} disabled={loading} className="text-primary hover:underline">Resend</button>
+                {resendCooldown > 0 ? (
+                  <span className="text-muted-foreground">Resend in {resendCooldown}s</span>
+                ) : (
+                  <button onClick={resendCode} disabled={loading} className="text-primary hover:underline inline-flex items-center gap-1">
+                    <RefreshCw className="h-3 w-3" /> Resend
+                  </button>
+                )}
               </div>
               <div className="text-center">
-                <button onClick={() => { setStep("form"); setOtp(""); }} className="text-xs text-muted-foreground hover:text-foreground">
+                <button onClick={() => { setStep("form"); setOtp(""); setResendCooldown(0); }} className="text-xs text-muted-foreground hover:text-foreground">
                   Back to sign up
                 </button>
               </div>
