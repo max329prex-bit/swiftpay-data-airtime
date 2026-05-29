@@ -13,6 +13,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    flowType: 'pkce',   // PKCE flow: enables reliable 6-digit OTP for email confirmation
+    // Using implicit flow: signUp sends 6-digit OTP via email (verified with verifyOtp)
+    flowType: 'implicit',
   }
 });
