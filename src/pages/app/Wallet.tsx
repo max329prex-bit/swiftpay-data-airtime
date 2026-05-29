@@ -15,9 +15,9 @@ export default function Wallet() {
   const [amount, setAmount] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // Fee model: user inputs desired wallet credit → pays gross (amount + 2%)
-  const fee        = amount > 0 ? Math.round(amount * (FEE_PCT / 100) * 100) / 100 : 0;
-  const grossAmount = amount + fee;  // what Korapay checkout will show
+  // Fee model: always ceil to whole naira (prevents bank transfer decimal issues)
+  const grossAmount = amount > 0 ? Math.ceil(amount * (1 + FEE_PCT / 100)) : 0;
+  const fee         = amount > 0 ? grossAmount - amount : 0;
 
   async function initiateFunding() {
     if (amount < 100) return toast.error("Minimum deposit is ₦100");
