@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
+import AdminLogin from "./pages/AdminLogin.tsx";
 import { AppShell } from "./components/swift/AppShell.tsx";
 import Dashboard from "./pages/app/Dashboard.tsx";
 import Airtime from "./pages/app/Airtime.tsx";
@@ -35,8 +36,7 @@ import { BoltLoader } from "./components/swift/BoltLoader.tsx";
 const queryClient = new QueryClient();
 
 /**
- * Protects admin routes — redirects non-admins to /app.
- * Shows a loader while the role check is in flight.
+ * Protects admin routes — redirects non-admins to /admin login.
  */
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { isAdmin, loading } = useAdminRole();
@@ -45,7 +45,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
       <BoltLoader size={40} label="Checking access..." />
     </div>
   );
-  if (!isAdmin) return <Navigate to="/app" replace />;
+  if (!isAdmin) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
@@ -59,6 +59,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            {/* Standalone admin login — password + OTP, no email field */}
+            <Route path="/admin" element={<AdminLogin />} />
             <Route path="/app/setup-pin" element={<PinSetup />} />
             <Route path="/app" element={<AppShell />}>
               <Route index element={<Dashboard />} />
@@ -77,7 +79,7 @@ const App = () => (
               <Route path="provider-status" element={<ProviderStatus />} />
               <Route path="ledger" element={<Ledger />} />
               <Route path="deposit-status" element={<DepositStatus />} />
-              {/* Admin-only routes — non-admins are redirected to /app */}
+              {/* Admin-only routes — non-admins redirect to /admin login */}
               <Route path="admin/treasury" element={<RequireAdmin><TreasuryDashboard /></RequireAdmin>} />
               <Route path="admin/support" element={<RequireAdmin><SupportCenter /></RequireAdmin>} />
               <Route path="admin/fraud" element={<RequireAdmin><FraudMonitor /></RequireAdmin>} />
