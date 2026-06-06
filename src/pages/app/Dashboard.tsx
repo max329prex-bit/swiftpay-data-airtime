@@ -178,7 +178,7 @@ export default function Dashboard() {
                   <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` · ${t.network}` : ""}</div>
                   <div className="text-[11px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
-                (() => {
+                {(() => {
                     const isDeposit = t.type === "wallet_fund" || t.type === "wallet_topup";
                     const isSuccess = t.status === "success";
                     const displayAmt = isDeposit && t.meta?.net_credit
@@ -210,7 +210,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     );
-                  })()
+                  })()}
               </div>
             ))}
           </div>
