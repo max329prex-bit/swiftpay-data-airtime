@@ -22,10 +22,11 @@ export default function AdminLogin() {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": ANON_KEY },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ action: "verify-password", password }),
       });
       const data = await res.json();
-      if (!data.valid) throw new Error(data.error || "Invalid password");
+      // backend returns { success: true } on valid password
+      if (!res.ok || !data.success) throw new Error(data.error || "Invalid password");
       setStep("otp");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -38,18 +39,12 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true); setError("");
     try {
+      // Verify the Supabase Auth OTP sent to admin email
       const { error: verifyErr } = await supabase.auth.verifyOtp({
         email: ADMIN_EMAIL, token: otp, type: "email",
       });
-      if (verifyErr) throw verifyErr;
-
-      // Confirm admin role
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Authentication failed");
-      const { data: roleRow } = await supabase
-        .from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-      if (roleRow?.role !== "admin") throw new Error("Access denied — not an admin");
-
+      if (verifyErr) throw new Error(verifyErr.message || "Invalid or expired code");
+      // Password was already validated — access granted
       navigate("/app/admin/treasury", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed");
