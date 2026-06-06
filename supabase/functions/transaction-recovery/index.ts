@@ -23,7 +23,7 @@ async function checkAidapay(hash:string):Promise<"success"|"failed"|"pending"|"u
 }
 
 async function checkKorapay(reference:string):Promise<"success"|"failed"|"pending"|"unknown">{
-  if(!KORAPAY_SECRET)return"unknown";
+  if(!KORAPAY_SECRET){console.error("KORAPAY_SECRET_KEY not set");return"unknown";}
   try{
     const r=await fetch(`https://api.korapay.com/merchant/api/v1/charges/${reference}`,{
       headers:{Authorization:`Bearer ${KORAPAY_SECRET}`,Accept:"application/json"},
@@ -34,9 +34,8 @@ async function checkKorapay(reference:string):Promise<"success"|"failed"|"pendin
     const s=(d?.data?.status||"").toLowerCase();
     console.log(`Korapay check ${reference}: status=${s}`);
     if(["success","successful","completed"].includes(s))return"success";
-    if(["failed","failed","error","cancelled","declined"].includes(s))return"failed";
-    if(["pending","processing","initiated"].includes(s))return"pending";
-    return"unknown";
+    if(["failed","error","cancelled","declined"].includes(s))return"failed";
+    return"pending";
   }catch(e){console.error("checkKorapay error:",e);return"unknown";}
 }
 
@@ -53,57 +52,61 @@ serve(async(req)=>{
   try{
     const cutoff=new Date(Date.now()-2*60*1000).toISOString();
 
-    // Fetch stuck service transactions (processing/verifying) AND stuck Korapay deposits (pending wallet_fund)
+    // Fetch stuck service txs AND stuck Korapay deposits (pending wallet_fund)
     const[{data:stuck,error:qe},{data:stuckDeposits,error:de}]=await Promise.all([
       sb.from("transactions").select("*").in("status",["processing","verifying"]).lt("created_at",cutoff).lt("retry_count",MAX_RETRIES).order("created_at",{ascending:true}).limit(20),
       sb.from("transactions").select("*").eq("status","pending").eq("type","wallet_fund").lt("created_at",cutoff).order("created_at",{ascending:true}).limit(20)
     ]);
     if(qe)throw qe;
 
-    // Merge and deduplicate by id
+    // Merge by id (no duplicates)
     const allTxMap=new Map<string,Record<string,unknown>>();
-    for(const tx of (stuck||[]))allTxMap.set(tx.id,tx);
-    for(const tx of (stuckDeposits||[]))allTxMap.set(tx.id,{...tx,_korapay:true});
+    for(const tx of (stuck||[]))allTxMap.set(tx.id,{...tx,_isKorapayDeposit:false});
+    for(const tx of (stuckDeposits||[]))if(!allTxMap.has(tx.id))allTxMap.set(tx.id,{...tx,_isKorapayDeposit:true});
     const allTx=[...allTxMap.values()];
 
     if(allTx.length===0)return new Response(JSON.stringify({checked:0,resolved:0}),{headers:{...cors,"Content-Type":"application/json"}});
-    console.log(`Recovery: checking ${allTx.length} stuck txs (${(stuckDeposits||[]).length} Korapay deposits)`);
+    console.log(`Recovery: checking ${allTx.length} txs (${(stuckDeposits||[]).length} Korapay deposits)`);
     let resolved=0;const now=new Date().toISOString();
 
     for(const tx of allTx){
       try{
-        const meta=tx.meta||{};const prvCode=(meta.provider_code as string)||"";
-        const newRetry=(tx.retry_count||0)+1;
+        const meta=(tx.meta as Record<string,unknown>)||{};
+        const prvCode=(meta.provider_code as string)||"";
+        const newRetry=(tx.retry_count as number||0)+1;
+        const isKorapayDeposit=tx._isKorapayDeposit as boolean;
         let status:"success"|"failed"|"pending"|"unknown"="unknown";
-        const isKorapayDeposit=tx.type==="wallet_fund"||(tx._korapay as boolean);
 
         if(isKorapayDeposit){
-          // Use Korapay API to verify deposit
-          const ref=(meta.korapay_reference as string)||tx.provider_reference||tx.reference;
+          // Korapay deposit — verify via Korapay API
+          const ref=(meta.korapay_reference as string)||tx.provider_reference as string||tx.reference as string;
           if(ref)status=await checkKorapay(ref);
         }else if(!prvCode.startsWith("bsplug")&&!prvCode.startsWith("iacafe")){
-          const hash=(meta.aidapay_ref as string)||tx.provider_reference||tx.aidapay_hash;
+          const hash=(meta.aidapay_ref as string)||tx.provider_reference as string||tx.aidapay_hash as string;
           if(hash)status=await checkAidapay(hash);
         }
 
         if(status==="success"){
           if(isKorapayDeposit){
-            // Credit wallet for confirmed Korapay deposit
-            const{error:we}=await sb.rpc("credit_wallet",{_user_id:tx.user_id,_amount:tx.amount,_ref:tx.reference}).single().catch(()=>({error:"rpc_missing"}));
-            if(we&&typeof we==="string"&&we==="rpc_missing"){
-              // Fallback: direct wallet update
-              await sb.from("wallets").update({balance:sb.rpc("coalesce",[]) as unknown as number}).eq("user_id",tx.user_id);
-              // Safe fallback: increment balance directly
-              await sb.rpc("increment_wallet",{_user_id:tx.user_id,_amount:tx.amount}).catch(async()=>{
-                await sb.from("wallets").select("balance").eq("user_id",tx.user_id).single().then(async({data:w})=>{
-                  if(w)await sb.from("wallets").update({balance:(w.balance||0)+tx.amount,updated_at:now}).eq("user_id",tx.user_id);
-                });
-              });
+            // Use the dedicated RPC — handles wallet credit + tx status atomically + duplicate protection
+            const ref=(meta.korapay_reference as string)||tx.provider_reference as string||tx.reference as string;
+            const{error:rpcErr}=await sb.rpc("credit_wallet_from_korapay",{
+              _user_id:tx.user_id,
+              _amount:tx.amount,
+              _korapay_ref:ref
+            });
+            if(rpcErr){
+              // DUPLICATE means already credited — still mark success
+              if((rpcErr.message||"").includes("DUPLICATE")){
+                console.log(`Recovery: ${tx.reference} already credited, skipping`);
+              }else{
+                console.error(`Recovery: credit_wallet_from_korapay failed:`,rpcErr.message);
+                continue;
+              }
             }
-            await sb.from("transactions").update({status:"success",last_verification_at:now,failure_reason:null}).eq("id",tx.id);
             resolved++;
             console.log(`Recovery: Korapay deposit ${tx.reference} -> CREDITED NGN${tx.amount}`);
-            await tg(`✅ Deposit recovered: NGN${tx.amount} credited to user ${tx.user_id}. Ref: ${tx.reference}`);
+            await tg(`✅ Deposit recovered: NGN${tx.amount} credited. Ref: ${tx.reference}`);
           }else{
             await sb.from("transactions").update({status:"success",last_verification_at:now,failure_reason:null}).eq("id",tx.id);
             resolved++;console.log(`Recovery: ${tx.reference} -> SUCCESS`);
@@ -117,7 +120,7 @@ serve(async(req)=>{
         }else if(!isKorapayDeposit&&newRetry>=MAX_RETRIES){
           await sb.from("transactions").update({status:"failed",retry_count:newRetry,last_verification_at:now,failure_reason:`Max ${MAX_RETRIES} retries. Provider status: ${status}`}).eq("id",tx.id);
           await sb.rpc("refund_wallet",{_user_id:tx.user_id,_amount:tx.amount,_ref:tx.reference});
-          await tg(`[REVIEW] BlitzPay Manual Review needed. Ref: ${tx.reference}. Amount: NGN${tx.amount}. Type: ${tx.type}/${tx.network}. Provider: ${prvCode||"aidapay"}. Refunded to wallet.`);
+          await tg(`[REVIEW] BlitzPay Manual Review needed. Ref: ${tx.reference}. Amount: NGN${tx.amount}. Type: ${tx.type}/${tx.network}. Refunded.`);
         }else{
           await sb.from("transactions").update({retry_count:newRetry,last_verification_at:now,failure_reason:`Attempt ${newRetry}: provider=${status}`}).eq("id",tx.id);
         }
