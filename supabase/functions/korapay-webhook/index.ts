@@ -43,11 +43,9 @@ Deno.serve(async (req) => {
     // Always return 200 to Korapay immediately — even for non-credit events
     if (event !== "charge.success") return new Response(OK, { status: 200, headers: OK_HDR });
 
-    const ref          = (data?.reference ?? "") as string;
-    const amount       = Number(data?.amount ?? 0);
-    const netCredit    = Number(data?.metadata?.net_credit ?? 0);
-    const creditAmount = netCredit > 0 ? netCredit : amount;
-    const userId       = (data?.metadata?.user_id ?? "") as string;
+    const ref    = (data?.reference ?? "") as string;
+    const amount = Number(data?.amount ?? 0);
+    const userId = (data?.metadata?.user_id ?? "") as string;
 
     if (!ref || !userId || amount < 100) {
       console.warn("Korapay: missing fields", { ref, userId, amount });
@@ -84,6 +82,22 @@ Deno.serve(async (req) => {
       console.warn("Korapay: duplicate webhook", ref);
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
+
+    // FIX: Look up net_credit from DB — Korapay does not reliably echo metadata in webhook
+    // We stored net_credit in transactions.meta when the charge was initialised
+    const { data: pendingTx } = await sb.from("transactions")
+      .select("meta")
+      .eq("reference", ref)
+      .maybeSingle();
+
+    const dbNetCredit    = Number(pendingTx?.meta?.net_credit ?? 0);
+    // Fallback chain: DB net_credit → webhook metadata net_credit → raw gross amount (last resort)
+    const webhookNetCredit = Number(data?.metadata?.net_credit ?? 0);
+    const creditAmount   = dbNetCredit > 0 ? dbNetCredit
+                         : webhookNetCredit > 0 ? webhookNetCredit
+                         : amount;
+
+    console.log(`Korapay: ref=${ref} gross=${amount} dbNetCredit=${dbNetCredit} webhookNetCredit=${webhookNetCredit} creditAmount=${creditAmount}`);
 
     // Credit wallet atomically
     const { error: creditErr } = await sb.rpc("credit_wallet_from_korapay", {
