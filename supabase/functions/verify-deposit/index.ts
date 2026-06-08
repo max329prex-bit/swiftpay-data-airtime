@@ -24,9 +24,9 @@ serve(async (req) => {
 
     const sb = createClient(SUPA_URL, SUPA_SVC);
 
-    // 1. Check if already credited
+    // 1. Check if already credited — also fetch meta for net_credit
     const { data: existing } = await sb.from("transactions")
-      .select("status, amount")
+      .select("status, amount, meta")
       .eq("reference", reference)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -47,14 +47,22 @@ serve(async (req) => {
     const kData = await kRes.json();
     const kStatus = kData?.data?.status ?? kData?.data?.payment_status ?? "";
     const kAmount = Number(kData?.data?.amount ?? 0);
-    const kNetCredit = Number(kData?.data?.metadata?.net_credit ?? 0);
-    const creditAmount = kNetCredit > 0 ? kNetCredit : kAmount;
 
     if (kStatus !== "success" && kStatus !== "paid") {
       return new Response(JSON.stringify({ success: false, status: kStatus, message: "Payment not confirmed by Korapay" }), {
         headers: { ...cors, "Content-Type": "application/json" }
       });
     }
+
+    // FIX: Prefer net_credit from DB over Korapay API response
+    // Korapay does not reliably echo metadata — use what we stored at charge init time
+    const dbNetCredit      = Number(existing?.meta?.net_credit ?? 0);
+    const apiNetCredit     = Number(kData?.data?.metadata?.net_credit ?? 0);
+    const creditAmount     = dbNetCredit > 0 ? dbNetCredit
+                           : apiNetCredit > 0 ? apiNetCredit
+                           : kAmount;
+
+    console.log(`verify-deposit: ref=${reference} gross=${kAmount} dbNetCredit=${dbNetCredit} apiNetCredit=${apiNetCredit} creditAmount=${creditAmount}`);
 
     // 3. Credit wallet
     const { error: creditErr } = await sb.rpc("credit_wallet_from_korapay", {
