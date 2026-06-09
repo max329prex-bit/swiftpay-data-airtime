@@ -92,8 +92,9 @@ export default function DepositStatus() {
     const ch = supabase.channel("deposit-status-" + ref)
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" },
         (p) => {
-          if (p.new?.reference === ref) {
-            updateStatus(p.new.status as TxStatus, p.new as Record<string, unknown>);
+          const row = p.new as Record<string, unknown> | undefined;
+          if (row && row.reference === ref) {
+            updateStatus(row.status as TxStatus, row);
           }
         }
       ).subscribe();

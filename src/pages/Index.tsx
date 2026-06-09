@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Zap, Wifi, ShieldCheck, Sparkles, Wallet, Clock, Gift, Lock, Smartphone, Download, Check, Star, Menu, X } from "lucide-react";
+import { ArrowRight, Zap, Wifi, ShieldCheck, Sparkles, Wallet, Gift, Lock, Download, Check, Menu, X, Tv, Lightbulb, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import heroGirl from "@/assets/hero-girl.jpg";
 
 const NETWORKS = [
   { id: "MTN", color: "#facc15" },
@@ -10,32 +11,34 @@ const NETWORKS = [
   { id: "9mobile", color: "#16a34a" },
 ];
 
+const SERVICES = [
+  { icon: Phone, title: "Airtime", desc: "Instant top-up on MTN, Glo, Airtel and 9mobile." },
+  { icon: Wifi, title: "Data bundles", desc: "From daily plans to monthly mega-bundles, all networks." },
+  { icon: Lightbulb, title: "Electricity", desc: "Pay any DISCO and get your token in seconds." },
+  { icon: Tv, title: "Cable TV", desc: "DStv, GOtv and Startimes — no queues, no stress." },
+];
+
 const FEATURES = [
-  { icon: Zap, title: "Lightning fast", desc: "Airtime delivered in seconds. No more endless USSD codes or failed top-ups." },
-  { icon: Gift, title: "Cashback on every buy", desc: "Earn up to 4% back on every airtime and data purchase, automatically." },
-  { icon: ShieldCheck, title: "Bank-grade security", desc: "PIN-protected payments, biometric login, and end-to-end encrypted data." },
-  { icon: Wallet, title: "One smart wallet", desc: "Top up once, spend anywhere. Never enter your card on a small site again." },
-  { icon: Clock, title: "Schedule top-ups", desc: "Auto top-up Mum every Monday. Set it once. We handle the rest." },
-  { icon: Sparkles, title: "Beneficiaries", desc: "Save numbers with nicknames. Two taps to send airtime to anyone." },
+  { icon: Zap, title: "Instant delivery", desc: "Most transactions complete in under 5 seconds, 24/7." },
+  { icon: Gift, title: "Earn SwiftPoints", desc: "Get 5 SwiftPoints for every ₦250 you spend on airtime or data." },
+  { icon: Sparkles, title: "Redeem 1GB free", desc: "Swap 100 SwiftPoints for a free 1GB data bundle, any network." },
+  { icon: ShieldCheck, title: "PIN-protected", desc: "Every transaction is locked behind a 4-digit transaction PIN." },
+  { icon: Wallet, title: "One secure wallet", desc: "Fund once, pay anything. No re-entering card details." },
+  { icon: Lock, title: "Encrypted end-to-end", desc: "Built on Supabase auth with row-level security on every record." },
 ];
 
 const STEPS = [
-  { n: "01", t: "Create your wallet", d: "Sign up in 30 seconds with email or Google. No paperwork, no waiting." },
-  { n: "02", t: "Top up once", d: "Fund instantly via bank transfer or card. Your balance is ready immediately." },
-  { n: "03", t: "Buy & earn cashback", d: "Pick a network, enter the number, tap pay. Earn cashback on every purchase." },
-];
-
-const TIERS = [
-  { tier: "Starter", base: "0–₦5k / month", cashback: "1.5%", perks: ["No fees", "All networks", "Email support"] },
-  { tier: "Plus", base: "₦5k–₦50k / month", cashback: "2.5%", perks: ["Priority delivery", "Schedule top-ups", "Live chat"], featured: true },
-  { tier: "Elite", base: "₦50k+ / month", cashback: "4%", perks: ["VIP support", "Bulk uploads", "Free withdrawals"] },
+  { n: "01", t: "Sign up free", d: "Create your BlitzPay account with email in 30 seconds." },
+  { n: "02", t: "Fund your wallet", d: "Top up securely. Your balance is ready instantly." },
+  { n: "03", t: "Pay & earn points", d: "Buy airtime, data or pay a bill — and earn SwiftPoints as you go." },
 ];
 
 const FAQS = [
-  { q: "Is BlitzPay free?", a: "Yes. Creating an account, topping up your wallet, and buying airtime or data costs nothing extra. We make money from network commissions and pass the savings back to you as cashback." },
-  { q: "Which networks are supported?", a: "All four major Nigerian networks — MTN, Glo, Airtel, and 9mobile — for both airtime and data." },
-  { q: "How long does delivery take?", a: "Airtime is typically delivered in under 5 seconds. Data bundles activate within 30 seconds." },
-  { q: "Is my money safe?", a: "Your wallet balance is held in a regulated escrow account. Every transaction is PIN-protected and we never store your card details." },
+  { q: "Is BlitzPay free to use?", a: "Yes. Creating an account, funding your wallet, and buying airtime or data costs nothing extra. You only pay the face value of what you're buying." },
+  { q: "What are SwiftPoints?", a: "Our built-in rewards. You earn 5 SwiftPoints for every ₦250 you spend on airtime or data. When you hit 100 points, you can redeem a free 1GB data bundle on any network." },
+  { q: "Which networks and services are supported?", a: "All four major Nigerian networks — MTN, Glo, Airtel and 9mobile — for airtime and data, plus electricity (all major DISCOs) and cable TV (DStv, GOtv, Startimes)." },
+  { q: "How long does delivery take?", a: "Airtime and data are typically delivered in under 5 seconds. Electricity tokens arrive within 30 seconds." },
+  { q: "Is my money safe?", a: "Every transaction is locked behind a 4-digit PIN, your session is encrypted, and your data is protected with row-level security. We never store your card details." },
 ];
 
 function SiteNav() {
@@ -53,24 +56,24 @@ function SiteNav() {
             </span>
           </Link>
           <nav className="hidden items-center gap-8 md:flex">
-            <a href="#features" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">Features</a>
-            <a href="#how" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">How it works</a>
-            <a href="#pricing" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">Pricing</a>
+            <a href="#services" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">Services</a>
+            <a href="#features" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">Why BlitzPay</a>
+            <a href="#rewards" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">Rewards</a>
             <a href="#faq" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">FAQ</a>
           </nav>
           <div className="hidden items-center gap-3 md:flex">
             <Link to="/auth"><Button variant="ghost" size="sm">Sign in</Button></Link>
             <Link to="/auth?mode=signup"><Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-white">Get started</Button></Link>
           </div>
-          <button className="md:hidden" onClick={() => setOpen(!open)}>
+          <button className="md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu">
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
         {open && (
           <div className="border-t border-slate-100 py-4 md:hidden space-y-3">
-            <a href="#features" className="block text-sm text-slate-600" onClick={() => setOpen(false)}>Features</a>
-            <a href="#how" className="block text-sm text-slate-600" onClick={() => setOpen(false)}>How it works</a>
-            <a href="#pricing" className="block text-sm text-slate-600" onClick={() => setOpen(false)}>Pricing</a>
+            <a href="#services" className="block text-sm text-slate-600" onClick={() => setOpen(false)}>Services</a>
+            <a href="#features" className="block text-sm text-slate-600" onClick={() => setOpen(false)}>Why BlitzPay</a>
+            <a href="#rewards" className="block text-sm text-slate-600" onClick={() => setOpen(false)}>Rewards</a>
             <a href="#faq" className="block text-sm text-slate-600" onClick={() => setOpen(false)}>FAQ</a>
             <div className="flex gap-2 pt-2">
               <Link to="/auth" className="flex-1"><Button variant="outline" className="w-full" size="sm">Sign in</Button></Link>
@@ -83,45 +86,39 @@ function SiteNav() {
   );
 }
 
-function PhoneMockLight() {
+function HeroVisual() {
   return (
-    <div className="relative mx-auto w-[260px] sm:w-[300px]">
-      <div className="absolute -inset-8 -z-10 rounded-full bg-blue-500/10 blur-3xl" />
-      <div className="relative aspect-[9/19] rounded-[2.4rem] border border-slate-200 bg-slate-900 p-2.5 shadow-[0_40px_100px_-20px_rgba(15,23,42,0.3)]">
-        <div className="absolute left-1/2 top-2.5 z-10 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
-        <div className="h-full overflow-hidden rounded-[1.8rem] bg-slate-950 p-4">
-          <div className="mt-5 flex items-center justify-between">
-            <div>
-              <div className="text-[9px] uppercase tracking-widest text-slate-400">Wallet</div>
-              <div className="text-xl font-bold text-white">₦48,230</div>
-            </div>
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-blue-500">
-              <ArrowRight className="h-3 w-3 text-white" />
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {[{ i: Zap, l: "Airtime" }, { i: Wifi, l: "Data" }].map(({ i: Ic, l }) => (
-              <div key={l} className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                <Ic className="h-3.5 w-3.5 text-blue-400" />
-                <div className="mt-1.5 text-[10px] font-medium text-white">{l}</div>
+    <div className="relative mx-auto w-full max-w-md">
+      <div className="absolute -inset-10 -z-10 rounded-[3rem] bg-gradient-to-tr from-blue-500/20 via-blue-300/10 to-transparent blur-3xl" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-100 bg-blue-50 shadow-[0_40px_120px_-30px_rgba(37,99,235,0.45)]">
+        <img
+          src={heroGirl}
+          alt="Young Nigerian woman topping up airtime on BlitzPay"
+          width={1024}
+          height={1280}
+          className="aspect-[4/5] w-full object-cover"
+        />
+        <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/40 bg-white/90 p-3 shadow-xl backdrop-blur-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-yellow-400">
+                <Phone className="h-4 w-4 text-slate-900" />
+              </span>
+              <div>
+                <div className="text-xs font-semibold text-slate-900">MTN Airtime · ₦1,000</div>
+                <div className="text-[10px] text-slate-500">Delivered in 3s · +20 SwiftPoints</div>
               </div>
-            ))}
+            </div>
+            <Check className="h-5 w-5 rounded-full bg-emerald-500 p-1 text-white" />
           </div>
-          <div className="mt-3 space-y-1.5">
-            <div className="text-[9px] uppercase tracking-widest text-slate-400">Recent</div>
-            {[
-              { n: "MTN", a: "₦1,500", c: "#facc15" },
-              { n: "Airtel Data", a: "₦800", c: "#ef4444" },
-              { n: "Glo Topup", a: "₦500", c: "#22c55e" },
-            ].map((t) => (
-              <div key={t.n} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-2.5 py-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.c }} />
-                  <span className="text-[10px] text-slate-200">{t.n}</span>
-                </div>
-                <span className="text-[10px] font-semibold text-slate-300">-{t.a}</span>
-              </div>
-            ))}
+        </div>
+      </div>
+      <div className="absolute -right-2 -top-2 rotate-3 rounded-2xl border border-blue-100 bg-white px-3 py-2 shadow-lg sm:-right-4 sm:-top-4">
+        <div className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-blue-600"><Gift className="h-3.5 w-3.5 text-white" /></span>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">SwiftPoints</div>
+            <div className="text-sm font-bold text-slate-900">100 = 1GB free</div>
           </div>
         </div>
       </div>
@@ -135,57 +132,44 @@ export default function Index() {
       <SiteNav />
 
       {/* HERO */}
-      <section className="relative px-4 pt-16 pb-20 sm:pt-24 overflow-hidden">
+      <section className="relative px-4 pt-12 pb-20 sm:pt-20 overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[600px] w-[800px] rounded-full bg-blue-50 blur-3xl" />
           <div className="absolute bottom-0 right-0 h-[400px] w-[500px] rounded-full bg-slate-50 blur-3xl" />
         </div>
-        <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
               </span>
-              Now live across Nigeria
+              Built for Nigeria · Live now
             </div>
-            <h1 className="mt-6 text-5xl font-bold leading-[1.1] tracking-tight sm:text-6xl lg:text-7xl text-slate-900">
-              Airtime & data,<br />
-              <span className="text-blue-600">in a swipe.</span>
+            <h1 className="mt-6 text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl text-slate-900">
+              Airtime, data<br />& bills —<br />
+              <span className="text-blue-600">paid in a swipe.</span>
             </h1>
             <p className="mt-6 max-w-lg text-lg text-slate-500">
-              BlitzPay is the smartest way to top up any Nigerian network and pay your bills — airtime, data, electricity and cable TV, all in one wallet.
+              One wallet for MTN, Glo, Airtel, 9mobile, your DISCO bill and your cable TV subscription. Earn SwiftPoints on every purchase and redeem them for free data.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/auth?mode=signup"><Button size="lg" className="bg-slate-900 hover:bg-slate-800 text-white rounded-full px-6">Start free <ArrowRight className="ml-1 h-4 w-4" /></Button></Link>
-              <a href="#how"><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-200">See how it works</Button></a>
               <a href="/downloads/blitzpay.apk" download><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-200"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
             </div>
-            <div className="mt-10 flex items-center gap-6">
-              <div>
-                <div className="text-2xl font-bold text-slate-900">120k+</div>
-                <div className="text-xs text-slate-400">happy users</div>
-              </div>
-              <div className="h-8 w-px bg-slate-200" />
-              <div>
-                <div className="text-2xl font-bold text-slate-900">₦8.4B</div>
-                <div className="text-xs text-slate-400">delivered</div>
-              </div>
-              <div className="h-8 w-px bg-slate-200" />
-              <div>
-                <div className="text-2xl font-bold text-slate-900">4.9★</div>
-                <div className="text-xs text-slate-400">avg rating</div>
-              </div>
+            <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-slate-500">
+              <div className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-600" /> No hidden fees</div>
+              <div className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-600" /> Instant delivery</div>
+              <div className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-600" /> PIN-protected</div>
             </div>
           </div>
           <div className="relative flex justify-center">
-            <PhoneMockLight />
+            <HeroVisual />
           </div>
         </div>
 
-        {/* Networks strip */}
         <div className="mx-auto mt-20 max-w-5xl">
-          <div className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Works with every major network</div>
+          <div className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Every major Nigerian network</div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-6">
             {NETWORKS.map((n) => (
               <div key={n.id} className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-5 py-2.5">
@@ -197,11 +181,31 @@ export default function Index() {
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section id="features" className="px-4 py-24 bg-slate-50/50">
+      {/* SERVICES */}
+      <section id="services" className="px-4 py-20 bg-slate-50/50">
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Everything you need.<br /><span className="text-blue-600">Nothing you don't.</span></h2>
+            <h2 className="text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Everything you used to queue for.<br /><span className="text-blue-600">Now in your pocket.</span></h2>
+          </div>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {SERVICES.map((s) => (
+              <div key={s.title} className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div className="grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-white">
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-slate-900">{s.title}</h3>
+                <p className="mt-2 text-sm text-slate-500">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section id="features" className="px-4 py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Why people switch<br /><span className="text-blue-600">to BlitzPay.</span></h2>
             <p className="mt-4 text-slate-500">Built from the ground up for the way Nigerians actually use their phones.</p>
           </div>
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -219,7 +223,7 @@ export default function Index() {
       </section>
 
       {/* HOW */}
-      <section id="how" className="px-4 py-24">
+      <section id="how" className="px-4 py-24 bg-slate-50/50">
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-10 lg:grid-cols-[1fr_2fr]">
             <div>
@@ -240,37 +244,69 @@ export default function Index() {
         </div>
       </section>
 
-      {/* CASHBACK / PRICING */}
-      <section id="pricing" className="px-4 py-24 bg-slate-50/50">
+      {/* REWARDS — real SwiftPoints program */}
+      <section id="rewards" className="px-4 py-24">
         <div className="mx-auto max-w-6xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Get paid to top up.</h2>
-            <p className="mt-4 text-slate-500">The more you use BlitzPay, the more you earn. Cashback is credited instantly to your wallet.</p>
-          </div>
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {TIERS.map((t) => (
-              <div key={t.tier} className={`relative rounded-2xl p-6 ${t.featured ? "bg-slate-900 text-white shadow-xl" : "bg-white border border-slate-100 shadow-sm"}`}>
-                {t.featured && <div className="absolute -top-3 left-6 rounded-full bg-blue-500 px-3 py-1 text-xs font-bold text-white">Most popular</div>}
-                <div className={`text-sm ${t.featured ? "text-slate-300" : "text-slate-500"}`}>{t.tier}</div>
-                <div className={`mt-2 text-5xl font-bold ${t.featured ? "text-white" : "text-slate-900"}`}>{t.cashback}</div>
-                <div className={`mt-1 text-xs ${t.featured ? "text-slate-400" : "text-slate-400"}`}>cashback · {t.base}</div>
-                <ul className="mt-6 space-y-2 text-sm">
-                  {t.perks.map(p => <li key={p} className={`flex items-center gap-2 ${t.featured ? "text-slate-300" : "text-slate-600"}`}><Check className={`h-3.5 w-3.5 ${t.featured ? "text-blue-400" : "text-blue-600"}`} />{p}</li>)}
-                </ul>
+          <div className="grid items-center gap-10 lg:grid-cols-2">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700">
+                <Gift className="h-3.5 w-3.5" /> SwiftPoints rewards
               </div>
-            ))}
+              <h2 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Spend airtime.<br />Earn free data.</h2>
+              <p className="mt-4 max-w-md text-slate-500">Every ₦250 you spend on airtime or data earns you 5 SwiftPoints — automatically. Stack 100 points and redeem them for a free 1GB data bundle on any network. No fine print.</p>
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                {[
+                  { v: "₦250", l: "= 5 points" },
+                  { v: "100 pts", l: "= 1GB free" },
+                  { v: "Any", l: "network" },
+                ].map((s) => (
+                  <div key={s.l} className="rounded-2xl border border-slate-100 bg-white p-4 text-center shadow-sm">
+                    <div className="text-2xl font-bold text-slate-900">{s.v}</div>
+                    <div className="mt-1 text-xs text-slate-500">{s.l}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-8">
+                <Link to="/auth?mode=signup"><Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6">Start earning <ArrowRight className="ml-1 h-4 w-4" /></Button></Link>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-blue-100/60 blur-2xl" />
+              <div className="rounded-3xl bg-gradient-to-br from-slate-900 to-blue-900 p-8 text-white shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs uppercase tracking-widest text-blue-200">Your SwiftPoints</div>
+                  <Gift className="h-5 w-5 text-blue-300" />
+                </div>
+                <div className="mt-3 text-6xl font-bold">87<span className="text-2xl text-blue-300"> / 100</span></div>
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full w-[87%] rounded-full bg-gradient-to-r from-blue-400 to-blue-200" />
+                </div>
+                <div className="mt-2 text-xs text-blue-200">13 points away from a free 1GB bundle</div>
+                <div className="mt-6 space-y-2">
+                  {[
+                    { l: "MTN Airtime · ₦1,000", p: "+20" },
+                    { l: "Glo Data 2GB · ₦1,500", p: "+30" },
+                    { l: "Airtel Airtime · ₦500", p: "+10" },
+                  ].map((r) => (
+                    <div key={r.l} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-xs">
+                      <span className="text-blue-100">{r.l}</span>
+                      <span className="font-bold text-blue-300">{r.p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="px-4 py-24">
+      <section className="px-4 py-24 bg-slate-50/50">
         <div className="mx-auto max-w-5xl">
           <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-10 text-center sm:p-16">
             <div className="absolute -top-32 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full bg-blue-500/20 blur-3xl" />
-            <Smartphone className="mx-auto h-10 w-10 text-blue-400" />
-            <h2 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">Your wallet. Your network.<br />Your seconds back.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-slate-300">Join 120,000+ Nigerians who never type a USSD code anymore.</p>
+            <h2 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">Stop queuing.<br />Start swiping.</h2>
+            <p className="mx-auto mt-4 max-w-xl text-slate-300">Create your free BlitzPay wallet today and pay your first bill in under a minute.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link to="/auth?mode=signup"><Button size="lg" className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-6">Create free account <ArrowRight className="ml-1 h-4 w-4" /></Button></Link>
               <a href="/downloads/blitzpay.apk" download><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-600 text-white hover:bg-slate-800 hover:text-white"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
@@ -280,7 +316,7 @@ export default function Index() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="px-4 py-24 bg-slate-50/50">
+      <section id="faq" className="px-4 py-24">
         <div className="mx-auto max-w-3xl">
           <h2 className="text-center text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Questions? <span className="text-blue-600">Answered.</span></h2>
           <div className="mt-10 space-y-3">

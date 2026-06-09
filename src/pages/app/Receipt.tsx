@@ -51,11 +51,12 @@ export default function Receipt() {
       .then(async ({ data }) => {
         setTx(data);
         // Fetch package details if this is a data purchase
-        if (data?.type === "data" && data?.meta?.package_code) {
+        const meta = (data?.meta && typeof data.meta === "object") ? data.meta as Record<string, unknown> : null;
+        if (data?.type === "data" && meta?.package_code) {
           const { data: pkgData } = await supabase
             .from("packages")
             .select("name, size, validity, network, tier")
-            .eq("package_code", data.meta.package_code)
+            .eq("package_code", String(meta.package_code))
             .maybeSingle();
           setPkg(pkgData);
         }

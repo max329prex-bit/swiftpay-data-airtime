@@ -19,7 +19,7 @@ export default function FraudMonitor() {
     const q = supabase.from("fraud_velocity").select("*, profiles(full_name, phone)").order("created_at", { ascending: false }).limit(100);
     if (tab === "flagged") q.eq("is_flagged", true); else q.gte("count", 5);
     const { data } = await q;
-    setRows((data || []) as FlagRow[]);
+    setRows((data || []) as unknown as FlagRow[]);
     setLoading(false);
   }
 

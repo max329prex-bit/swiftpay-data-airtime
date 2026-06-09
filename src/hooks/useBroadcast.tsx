@@ -18,7 +18,7 @@ export function useBroadcast(): Broadcast | null {
       .eq("key", "broadcast_message")
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.value) setBroadcast(data.value as Broadcast);
+        if (data?.value) setBroadcast(data.value as unknown as Broadcast);
       });
   }, []);
 
