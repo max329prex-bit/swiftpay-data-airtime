@@ -39,6 +39,8 @@ jobs:
           supabase functions deploy sync-packages --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy korapay-topup --project-ref tljnhlhzyntotadxoypz
           supabase functions deploy korapay-webhook --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy payvessel-topup --project-ref tljnhlhzyntotadxoypz
+          supabase functions deploy payvessel-webhook --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy verify-deposit --project-ref tljnhlhzyntotadxoypz
           supabase functions deploy treasury-manager --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy treasury-reconcile --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
