@@ -14,6 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_id: string
+          balance_after: number | null
+          balance_before: number | null
+          created_at: string
+          id: string
+          meta: Json | null
+          reason: string
+          target_transaction_id: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          reason: string
+          target_transaction_id?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          reason?: string
+          target_transaction_id?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_target_transaction_id_fkey"
+            columns: ["target_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_otp: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       beneficiaries: {
         Row: {
           created_at: string
@@ -38,6 +127,195 @@ export type Database = {
           nickname?: string
           phone?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      bundle_status: {
+        Row: {
+          auto_paused_at: string | null
+          auto_paused_reason: string | null
+          avg_response_ms: number | null
+          created_at: string
+          fail_count: number
+          health_score: number
+          id: string
+          is_available: boolean
+          last_checked_at: string
+          last_error: string | null
+          last_success_at: string | null
+          network: string
+          package_code: string
+          provider_code: string
+          success_count: number
+          total_attempts: number
+        }
+        Insert: {
+          auto_paused_at?: string | null
+          auto_paused_reason?: string | null
+          avg_response_ms?: number | null
+          created_at?: string
+          fail_count?: number
+          health_score?: number
+          id?: string
+          is_available?: boolean
+          last_checked_at?: string
+          last_error?: string | null
+          last_success_at?: string | null
+          network: string
+          package_code: string
+          provider_code: string
+          success_count?: number
+          total_attempts?: number
+        }
+        Update: {
+          auto_paused_at?: string | null
+          auto_paused_reason?: string | null
+          avg_response_ms?: number | null
+          created_at?: string
+          fail_count?: number
+          health_score?: number
+          id?: string
+          is_available?: boolean
+          last_checked_at?: string
+          last_error?: string | null
+          last_success_at?: string | null
+          network?: string
+          package_code?: string
+          provider_code?: string
+          success_count?: number
+          total_attempts?: number
+        }
+        Relationships: []
+      }
+      fraud_velocity: {
+        Row: {
+          count: number
+          created_at: string
+          event_type: string
+          flagged_at: string | null
+          id: string
+          is_flagged: boolean
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          event_type: string
+          flagged_at?: string | null
+          id?: string
+          is_flagged?: boolean
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          event_type?: string
+          flagged_at?: string | null
+          id?: string
+          is_flagged?: boolean
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      liquidity_reservations: {
+        Row: {
+          amount: number
+          created_at: string
+          expires_at: string
+          id: string
+          provider_code: string
+          status: string
+          tx_reference: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          provider_code: string
+          status?: string
+          tx_reference?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          provider_code?: string
+          status?: string
+          tx_reference?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      packages: {
+        Row: {
+          bp_value: number
+          coming_soon: boolean
+          created_at: string
+          health_score: number
+          id: string
+          is_active: boolean
+          is_blitz_prime: boolean
+          name: string
+          network: string
+          package_code: string
+          price: number
+          provider_code: string
+          size: string
+          sort_order: number
+          tier: string
+          validity: string
+        }
+        Insert: {
+          bp_value?: number
+          coming_soon?: boolean
+          created_at?: string
+          health_score?: number
+          id?: string
+          is_active?: boolean
+          is_blitz_prime?: boolean
+          name: string
+          network: string
+          package_code: string
+          price: number
+          provider_code: string
+          size: string
+          sort_order?: number
+          tier?: string
+          validity: string
+        }
+        Update: {
+          bp_value?: number
+          coming_soon?: boolean
+          created_at?: string
+          health_score?: number
+          id?: string
+          is_active?: boolean
+          is_blitz_prime?: boolean
+          name?: string
+          network?: string
+          package_code?: string
+          price?: number
+          provider_code?: string
+          size?: string
+          sort_order?: number
+          tier?: string
+          validity?: string
         }
         Relationships: []
       }
@@ -77,42 +355,281 @@ export type Database = {
         }
         Relationships: []
       }
-      transactions: {
+      provider_treasury: {
         Row: {
-          amount: number
+          actual_balance: number
+          avg_spend_10min: number
+          avg_spend_1hr: number
+          bank_account_number: string | null
+          bank_code: string | null
+          bank_name: string | null
+          cb_failures: number
+          cb_paused_until: string | null
+          critical_stop_threshold: number
+          daily_cap_reset_at: string
+          daily_refill_cap: number
+          daily_refilled_today: number
+          id: string
+          last_refill_at: string | null
+          last_synced_at: string | null
+          provider_code: string
+          refill_cooldown_minutes: number
+          refill_target: number
+          refill_threshold: number
+          reserved_balance: number
+          transfer_health: string
+          updated_at: string
+        }
+        Insert: {
+          actual_balance?: number
+          avg_spend_10min?: number
+          avg_spend_1hr?: number
+          bank_account_number?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          cb_failures?: number
+          cb_paused_until?: string | null
+          critical_stop_threshold?: number
+          daily_cap_reset_at?: string
+          daily_refill_cap?: number
+          daily_refilled_today?: number
+          id?: string
+          last_refill_at?: string | null
+          last_synced_at?: string | null
+          provider_code: string
+          refill_cooldown_minutes?: number
+          refill_target?: number
+          refill_threshold?: number
+          reserved_balance?: number
+          transfer_health?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_balance?: number
+          avg_spend_10min?: number
+          avg_spend_1hr?: number
+          bank_account_number?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          cb_failures?: number
+          cb_paused_until?: string | null
+          critical_stop_threshold?: number
+          daily_cap_reset_at?: string
+          daily_refill_cap?: number
+          daily_refilled_today?: number
+          id?: string
+          last_refill_at?: string | null
+          last_synced_at?: string | null
+          provider_code?: string
+          refill_cooldown_minutes?: number
+          refill_target?: number
+          refill_threshold?: number
+          reserved_balance?: number
+          transfer_health?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      support_tickets: {
+        Row: {
+          admin_notes: string | null
+          assigned_to: string | null
           created_at: string
           id: string
-          meta: Json | null
-          network: string | null
-          phone: string | null
-          reference: string
-          status: Database["public"]["Enums"]["tx_status"]
-          type: Database["public"]["Enums"]["tx_type"]
+          intent: string
+          message: string | null
+          related_transaction_id: string | null
+          resolved_at: string | null
+          status: string
+          ticket_ref: string
+          updated_at: string
           user_id: string
         }
         Insert: {
-          amount: number
+          admin_notes?: string | null
+          assigned_to?: string | null
           created_at?: string
           id?: string
-          meta?: Json | null
-          network?: string | null
-          phone?: string | null
-          reference: string
-          status?: Database["public"]["Enums"]["tx_status"]
-          type: Database["public"]["Enums"]["tx_type"]
+          intent: string
+          message?: string | null
+          related_transaction_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          ticket_ref?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
-          amount?: number
+          admin_notes?: string | null
+          assigned_to?: string | null
           created_at?: string
           id?: string
+          intent?: string
+          message?: string | null
+          related_transaction_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          ticket_ref?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_related_transaction_id_fkey"
+            columns: ["related_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
+          amount: number
+          created_at: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_verification_at: string | null
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          provider_reference: string | null
+          reference: string
+          retry_count: number
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aidapay_hash?: string | null
+          aidapay_status?: string | null
+          amount: number
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          idempotency_key?: string | null
+          last_verification_at?: string | null
           meta?: Json | null
           network?: string | null
           phone?: string | null
+          provider_reference?: string | null
+          reference: string
+          retry_count?: number
+          status?: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aidapay_hash?: string | null
+          aidapay_status?: string | null
+          amount?: number
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          idempotency_key?: string | null
+          last_verification_at?: string | null
+          meta?: Json | null
+          network?: string | null
+          phone?: string | null
+          provider_reference?: string | null
           reference?: string
+          retry_count?: number
           status?: Database["public"]["Enums"]["tx_status"]
           type?: Database["public"]["Enums"]["tx_type"]
+          updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      treasury_ledger: {
+        Row: {
+          amount: number
+          balance_after: number | null
+          balance_before: number | null
+          created_at: string
+          direction: string
+          id: string
+          notes: string | null
+          provider_code: string
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string
+          direction: string
+          id?: string
+          notes?: string | null
+          provider_code: string
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string
+          direction?: string
+          id?: string
+          notes?: string | null
+          provider_code?: string
+          reference?: string | null
+        }
+        Relationships: []
+      }
+      treasury_transfers: {
+        Row: {
+          account_number: string | null
+          amount: number
+          balance_after: number | null
+          balance_before: number | null
+          bank_code: string | null
+          confirmed_at: string | null
+          failure_reason: string | null
+          id: string
+          initiated_at: string
+          korapay_reference: string | null
+          last_checked_at: string | null
+          provider_code: string
+          retries: number
+          status: string
+        }
+        Insert: {
+          account_number?: string | null
+          amount: number
+          balance_after?: number | null
+          balance_before?: number | null
+          bank_code?: string | null
+          confirmed_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          initiated_at?: string
+          korapay_reference?: string | null
+          last_checked_at?: string | null
+          provider_code: string
+          retries?: number
+          status?: string
+        }
+        Update: {
+          account_number?: string | null
+          amount?: number
+          balance_after?: number | null
+          balance_before?: number | null
+          bank_code?: string | null
+          confirmed_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          initiated_at?: string
+          korapay_reference?: string | null
+          last_checked_at?: string | null
+          provider_code?: string
+          retries?: number
+          status?: string
         }
         Relationships: []
       }
@@ -137,11 +654,102 @@ export type Database = {
         }
         Relationships: []
       }
+      virtual_accounts: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          account_reference: string
+          bank_code: string | null
+          bank_name: string | null
+          created_at: string
+          id: string
+          korapay_account_reference: string | null
+          payment_provider: string
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          account_reference: string
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          korapay_account_reference?: string | null
+          payment_provider?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          account_reference?: string
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          korapay_account_reference?: string | null
+          payment_provider?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallet_ledger: {
+        Row: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at: string
+          direction: string
+          id: string
+          meta: Json | null
+          reason: string
+          reference: string | null
+          related_transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at?: string
+          direction: string
+          id?: string
+          meta?: Json | null
+          reason: string
+          reference?: string | null
+          related_transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          balance_before?: number
+          created_at?: string
+          direction?: string
+          id?: string
+          meta?: Json | null
+          reason?: string
+          reference?: string | null
+          related_transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_ledger_related_transaction_id_fkey"
+            columns: ["related_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wallets: {
         Row: {
           balance: number
           created_at: string
           id: string
+          profit_balance: number
+          refund_balance: number
           updated_at: string
           user_id: string
         }
@@ -149,6 +757,8 @@ export type Database = {
           balance?: number
           created_at?: string
           id?: string
+          profit_balance?: number
+          refund_balance?: number
           updated_at?: string
           user_id: string
         }
@@ -156,8 +766,37 @@ export type Database = {
           balance?: number
           created_at?: string
           id?: string
+          profit_balance?: number
+          refund_balance?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string | null
+          id: string
+          payload: Json | null
+          processed_at: string
+          provider: string
+        }
+        Insert: {
+          event_id: string
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          provider: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          provider?: string
         }
         Relationships: []
       }
@@ -166,6 +805,94 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_vtu_transaction: {
+        Args: { _aidapay_hash: string; _meta?: Json; _status: string }
+        Returns: undefined
+      }
+      confirm_treasury_transfer: {
+        Args: { _new_balance: number; _transfer_id: string }
+        Returns: undefined
+      }
+      create_vtu_transaction:
+        | {
+            Args: {
+              _aidapay_hash: string
+              _amount: number
+              _meta?: Json
+              _network: string
+              _phone: string
+              _type: Database["public"]["Enums"]["tx_type"]
+              _user_id: string
+            }
+            Returns: {
+              aidapay_hash: string | null
+              aidapay_status: string | null
+              amount: number
+              created_at: string
+              failure_reason: string | null
+              id: string
+              idempotency_key: string | null
+              last_verification_at: string | null
+              meta: Json | null
+              network: string | null
+              phone: string | null
+              provider_reference: string | null
+              reference: string
+              retry_count: number
+              status: Database["public"]["Enums"]["tx_status"]
+              type: Database["public"]["Enums"]["tx_type"]
+              updated_at: string
+              user_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "transactions"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              _aidapay_hash: string
+              _amount: number
+              _bp?: number
+              _meta?: Json
+              _network: string
+              _phone: string
+              _type: Database["public"]["Enums"]["tx_type"]
+              _user_id: string
+            }
+            Returns: {
+              aidapay_hash: string | null
+              aidapay_status: string | null
+              amount: number
+              created_at: string
+              failure_reason: string | null
+              id: string
+              idempotency_key: string | null
+              last_verification_at: string | null
+              meta: Json | null
+              network: string | null
+              phone: string | null
+              provider_reference: string | null
+              reference: string
+              retry_count: number
+              status: Database["public"]["Enums"]["tx_status"]
+              type: Database["public"]["Enums"]["tx_type"]
+              updated_at: string
+              user_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "transactions"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      credit_wallet_from_korapay: {
+        Args: { _amount: number; _korapay_ref: string; _user_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -174,6 +901,23 @@ export type Database = {
         Returns: boolean
       }
       has_transaction_pin: { Args: never; Returns: boolean }
+      mark_bundle_available: {
+        Args: {
+          _network: string
+          _package_code: string
+          _provider_code: string
+        }
+        Returns: undefined
+      }
+      mark_bundle_unavailable: {
+        Args: {
+          _error?: string
+          _network: string
+          _package_code: string
+          _provider_code: string
+        }
+        Returns: undefined
+      }
       purchase_vtu: {
         Args: {
           _amount: number
@@ -183,15 +927,23 @@ export type Database = {
           _type: Database["public"]["Enums"]["tx_type"]
         }
         Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
           amount: number
           created_at: string
+          failure_reason: string | null
           id: string
+          idempotency_key: string | null
+          last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
+          provider_reference: string | null
           reference: string
+          retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
           type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
           user_id: string
         }
         SetofOptions: {
@@ -201,18 +953,36 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      record_treasury_transfer: {
+        Args: {
+          _account: string
+          _amount: number
+          _bank_code: string
+          _kp_ref: string
+          _provider: string
+        }
+        Returns: string
+      }
       redeem_swift_points: {
         Args: { _network: string; _phone: string }
         Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
           amount: number
           created_at: string
+          failure_reason: string | null
           id: string
+          idempotency_key: string | null
+          last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
+          provider_reference: string | null
           reference: string
+          retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
           type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
           user_id: string
         }
         SetofOptions: {
@@ -221,20 +991,45 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      refund_wallet: {
+        Args: { _amount: number; _ref: string; _user_id: string }
+        Returns: undefined
+      }
+      release_provider_liquidity: {
+        Args: { _outcome: string; _reservation_id: string }
+        Returns: undefined
+      }
+      reserve_provider_liquidity: {
+        Args: {
+          _amount: number
+          _provider: string
+          _tx_ref: string
+          _uid: string
+        }
+        Returns: string
       }
       set_transaction_pin: { Args: { _pin: string }; Returns: boolean }
       topup_wallet: {
         Args: { _amount: number; _method: string }
         Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
           amount: number
           created_at: string
+          failure_reason: string | null
           id: string
+          idempotency_key: string | null
+          last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
+          provider_reference: string | null
           reference: string
+          retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
           type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
           user_id: string
         }
         SetofOptions: {
@@ -248,8 +1043,22 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
-      tx_status: "pending" | "success" | "failed"
-      tx_type: "airtime" | "data" | "wallet_topup" | "electricity" | "cable"
+      tx_status:
+        | "pending"
+        | "success"
+        | "failed"
+        | "processing"
+        | "verifying"
+        | "escalated_manual_review"
+        | "refunded"
+        | "reversed"
+      tx_type:
+        | "airtime"
+        | "data"
+        | "wallet_topup"
+        | "electricity"
+        | "cable"
+        | "wallet_fund"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -378,112 +1187,24 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
-      tx_status: ["pending", "success", "failed"],
-      tx_type: ["airtime", "data", "wallet_topup", "electricity", "cable"],
+      tx_status: [
+        "pending",
+        "success",
+        "failed",
+        "processing",
+        "verifying",
+        "escalated_manual_review",
+        "refunded",
+        "reversed",
+      ],
+      tx_type: [
+        "airtime",
+        "data",
+        "wallet_topup",
+        "electricity",
+        "cable",
+        "wallet_fund",
+      ],
     },
   },
 } as const
-
-// ─── Extended types for new tables added in production hardening ──────────────
-
-export interface WalletLedgerRow {
-  id: string;
-  user_id: string;
-  amount: number;
-  direction: "credit" | "debit";
-  balance_before: number;
-  balance_after: number;
-  reason: string;
-  reference: string | null;
-  related_transaction_id: string | null;
-  meta: Record<string, unknown>;
-  created_at: string;
-}
-
-export interface AdminAuditLogRow {
-  id: string;
-  admin_id: string;
-  action: string;
-  target_user_id: string | null;
-  target_transaction_id: string | null;
-  reason: string;
-  balance_before: number | null;
-  balance_after: number | null;
-  meta: Record<string, unknown>;
-  created_at: string;
-}
-
-export interface FraudVelocityRow {
-  id: string;
-  user_id: string;
-  event_type: string;
-  window_start: string;
-  count: number;
-  is_flagged: boolean;
-  flagged_at: string | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  notes: string | null;
-  created_at: string;
-}
-
-export interface WebhookEventRow {
-  id: string;
-  event_id: string;
-  provider: string;
-  event_type: string | null;
-  processed_at: string;
-  payload: Record<string, unknown> | null;
-}
-
-export type SupportTicketIntent =
-  | "transaction_pending"
-  | "wallet_not_credited"
-  | "data_not_received"
-  | "refund_issue"
-  | "other";
-
-export type SupportTicketStatus = "open" | "in_progress" | "resolved" | "closed";
-
-export interface SupportTicketRow {
-  id: string;
-  ticket_ref: string;
-  user_id: string;
-  intent: SupportTicketIntent;
-  status: SupportTicketStatus;
-  related_transaction_id: string | null;
-  message: string | null;
-  admin_notes: string | null;
-  assigned_to: string | null;
-  resolved_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-// ─── Extended transaction type ────────────────────────────────────────────────
-
-export type TxStatus =
-  | "pending"
-  | "processing"
-  | "verifying"
-  | "success"
-  | "failed"
-  | "escalated_manual_review";
-
-export interface TransactionExtended {
-  id: string;
-  user_id: string;
-  type: string;
-  network: string | null;
-  phone: string | null;
-  amount: number;
-  status: TxStatus;
-  reference: string;
-  meta: Record<string, unknown> | null;
-  created_at: string;
-  retry_count: number;
-  last_verification_at: string | null;
-  failure_reason: string | null;
-  provider_reference: string | null;
-  idempotency_key: string | null;
-}
