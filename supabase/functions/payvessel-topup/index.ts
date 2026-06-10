@@ -5,19 +5,18 @@ const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-const SUPA_URL    = Deno.env.get("SUPABASE_URL")!;
-const SUPA_ANON   = Deno.env.get("SUPABASE_ANON_KEY")!;
-const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PV_API_KEY  = Deno.env.get("PAYVESSEL_API_KEY")!;
-const PV_SECRET   = Deno.env.get("PAYVESSEL_SECRET_KEY")!;
-const PV_BASE     = "https://api.payvessel.com";
-const PV_WEBHOOK_URL = `${SUPA_URL}/functions/v1/payvessel-webhook`;
 
-const PV_HEADERS = {
-  "api-key": PV_API_KEY,
-  "api-secret": PV_SECRET,
-  "Content-Type": "application/json"
-};
+const SUPA_URL   = Deno.env.get("SUPABASE_URL")!;
+const SUPA_ANON  = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPA_SVC   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const PV_API_KEY = Deno.env.get("PAYVESSEL_API_KEY")!;
+const PV_SECRET  = Deno.env.get("PAYVESSEL_SECRET_KEY")!;
+const PV_BIZ_ID  = Deno.env.get("PAYVESSEL_BUSINESS_ID")!;
+const PV_ENDPOINT = "https://api.payvessel.com/pms/api/external/request/customerReservedAccount/";
+const PV_WEBHOOK  = `${SUPA_URL}/functions/v1/payvessel-webhook`;
+const PV_HEADERS  = { "api-key": PV_API_KEY, "api-secret": PV_SECRET, "Content-Type": "application/json" };
+const STATIC_BANKS  = ["999991", "120001"];
+const DYNAMIC_BANKS = ["090175"]; // Rubies MFB — supports DYNAMIC
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -33,83 +32,112 @@ serve(async (req) => {
     if (ae || !user) return json({ error: "Unauthorized" }, 401);
 
     const admin = createClient(SUPA_URL, SUPA_SVC);
+    const body  = await req.json().catch(() => ({})) as Record<string, string>;
+    const type  = body.type ?? "static";
 
-    // 1. Check if user already has a Payvessel virtual account
-    const { data: existingVA } = await admin
-      .from("payvessel_virtual_accounts")
-      .select("account_number, account_name, bank_name, bank_code")
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("full_name, phone, bvn, nin")
       .eq("user_id", user.id)
-      .maybeSingle();
+      .maybeSingle() as { data: Record<string, string> | null };
 
-    if (existingVA) {
-      // Return existing VA — user can always deposit to same account
-      return json({
-        success: true,
-        account_number: existingVA.account_number,
-        account_name: existingVA.account_name,
-        bank_name: existingVA.bank_name,
-        bank_code: existingVA.bank_code,
-        is_existing: true,
-        message: "Transfer any amount to this account to fund your wallet instantly."
+    const name  = (profile?.full_name || user.email?.split("@")[0] || "BLITZPAY USER").toUpperCase();
+    const phone = (profile?.phone || "09012345678").replace(/\D/g, "").slice(0, 11);
+
+    // ── STATIC (permanent) ─────────────────────────────────────────────────
+    if (type === "static") {
+      // Return cached if exists
+      const { data: existing } = await admin
+        .from("payvessel_virtual_accounts")
+        .select("account_number, account_name, bank_name, tracking_reference")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (existing?.account_number) {
+        return json({ success: true, type: "static", is_existing: true, ...existing,
+          message: "Transfer any amount here. Balance updates instantly." });
+      }
+
+      // Create STATIC
+      const payload: Record<string, unknown> = {
+        email: user.email, name, phoneNumber: phone,
+        bankcode: STATIC_BANKS, account_type: "STATIC",
+        businessid: PV_BIZ_ID, webhook_url: PV_WEBHOOK,
+        metadata: { user_id: user.id }
+      };
+      if (profile?.bvn) payload.bvn = profile.bvn;
+      if (profile?.nin) payload.nin = profile.nin;
+
+      const pvRes = await fetch(PV_ENDPOINT, {
+        method: "POST", headers: PV_HEADERS,
+        body: JSON.stringify(payload), signal: AbortSignal.timeout(25000)
       });
+      const raw = await pvRes.text();
+      let pvData: Record<string, unknown>;
+      try { pvData = JSON.parse(raw); }
+      catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
+
+      console.log("[topup/static]", JSON.stringify(pvData).slice(0, 300));
+      if (!pvData.status) throw new Error((pvData.message as string) || "Account creation failed");
+
+      const banks = pvData.banks as Record<string, string>[];
+      const bank  = banks?.[0];
+      if (!bank?.accountNumber) throw new Error("No account number returned");
+
+      await admin.from("payvessel_virtual_accounts").upsert({
+        user_id: user.id, account_number: bank.accountNumber,
+        account_name: bank.accountName, bank_name: bank.bankName,
+        tracking_reference: bank.trackingReference
+      }, { onConflict: "user_id" });
+
+      return json({ success: true, type: "static", is_existing: false,
+        account_number: bank.accountNumber, account_name: bank.accountName,
+        bank_name: bank.bankName, tracking_reference: bank.trackingReference,
+        message: "Permanent account created. Transfer any amount anytime." });
     }
 
-    // 2. Create new virtual account via Payvessel
-    const firstName = user.email?.split("@")[0]?.split(".")[0] ?? "BlitzPay";
-    const lastName  = "User";
+    // ── DYNAMIC (one-time) ─────────────────────────────────────────────────
+    if (type === "dynamic") {
+      const pvRes = await fetch(PV_ENDPOINT, {
+        method: "POST", headers: PV_HEADERS,
+        body: JSON.stringify({
+          email: user.email, name, phoneNumber: phone,
+          bankcode: DYNAMIC_BANKS, account_type: "DYNAMIC",
+          businessid: PV_BIZ_ID, webhook_url: PV_WEBHOOK,
+          metadata: { user_id: user.id }
+        }),
+        signal: AbortSignal.timeout(25000)
+      });
+      const raw = await pvRes.text();
+      let pvData: Record<string, unknown>;
+      try { pvData = JSON.parse(raw); }
+      catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
 
-    const pvRes = await fetch(`${PV_BASE}/virtual-account`, {
-      method: "POST",
-      headers: PV_HEADERS,
-      body: JSON.stringify({
-        customer_id: user.id,           // echoed back in webhook metadata
-        customer_name: `${firstName} ${lastName}`,
-        customer_email: user.email,
-        webhook_url: PV_WEBHOOK_URL,
-        metadata: { user_id: user.id }  // extra insurance
-      }),
-      signal: AbortSignal.timeout(20000)
-    });
+      console.log("[topup/dynamic]", JSON.stringify(pvData).slice(0, 300));
+      if (!pvData.status) throw new Error((pvData.message as string) || "Dynamic account creation failed");
 
-    const pvData = await pvRes.json();
-    console.log("[payvessel-topup] VA response:", JSON.stringify(pvData).slice(0, 400));
+      const banks = pvData.banks as Record<string, string>[];
+      const bank  = banks?.[0];
+      if (!bank?.accountNumber) throw new Error("No account number returned");
 
-    if (!pvData.status) {
-      throw new Error(pvData.message || "Payvessel: virtual account creation failed");
+      const expiresAt = bank.expire_date || new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      await admin.from("payvessel_dynamic_requests").insert({
+        user_id: user.id, tracking_reference: bank.trackingReference,
+        account_number: bank.accountNumber, account_name: bank.accountName,
+        bank_name: bank.bankName, expires_at: expiresAt
+      });
+
+      return json({ success: true, type: "dynamic",
+        account_number: bank.accountNumber, account_name: bank.accountName,
+        bank_name: bank.bankName, tracking_reference: bank.trackingReference,
+        expires_at: expiresAt,
+        message: "One-time account. Expires after one transfer — do not reuse." });
     }
 
-    const va = pvData.data;
-    const accountNumber = va?.account_number ?? va?.accountNumber ?? "";
-    const accountName   = va?.account_name   ?? va?.accountName   ?? `${firstName} ${lastName}`;
-    const bankName      = va?.bank_name       ?? va?.bankName      ?? "Wema Bank";
-    const bankCode      = va?.bank_code       ?? va?.bankCode      ?? "";
-    const pvRef         = va?.reference       ?? va?.id            ?? "";
-
-    if (!accountNumber) throw new Error("Payvessel: no account number returned");
-
-    // 3. Store in DB
-    await admin.from("payvessel_virtual_accounts").insert({
-      user_id:        user.id,
-      account_number: accountNumber,
-      account_name:   accountName,
-      bank_name:      bankName,
-      bank_code:      bankCode,
-      pv_reference:   pvRef
-    });
-
-    return json({
-      success: true,
-      account_number: accountNumber,
-      account_name:   accountName,
-      bank_name:      bankName,
-      bank_code:      bankCode,
-      is_existing: false,
-      message: "Transfer any amount to this account to fund your wallet instantly."
-    });
+    return json({ error: "Invalid type" }, 400);
 
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Internal error";
-    console.error("[payvessel-topup] error:", msg);
-    return json({ success: false, error: msg }, msg.includes("Unauthorized") ? 401 : 500);
+    console.error("[payvessel-topup]", msg);
+    return json({ success: false, error: msg }, 500);
   }
 });
