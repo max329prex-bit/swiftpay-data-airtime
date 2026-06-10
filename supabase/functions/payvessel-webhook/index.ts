@@ -5,20 +5,14 @@ const SUPA_URL  = Deno.env.get("SUPABASE_URL")!;
 const SUPA_SVC  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TG_BOT    = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TG_CHAT   = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
-
-// Payvessel trusted sender IPs
 const TRUSTED_IPS = new Set(["3.255.23.38", "162.246.254.36"]);
-
 const OK     = JSON.stringify({ status: "success" });
 const OK_HDR = { "Content-Type": "application/json" };
 
 async function hmacSha512(secret: string, data: string): Promise<string> {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw", enc.encode(secret),
-    { name: "HMAC", hash: "SHA-512" },
-    false, ["sign"]
-  );
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret),
+    { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
@@ -37,100 +31,127 @@ async function tg(msg: string) {
 Deno.serve(async (req) => {
   try {
     const rawBody = await req.text();
-
-    // IP whitelist check (non-fatal — log only, don't drop)
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
     const ipTrusted = TRUSTED_IPS.has(clientIp);
-    if (!ipTrusted) {
-      console.warn(`[payvessel-webhook] untrusted IP: ${clientIp}`);
-    }
+    if (!ipTrusted) console.warn(`[payvessel-webhook] untrusted IP: ${clientIp}`);
 
-    // Parse body
     let body: Record<string, unknown>;
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      console.warn("[payvessel-webhook] invalid JSON body");
+    try { body = JSON.parse(rawBody); }
+    catch { return new Response(OK, { status: 200, headers: OK_HDR }); }
+
+    // HMAC verification
+    const pvSig = req.headers.get("HTTP_PAYVESSEL_HTTP_SIGNATURE") ??
+                  req.headers.get("http_payvessel_http_signature") ?? "";
+    if (pvSig) {
+      const expected = await hmacSha512(PV_SECRET, rawBody);
+      if (pvSig !== expected) {
+        console.error("[webhook] signature mismatch — dropping");
+        return new Response(OK, { status: 200, headers: OK_HDR });
+      }
+    } else if (!ipTrusted) {
+      console.error("[webhook] no sig + untrusted IP — dropping");
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
 
-    const { event, order, transaction, metadata } = body as {
-      event: string;
-      order: Record<string, string>;
-      transaction: Record<string, string>;
-      metadata: Record<string, string>;
-    };
-
-    // Only process successful payments
+    const event = body.event as string;
     if (event !== "transaction.success") {
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
 
-    // HMAC SHA-512 signature verification
-    const pvSig = req.headers.get("HTTP_PAYVESSEL_HTTP_SIGNATURE") ??
-                  req.headers.get("http_payvessel_http_signature") ?? "";
-    let sigValid = false;
-    if (pvSig) {
-      const expected = await hmacSha512(PV_SECRET, rawBody);
-      sigValid = pvSig === expected;
-      if (!sigValid) {
-        console.error(`[payvessel-webhook] signature mismatch — dropping`);
-        return new Response(OK, { status: 200, headers: OK_HDR });
+    const transaction = (body.transaction ?? body.order ?? {}) as Record<string, string>;
+    const metadata    = (body.metadata ?? {}) as Record<string, string>;
+
+    // Amount — try multiple fields
+    const rawAmt = transaction.amount ?? body.amount ?? transaction.paidAmount ?? "0";
+    const amount = parseFloat(String(rawAmt).replace(/[^0-9.]/g, ""));
+    if (!amount || amount < 100) {
+      console.warn("[webhook] amount too small or missing:", rawAmt);
+      return new Response(OK, { status: 200, headers: OK_HDR });
+    }
+
+    // Reference for idempotency
+    const pvRef = transaction.reference ?? transaction.trackingReference ??
+                  transaction.transactionRef ?? (body.reference as string) ?? "";
+
+    // Tracking reference for user lookup
+    const trackingRef = transaction.trackingReference ?? transaction.tracking_reference ??
+                        (body.trackingReference as string) ?? "";
+
+    const admin = createClient(SUPA_URL, SUPA_SVC);
+    let userId: string | null = metadata.user_id ?? null;
+
+    // ── User lookup: metadata first, then tracking reference ───────────────
+    if (!userId && trackingRef) {
+      // Try STATIC accounts
+      const { data: staticVA } = await admin
+        .from("payvessel_virtual_accounts")
+        .select("user_id")
+        .eq("tracking_reference", trackingRef)
+        .maybeSingle();
+      if (staticVA?.user_id) userId = staticVA.user_id;
+
+      if (!userId) {
+        // Try DYNAMIC requests
+        const { data: dynReq } = await admin
+          .from("payvessel_dynamic_requests")
+          .select("user_id, is_used")
+          .eq("tracking_reference", trackingRef)
+          .maybeSingle();
+        if (dynReq?.user_id) {
+          if (dynReq.is_used) {
+            console.warn("[webhook] DYNAMIC account already used:", trackingRef);
+            return new Response(OK, { status: 200, headers: OK_HDR });
+          }
+          userId = dynReq.user_id;
+          // Mark dynamic request as used
+          await admin.from("payvessel_dynamic_requests")
+            .update({ is_used: true })
+            .eq("tracking_reference", trackingRef);
+        }
       }
-    } else if (!ipTrusted) {
-      // No sig + untrusted IP = drop
-      console.error(`[payvessel-webhook] no sig + untrusted IP — dropping`);
+    }
+
+    // Fall back to account number lookup
+    if (!userId) {
+      const acctNum = transaction.accountNumber ?? transaction.account_number ?? "";
+      if (acctNum) {
+        const { data: va } = await admin
+          .from("payvessel_virtual_accounts")
+          .select("user_id")
+          .eq("account_number", acctNum)
+          .maybeSingle();
+        if (va?.user_id) userId = va.user_id;
+      }
+    }
+
+    if (!userId) {
+      console.error("[webhook] cannot identify user — trackingRef:", trackingRef, "metadata:", JSON.stringify(metadata));
+      await tg(`⚠️ *Payvessel webhook: user not found*\ntracking: ${trackingRef}\namount: ₦${amount}\nref: ${pvRef}`);
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
 
-    // Extract fields
-    // settlement_amount = amount after Payvessel fees — this is what we credit
-    const settlementAmount = Number(order?.settlement_amount ?? order?.amount ?? 0);
-    const ref              = transaction?.reference ?? "";
-    // user_id stored in metadata.customer_id when we created the VA
-    const userId           = metadata?.customer_id ?? "";
-
-    if (!ref || !userId || settlementAmount < 100) {
-      console.warn("[payvessel-webhook] missing fields", { ref, userId, settlementAmount });
-      return new Response(OK, { status: 200, headers: OK_HDR });
-    }
-
-    const sb = createClient(SUPA_URL, SUPA_SVC);
-
-    // Dedup via webhook_events
-    const { error: dupErr } = await sb.from("webhook_events").insert({
-      event_id: `payvessel-${ref}`,
-      provider: "payvessel",
-      event_type: event,
-      payload: body
-    });
-    if (dupErr?.code === "23505") {
-      console.warn("[payvessel-webhook] duplicate webhook", ref);
-      return new Response(OK, { status: 200, headers: OK_HDR });
-    }
-
-    // Credit wallet atomically
-    const { error: creditErr } = await sb.rpc("credit_wallet_from_payvessel", {
+    // Credit wallet (idempotent via reference)
+    const { error: creditErr } = await admin.rpc("credit_wallet_from_payvessel", {
       _user_id: userId,
-      _amount: settlementAmount,
-      _pv_ref: ref
+      _amount:  amount,
+      _pv_ref:  pvRef || trackingRef
     });
 
     if (creditErr) {
-      if ((creditErr.message ?? "").includes("DUPLICATE")) {
-        return new Response(OK, { status: 200, headers: OK_HDR });
+      if (creditErr.message.includes("DUPLICATE")) {
+        console.log("[webhook] duplicate — already credited:", pvRef);
+      } else {
+        console.error("[webhook] credit error:", creditErr.message);
+        await tg(`🚨 *Payvessel credit FAILED*\nUser: ${userId}\n₦${amount}\nRef: ${pvRef}\nErr: ${creditErr.message}`);
       }
-      console.error("[payvessel-webhook] credit failed:", creditErr.message);
-      await tg(`⚠️ *Payvessel Credit FAILED*\nRef: \`${ref}\`\n₦${settlementAmount}\n${creditErr.message}`);
-      return new Response(OK, { status: 200, headers: OK_HDR });
+    } else {
+      console.log(`[webhook] ✅ credited ₦${amount} to ${userId}`);
+      await tg(`✅ *Deposit received*\nUser: ${userId}\n₦${amount.toLocaleString()}\nRef: ${pvRef}`);
     }
 
-    console.log(`[payvessel-webhook] ✅ ₦${settlementAmount} credited to ${userId} ref=${ref}`);
-    await tg(`✅ *BlitzPay Deposit (Payvessel)*\n₦${settlementAmount.toLocaleString()} credited\nRef: \`${ref}\`\nSig: ${sigValid}`);
     return new Response(OK, { status: 200, headers: OK_HDR });
-
   } catch (e) {
-    console.error("[payvessel-webhook] crash:", e);
+    console.error("[payvessel-webhook] unhandled:", e);
     return new Response(OK, { status: 200, headers: OK_HDR });
   }
 });
