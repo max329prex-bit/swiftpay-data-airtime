@@ -3,37 +3,59 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPA_URL    = Deno.env.get("SUPABASE_URL")!;
 const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const KP_SK       = Deno.env.get("KORAPAY_SECRET_KEY")!;
-const KP_BASE     = "https://api.korapay.com/merchant/api/v1";
+const PV_API_KEY  = Deno.env.get("PAYVESSEL_API_KEY")!;
+const PV_SECRET   = Deno.env.get("PAYVESSEL_SECRET_KEY")!;
+const PV_BIZ_ID   = Deno.env.get("PAYVESSEL_BUSINESS_ID")!;
+const PV_BASE     = "https://api.payvessel.com/pms/api/external";
 const TG_BOT      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TG_CHAT     = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const cors        = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+
+const PV_HEADERS  = { "api-key": PV_API_KEY, "api-secret": PV_SECRET, "Content-Type": "application/json" };
 
 async function tg(msg: string) {
   if (!TG_BOT || !TG_CHAT) return;
   try { await fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ chat_id:TG_CHAT, text:msg, parse_mode:"Markdown" }) }); } catch {}
 }
 
-async function korapayBalance(): Promise<number> {
+/** Check Payvessel wallet balance (NGN) */
+async function payvesselBalance(): Promise<number> {
   try {
-    const r = await fetch(`${KP_BASE}/balances`, { headers:{ Authorization:`Bearer ${KP_SK}` }, signal: AbortSignal.timeout(10000) });
+    const r = await fetch(`${PV_BASE}/wallet/balance?businessid=${PV_BIZ_ID}`, {
+      headers: PV_HEADERS,
+      signal: AbortSignal.timeout(10000)
+    });
     const d = await r.json();
-    return Number(d?.data?.NGN?.available_balance ?? 0);
-  } catch { return 0; }
+    // Payvessel returns { status: true, data: { balance: 12345.67, currency: "NGN" } }
+    return Number(d?.data?.balance ?? d?.data?.available_balance ?? 0);
+  } catch (e) { console.error("[treasury] payvesselBalance error:", e); return 0; }
 }
 
-async function korapayDisburse(amount:number, bankCode:string, accountNo:string, ref:string) {
+/** Disburse from Payvessel wallet to a bank account */
+async function payvesselDisburse(amount: number, bankCode: string, accountNo: string, ref: string) {
   try {
-    const r = await fetch(`${KP_BASE}/transactions/disburse`, {
-      method:"POST",
-      headers:{ Authorization:`Bearer ${KP_SK}`, "Content-Type":"application/json" },
-      body: JSON.stringify({ reference:ref, destination:{ type:"bank_account", amount, currency:"NGN", bank_account:{ bank:bankCode, account:accountNo }, narration:"BlitzPay treasury refill" } }),
+    const r = await fetch(`${PV_BASE}/request/transfer`, {
+      method: "POST",
+      headers: PV_HEADERS,
+      body: JSON.stringify({
+        businessid: PV_BIZ_ID,
+        reference: ref,
+        amount,
+        currency: "NGN",
+        bankcode: bankCode,
+        accountnumber: accountNo,
+        narration: "BlitzPay treasury refill"
+      }),
       signal: AbortSignal.timeout(20000)
     });
     const d = await r.json();
-    return d.status ? { success:true, reference:d.data?.reference ?? ref } : { success:false, error:d.message ?? "Disburse failed" };
-  } catch(e) { return { success:false, error:`Unreachable: ${e}` }; }
+    console.log("[treasury] payvesselDisburse response:", JSON.stringify(d).slice(0, 200));
+    if (d.status) {
+      return { success: true, reference: d.data?.reference ?? d.data?.transactionRef ?? ref };
+    }
+    return { success: false, error: d.message ?? "Disburse failed" };
+  } catch (e) { return { success: false, error: `Unreachable: ${e}` }; }
 }
 
 serve(async (req) => {
@@ -91,11 +113,15 @@ serve(async (req) => {
         if (prov.daily_refilled_today + refillAmount > prov.daily_refill_cap) { await tg(`[CAP] ${code.toUpperCase()} daily cap reached`); results[code]="daily_cap"; continue; }
         if (refillPending) { results[code]="refill_pending"; continue; }
 
-        const kpBal = await korapayBalance();
-        if (kpBal < refillAmount + 500) { await tg(`[LOW] Korapay low for ${code.toUpperCase()} refill. KP: NGN${kpBal}`); results[code]="korapay_insufficient"; continue; }
+        // ── Check Payvessel wallet balance before disbursing ──────────────
+        const pvBal = await payvesselBalance();
+        if (pvBal < refillAmount + 500) {
+          await tg(`[LOW] Payvessel wallet low for ${code.toUpperCase()} refill. PV: NGN${pvBal.toFixed(0)}, Need: NGN${refillAmount}`);
+          results[code]="payvessel_insufficient"; continue;
+        }
 
         const refRef = `TR-${code.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
-        const disburse = await korapayDisburse(refillAmount, prov.bank_code, prov.bank_account_number, refRef);
+        const disburse = await payvesselDisburse(refillAmount, prov.bank_code, prov.bank_account_number, refRef);
         if (!disburse.success) {
           const newF = (prov.cb_failures ?? 0) + 1;
           const cbPause = newF >= 3 ? new Date(now.getTime() + 10*60000) : null;
@@ -105,7 +131,7 @@ serve(async (req) => {
         }
         await sb.rpc("record_treasury_transfer", { _provider:code, _amount:refillAmount, _kp_ref:(disburse as any).reference ?? refRef, _bank_code:prov.bank_code, _account:prov.bank_account_number });
         await sb.from("provider_treasury").update({ cb_failures:0, last_refill_at:now.toISOString(), transfer_health:"healthy", daily_refilled_today:prov.daily_refilled_today+refillAmount }).eq("provider_code",code);
-        await tg(`[REFILL] ${code.toUpperCase()} refill initiated NGN${refillAmount.toLocaleString()}. Ref: ${(disburse as any).reference ?? refRef}`);
+        await tg(`[REFILL] ${code.toUpperCase()} refill initiated NGN${refillAmount.toLocaleString()} via Payvessel. Ref: ${(disburse as any).reference ?? refRef}`);
         results[code]=`refilled_NGN${refillAmount}`;
       } catch(e) { console.error(`Treasury error ${prov.provider_code}:`,e); results[prov.provider_code]="error"; }
     }
