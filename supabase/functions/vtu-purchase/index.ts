@@ -228,7 +228,7 @@ serve(async (req) => {
         await tg(`⚠️ *Gsubz low success rate — bypassed for this order*`);
       }
 
-      // Fallback to IACafe if Gsubz failed or unhealthy
+      // Fallback if Gsubz failed or unhealthy — supports iacafe, bsplug-X, and aidapay
       if (!pr.success) {
         // Look up fallback provider+code from packages table
         const { data: pkg } = await admin.from("packages")
@@ -237,7 +237,9 @@ serve(async (req) => {
           .maybeSingle();
         const fbPrvCode = (pkg as Record<string,string>|null)?.fallback_provider_code || "iacafe";
         const fbPkgCode = (pkg as Record<string,string>|null)?.fallback_package_code || "";
+
         if (fbPrvCode === "iacafe" && fbPkgCode) {
+          // IACafe fallback
           const planId = parseInt(fbPkgCode.replace("IAC-",""), 10);
           if (planId) {
             const fbReqId = `IAC-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
@@ -247,6 +249,26 @@ serve(async (req) => {
               txMeta.provider_used = "iacafe_fallback";
               txMeta.iacafe_request_id = fbReqId;
             }
+          }
+        } else if (fbPrvCode?.startsWith("bsplug") && fbPkgCode) {
+          // BSPlug fallback
+          const nId = parseInt(fbPrvCode.split("-")[1] || "1", 10);
+          const pId = parseInt(fbPkgCode.replace("BSP-",""), 10);
+          if (pId && nId) {
+            pr = await bsplugBuy(nId, pId, phone);
+            if (pr.success) {
+              usedProvider = "bsplug-fallback";
+              txMeta.provider_used = "bsplug_fallback";
+            }
+          }
+        } else if (fbPrvCode && fbPkgCode) {
+          // AidaPay catch-all fallback (airtel-sme-cg, custom codes, etc.)
+          const fbReqId = `AP-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
+          pr = await aidapayBuy({ recipient: phone, provider_code: fbPrvCode, account_pin: AIDAPAY_PIN, package_code: fbPkgCode, ref: fbReqId });
+          if (pr.success) {
+            usedProvider = "aidapay-fallback";
+            txMeta.provider_used = "aidapay_fallback";
+            txMeta.aidapay_ref = fbReqId;
           }
         }
       }
