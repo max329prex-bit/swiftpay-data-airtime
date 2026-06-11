@@ -29,65 +29,121 @@ const BSPLUG_PLANS_URL = "https://bsplug.net/api/data/";
 
 async function fetchGsubzPlans(): Promise<Map<string, number>> {
   const costMap = new Map<string, number>();
-  for (const svc of GSUBZ_SERVICES) {
+  if (!GSUBZ_KEY) { console.warn("[gsubz] No API key"); return costMap; }
+  // Try multiple endpoint patterns
+  const endpoints = [
+    "https://gsubz.com/api/plans/",
+    "https://gsubz.com/api/data-plans/",
+    "https://gsubz.com/api/packages/",
+  ];
+  for (const url of endpoints) {
     try {
-      const r = await fetch(`https://gsubz.com/api/plans/?service=${svc}`, {
-        headers: { "api-key": GSUBZ_KEY },
+      const r = await fetch(url, {
+        headers: { "api-key": GSUBZ_KEY, "Content-Type": "application/json" },
         signal: AbortSignal.timeout(10000),
       });
+      const text = await r.text();
+      console.log(`[gsubz] ${url} → ${r.status} body=${text.slice(0,300)}`);
       if (!r.ok) continue;
-      const d = await r.json();
-      const plans: Record<string, unknown>[] = Array.isArray(d?.data) ? d.data
-        : Array.isArray(d?.plans) ? d.plans
-        : Array.isArray(d) ? d : [];
-      for (const p of plans) {
+      const d = JSON.parse(text);
+      const list = Array.isArray(d?.data) ? d.data : Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : [];
+      if (list.length === 0) continue;
+      for (const p of list) {
+        // Plan list format: { id, service, plan_name, price/amount, ... }
         const id = String(p.id ?? p.plan_id ?? "");
-        const price = Number(p.price ?? p.amount ?? p.cost ?? 0);
-        if (id && price > 0) {
-          // package_code format in DB: GSZ-{service}-{planId}
+        const svc = String(p.service ?? p.service_type ?? "");
+        const price = Number(p.price ?? p.amount ?? p.plan_amount ?? 0);
+        if (id && price > 0 && svc) {
           costMap.set(`GSZ-${svc}-${id}`, price);
         }
       }
-    } catch { /* skip service on error */ }
+      if (costMap.size > 0) break; // found plans
+    } catch(e) { console.warn(`[gsubz] ${url} error:`, e); }
   }
+  // If flat list didn't work, try per-service
+  if (costMap.size === 0) {
+    for (const svc of GSUBZ_SERVICES) {
+      try {
+        const r = await fetch(`https://gsubz.com/api/plans/?service=${svc}`, {
+          headers: { "api-key": GSUBZ_KEY },
+          signal: AbortSignal.timeout(8000),
+        });
+        const text = await r.text();
+        console.log(`[gsubz] service=${svc} → ${r.status} body=${text.slice(0,200)}`);
+        if (!r.ok) continue;
+        const d = JSON.parse(text);
+        const plans = Array.isArray(d?.data) ? d.data : Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : [];
+        for (const p of plans) {
+          const id = String(p.id ?? p.plan_id ?? "");
+          const price = Number(p.price ?? p.amount ?? p.plan_amount ?? 0);
+          if (id && price > 0) costMap.set(`GSZ-${svc}-${id}`, price);
+        }
+      } catch { continue; }
+    }
+  }
+  console.log(`[gsubz] total plans: ${costMap.size}`);
   return costMap;
 }
 
 async function fetchIacafePlans(): Promise<Map<number, number>> {
   const costMap = new Map<number, number>();
-  try {
-    const r = await fetch(IACAFE_BUDGET_URL, {
-      headers: { Authorization: `Bearer ${IACAFE_TOKEN}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!r.ok) return costMap;
-    const d = await r.json();
-    const plans: Record<string, unknown>[] = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
-    for (const p of plans) {
-      const id = Number(p.id ?? 0);
-      const price = Number(p.price ?? p.amount ?? p.selling_price ?? 0);
-      if (id && price > 0) costMap.set(id, price);
-    }
-  } catch { /* skip */ }
+  if (!IACAFE_TOKEN) { console.warn("[iacafe] No token"); return costMap; }
+  const urls = [
+    "https://iacafe.com.ng/devapi/v1/data-plans",
+    "https://iacafe.com.ng/devapi/v1/plans",
+    "https://iacafe.com.ng/devapi/v1/budget-data-plans",
+  ];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, {
+        headers: { Authorization: `Bearer ${IACAFE_TOKEN}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(10000),
+      });
+      const text = await r.text();
+      console.log(`[iacafe] ${url} → ${r.status} body=${text.slice(0,300)}`);
+      if (!r.ok) continue;
+      const d = JSON.parse(text);
+      const plans = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
+      for (const p of plans) {
+        const id = Number(p.id ?? 0);
+        const price = Number(p.price ?? p.amount ?? p.selling_price ?? p.plan_amount ?? 0);
+        if (id && price > 0) costMap.set(id, price);
+      }
+      if (costMap.size > 0) break;
+    } catch(e) { console.warn(`[iacafe] ${url} error:`, e); }
+  }
+  console.log(`[iacafe] total plans: ${costMap.size}`);
   return costMap;
 }
 
 async function fetchBsplugPlans(): Promise<Map<number, number>> {
   const costMap = new Map<number, number>();
-  try {
-    const r = await fetch(BSPLUG_PLANS_URL, {
-      headers: { Authorization: `Token ${BSPLUG_TOKEN}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!r.ok) return costMap;
-    const d = await r.json();
-    const plans: Record<string, unknown>[] = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : [];
-    for (const p of plans) {
-      const id = Number(p.id ?? 0);
-      const price = Number(p.plan_amount ?? p.price ?? p.amount ?? 0);
-      if (id && price > 0) costMap.set(id, price);
-    }
-  } catch { /* skip */ }
+  if (!BSPLUG_TOKEN) { console.warn("[bsplug] No token"); return costMap; }
+  const urls = [
+    "https://bsplug.net/api/data/",
+    "https://bsplug.net/api/data-plans/",
+    "https://bsplug.net/api/plans/",
+  ];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, {
+        headers: { Authorization: `Token ${BSPLUG_TOKEN}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(10000),
+      });
+      const text = await r.text();
+      console.log(`[bsplug] ${url} → ${r.status} body=${text.slice(0,300)}`);
+      if (!r.ok) continue;
+      const d = JSON.parse(text);
+      const plans = Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : Array.isArray(d?.results) ? d.results : [];
+      for (const p of plans) {
+        const id = Number(p.id ?? 0);
+        const price = Number(p.plan_amount ?? p.price ?? p.amount ?? 0);
+        if (id && price > 0) costMap.set(id, price);
+      }
+      if (costMap.size > 0) break;
+    } catch(e) { console.warn(`[bsplug] ${url} error:`, e); }
+  }
+  console.log(`[bsplug] total plans: ${costMap.size}`);
   return costMap;
 }
 
