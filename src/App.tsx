@@ -31,7 +31,6 @@ import SupportCenter from "./pages/app/admin/SupportCenter.tsx";
 import FraudMonitor from "./pages/app/admin/FraudMonitor.tsx";
 import Broadcast from "./pages/app/admin/Broadcast.tsx";
 import ProviderMarginReport from "./pages/app/admin/ProviderMarginReport.tsx";
-import ProviderMarginReport from "./pages/app/admin/ProviderMarginReport.tsx";
 import { useAdminRole } from "./hooks/useAdminRole.tsx";
 import { BoltLoader } from "./components/swift/BoltLoader.tsx";
 
@@ -86,7 +85,6 @@ const App = () => (
               <Route path="admin/support" element={<RequireAdmin><SupportCenter /></RequireAdmin>} />
               <Route path="admin/fraud" element={<RequireAdmin><FraudMonitor /></RequireAdmin>} />
               <Route path="admin/broadcast" element={<RequireAdmin><Broadcast /></RequireAdmin>} />
-              <Route path="admin/margin" element={<RequireAdmin><ProviderMarginReport /></RequireAdmin>} />
               <Route path="admin/margin" element={<RequireAdmin><ProviderMarginReport /></RequireAdmin>} />
             </Route>
             <Route path="*" element={<NotFound />} />
