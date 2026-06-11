@@ -16,7 +16,7 @@ const PV_ENDPOINT = "https://api.payvessel.com/pms/api/external/request/customer
 const PV_WEBHOOK  = `${SUPA_URL}/functions/v1/payvessel-webhook`;
 const PV_HEADERS  = { "api-key": PV_API_KEY, "api-secret": PV_SECRET, "Content-Type": "application/json" };
 const STATIC_BANKS  = ["999991", "120001"];
-const DYNAMIC_BANKS = ["090175"]; // Rubies MFB — supports DYNAMIC
+const DYNAMIC_BANKS = ["090175"];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -41,10 +41,18 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle() as { data: Record<string, string> | null };
 
-    const name  = (profile?.full_name || user.email?.split("@")[0] || "BLITZPAY USER").toUpperCase();
-    const phone = (profile?.phone || "09012345678").replace(/\D/g, "").slice(0, 11);
+    // KYC: body values take priority over profile values
+    const bodyName  = (body.full_name || "").trim();
+    const bodyPhone = (body.phone || "").trim();
+    const bodyNIN   = (body.nin || "").replace(/\D/g, "");
+    const bodyBVN   = (body.bvn || "").replace(/\D/g, "");
 
-    // ── STATIC (permanent) ─────────────────────────────────────────────────
+    const name  = (bodyName || profile?.full_name || user.email?.split("@")[0] || "BLITZPAY USER").toUpperCase();
+    const phone = (bodyPhone || profile?.phone || "09012345678").replace(/\D/g, "").slice(0, 11);
+    const nin   = bodyNIN || profile?.nin || "";
+    const bvn   = bodyBVN || profile?.bvn || "";
+
+    // STATIC (permanent)
     if (type === "static") {
       // Return cached if exists
       const { data: existing } = await admin
@@ -57,15 +65,33 @@ serve(async (req) => {
           message: "Transfer any amount here. Balance updates instantly." });
       }
 
-      // Create STATIC
+      // Check KYC sufficiency
+      const hasBodyKYC    = !!bodyName && bodyNIN.length === 11;
+      const hasProfileKYC = !!(profile?.full_name && profile?.nin);
+
+      if (!hasBodyKYC && !hasProfileKYC) {
+        return json({ success: true, type: "static", needs_kyc: true });
+      }
+
+      // Persist submitted KYC back to profile
+      const profileUpdates: Record<string, string> = {};
+      if (bodyName)                profileUpdates.full_name = bodyName;
+      if (bodyPhone.length === 11) profileUpdates.phone     = bodyPhone;
+      if (bodyNIN.length === 11)   profileUpdates.nin       = bodyNIN;
+      if (bodyBVN.length === 11)   profileUpdates.bvn       = bodyBVN;
+      if (Object.keys(profileUpdates).length > 0) {
+        await admin.from("profiles").update(profileUpdates).eq("user_id", user.id);
+      }
+
+      // Create STATIC VA
       const payload: Record<string, unknown> = {
         email: user.email, name, phoneNumber: phone,
         bankcode: STATIC_BANKS, account_type: "STATIC",
         businessid: PV_BIZ_ID, webhook_url: PV_WEBHOOK,
         metadata: { user_id: user.id }
       };
-      if (profile?.bvn) payload.bvn = profile.bvn;
-      if (profile?.nin) payload.nin = profile.nin;
+      if (bvn) payload.bvn = bvn;
+      if (nin) payload.nin = nin;
 
       const pvRes = await fetch(PV_ENDPOINT, {
         method: "POST", headers: PV_HEADERS,
@@ -76,12 +102,8 @@ serve(async (req) => {
       try { pvData = JSON.parse(raw); }
       catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
 
-      const pvStaticLog = JSON.stringify(pvData).slice(0, 500);
-      console.log("[topup/static]", pvStaticLog);
-      if (!pvData.status) {
-        const pvMsg = (pvData.message as string) || (pvData.detail as string) || pvStaticLog;
-        throw new Error(`Payvessel: ${pvMsg}`);
-      }
+      console.log("[topup/static]", JSON.stringify(pvData).slice(0, 300));
+      if (!pvData.status) throw new Error((pvData.message as string) || "Account creation failed");
 
       const banks = pvData.banks as Record<string, string>[];
       const bank  = banks?.[0];
@@ -99,7 +121,7 @@ serve(async (req) => {
         message: "Permanent account created. Transfer any amount anytime." });
     }
 
-    // ── DYNAMIC (one-time) ─────────────────────────────────────────────────
+    // DYNAMIC (one-time)
     if (type === "dynamic") {
       const pvRes = await fetch(PV_ENDPOINT, {
         method: "POST", headers: PV_HEADERS,
@@ -116,12 +138,8 @@ serve(async (req) => {
       try { pvData = JSON.parse(raw); }
       catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
 
-      const pvDynLog = JSON.stringify(pvData).slice(0, 500);
-      console.log("[topup/dynamic]", pvDynLog);
-      if (!pvData.status) {
-        const pvDynMsg = (pvData.message as string) || (pvData.detail as string) || pvDynLog;
-        throw new Error(`Payvessel: ${pvDynMsg}`);
-      }
+      console.log("[topup/dynamic]", JSON.stringify(pvData).slice(0, 300));
+      if (!pvData.status) throw new Error((pvData.message as string) || "Dynamic account creation failed");
 
       const banks = pvData.banks as Record<string, string>[];
       const bank  = banks?.[0];
