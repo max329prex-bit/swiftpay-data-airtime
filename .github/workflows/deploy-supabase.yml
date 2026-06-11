@@ -48,5 +48,6 @@ jobs:
           supabase functions deploy chat --project-ref tljnhlhzyntotadxoypz
           supabase functions deploy manual-fund --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy admin-otp --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy populate-cost-prices --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
