@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogOut, User, Bell, Shield, Sparkles, ChevronRight, Moon, Sun,
          Monitor, Activity, BookOpen, Megaphone, ShieldAlert, BarChart3, Headphones,
-         BadgeCheck, Lock, CheckCircle2, AlertCircle } from "lucide-react";
+         BadgeCheck, Lock, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useHideBalance } from "@/hooks/useHideBalance";
 import { supabase } from "@/integrations/supabase/client";
@@ -201,6 +201,7 @@ export default function Settings() {
           <Row icon={Headphones} label="Support Center" desc="Manage user tickets" onClick={() => nav("/app/admin/support")} chevron />
           <Row icon={Megaphone} label="Broadcast" desc="Send system-wide alerts" onClick={() => nav("/app/admin/broadcast")} chevron />
           <Row icon={ShieldAlert} label="Fraud Monitor" desc="Velocity flags and suspicious activity" onClick={() => nav("/app/admin/fraud")} chevron />
+          <Row icon={TrendingUp} label="Margin Report" desc="Provider cost vs sell price" onClick={() => nav("/app/admin/margin")} chevron />
         </Section>
       )}
 
