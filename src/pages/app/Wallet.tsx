@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
 import { naira } from "@/lib/networks";
@@ -48,6 +49,7 @@ async function callTopup(
 
 export default function Wallet() {
   const { balance, refresh } = useWallet();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"static" | "dynamic">("static");
 
   // Static VA state
@@ -117,6 +119,10 @@ export default function Wallet() {
       const data = await callTopup(session.access_token, "static");
       if (data.needs_kyc) {
         setShowKYC(true);
+        return;
+      }
+      if (data.needs_kyc) {
+        setStaticError("KYC_REQUIRED: Your identity is needed to create a permanent account.");
         return;
       }
       if (!data.success) throw new Error(data.error || "Could not load account");
@@ -305,10 +311,13 @@ export default function Wallet() {
                       <p className="text-sm font-semibold text-amber-400">Identity Verification Required</p>
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         Payvessel requires your NIN or BVN to create a permanent account.
-                        Go to <strong className="text-foreground">Settings → Verification</strong> to complete this once.
                       </p>
                     </div>
                   </div>
+                  <button onClick={() => navigate("/app/settings")}
+                    className="w-full h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-medium flex items-center justify-center gap-2 hover:bg-amber-500/30 transition">
+                    Go to Settings → Verification
+                  </button>
                   <p className="text-[10px] text-muted-foreground/60 text-center">Your one-time account tab still works while you set this up</p>
                 </div>
               ) : (
