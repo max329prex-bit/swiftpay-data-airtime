@@ -1,291 +1,344 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, RefreshCw, TrendingUp, Pencil, Check, X, Package } from "lucide-react";
+import { ArrowLeft, RefreshCw, TrendingUp, Edit2, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { naira } from "@/lib/networks";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { BoltLoader } from "@/components/swift/BoltLoader";
 import { toast } from "sonner";
 
 type Pkg = {
-  package_code: string; name: string; network: string;
-  price: number; cost_price: number | null;
-  provider_code: string; size: string; validity: string;
-};
-type TxRow = { meta: { provider_code?: string }; amount: number; status: string };
-
-const PROVIDERS = ["gsubz", "iacafe", "bsplug", "aidapay"] as const;
-const PROVIDER_COLORS: Record<string, string> = {
-  gsubz:   "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  iacafe:  "bg-sky-500/10    text-sky-400    border-sky-500/20",
-  bsplug:  "bg-amber-500/10  text-amber-400  border-amber-500/20",
-  aidapay: "bg-rose-500/10   text-rose-400   border-rose-500/20",
-};
-const PROVIDER_BAR: Record<string, string> = {
-  gsubz: "bg-violet-500", iacafe: "bg-sky-500", bsplug: "bg-amber-400", aidapay: "bg-rose-500",
+  package_code: string;
+  name: string;
+  network: string;
+  provider_code: string;
+  price: number;
+  cost_price: number;
+  size: string;
+  validity: string;
+  tier: string;
+  is_active: boolean;
 };
 
-function margin(sell: number, cost: number | null): number | null {
-  if (cost == null || cost === 0) return null;
-  return ((sell - cost) / sell) * 100;
-}
+type TxRow = { meta: Record<string, unknown>; amount: number };
 
-function MarginBar({ pct, provider }: { pct: number | null; provider: string }) {
-  if (pct == null) return <span className="text-[10px] text-muted-foreground">—</span>;
-  const bar = PROVIDER_BAR[provider] ?? "bg-primary";
-  const colour = pct >= 15 ? "text-green-400" : pct >= 5 ? "text-yellow-400" : "text-red-400";
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 rounded-full bg-border overflow-hidden">
-        <div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.min(pct, 40) * 2.5}%` }} />
-      </div>
-      <span className={`text-xs font-mono font-semibold ${colour}`}>{pct.toFixed(1)}%</span>
-    </div>
-  );
-}
+const PROVIDER_LABEL: Record<string, string> = {
+  gsubz: "Gsubz",
+  iacafe: "IACafe",
+  bsplug: "BSPlug",
+  aidapay: "AidaPay",
+};
 
-function ProviderPill({ p }: { p: string }) {
-  return (
-    <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${PROVIDER_COLORS[p] ?? "bg-muted text-muted-foreground"}`}>
-      {p}
-    </span>
-  );
+function providerGroup(code: string): string {
+  if (!code) return "aidapay";
+  if (code.startsWith("GSZ-"))                       return "gsubz";
+  if (code.startsWith("bsplug") || code.includes("bsplug")) return "bsplug";
+  if (code.startsWith("iacafe") || code.includes("iacafe")) return "iacafe";
+  return "aidapay";
 }
 
 export default function ProviderMarginReport() {
+  const { user } = useAuth();
   const nav = useNavigate();
-  const [packages,  setPkgs]    = useState<Pkg[]>([]);
-  const [txRevenue, setTxRev]   = useState<Record<string, number>>({});
-  const [loading,   setLoading] = useState(true);
-  const [editId,    setEditId]  = useState<string | null>(null);
-  const [editVal,   setEditVal] = useState("");
-  const [saving,    setSaving]  = useState(false);
-  const [filter,    setFilter]  = useState<string>("all");
+  const [packages, setPackages]       = useState<Pkg[]>([]);
+  const [txMap, setTxMap]             = useState<Record<string, { count: number; revenue: number }>>({});
+  const [loading, setLoading]         = useState(true);
+  const [isAdmin, setIsAdmin]         = useState(false);
+  const [editing, setEditing]         = useState<Record<string, string>>({});
+  const [saving, setSaving]           = useState<Record<string, boolean>>({});
+  const [filterProvider, setFilterProvider] = useState("all");
+  const [filterNetwork, setFilterNetwork]   = useState("all");
 
-  const load = async () => {
-    setLoading(true);
-    const [{ data: pkgs }, { data: txs }] = await Promise.all([
-      supabase.from("packages")
-        .select("package_code,name,network,price,cost_price,provider_code,size,validity")
-        .eq("is_active", true)
-        .order("provider_code,network,sort_order"),
-      supabase.from("transactions")
-        .select("meta,amount,status")
-        .eq("status", "success")
-        .in("type", ["data","airtime","electricity","cable"])
-        .limit(5000),
-    ]);
-    setPkgs((pkgs ?? []) as Pkg[]);
-
-    // Aggregate realised revenue by provider from tx meta
-    const rev: Record<string, number> = {};
-    for (const tx of (txs ?? []) as TxRow[]) {
-      const p = tx.meta?.provider_code ?? "unknown";
-      rev[p] = (rev[p] ?? 0) + Number(tx.amount);
-    }
-    setTxRev(rev);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  // Provider summaries
-  const providerStats = useMemo(() => {
-    return PROVIDERS.map(p => {
-      const pkgs = packages.filter(x => x.provider_code === p);
-      const withCost = pkgs.filter(x => x.cost_price != null);
-      const avgSell = pkgs.length ? pkgs.reduce((s, x) => s + x.price, 0) / pkgs.length : 0;
-      const avgCost = withCost.length ? withCost.reduce((s, x) => s + (x.cost_price ?? 0), 0) / withCost.length : null;
-      const avgMargin = withCost.length
-        ? withCost.reduce((s, x) => s + (margin(x.price, x.cost_price) ?? 0), 0) / withCost.length
-        : null;
-      return { p, total: pkgs.length, withCost: withCost.length, avgSell, avgCost, avgMargin, revenue: txRevenue[p] ?? 0 };
+  useEffect(() => {
+    if (!user) return;
+    supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => {
+      setIsAdmin(!!data);
+      if (!data) { toast.error("Admin access required"); nav("/app"); }
     });
-  }, [packages, txRevenue]);
+  }, [user, nav]);
 
-  // Top earners (packages with cost set, sorted by margin desc)
-  const topEarners = useMemo(() =>
-    packages
-      .filter(x => x.cost_price != null)
-      .map(x => ({ ...x, mg: margin(x.price, x.cost_price) ?? 0 }))
-      .sort((a, b) => b.mg - a.mg)
-      .slice(0, 10),
-    [packages]
-  );
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      supabase
+        .from("packages")
+        .select("package_code,name,network,provider_code,price,cost_price,size,validity,tier,is_active")
+        .order("network")
+        .order("price"),
+      supabase
+        .from("transactions")
+        .select("meta,amount")
+        .eq("status", "success")
+        .in("type", ["data", "airtime", "electricity", "cable"]),
+    ]).then(([pkgR, txR]) => {
+      setPackages((pkgR.data as Pkg[]) ?? []);
 
-  const filteredPkgs = useMemo(() =>
-    filter === "all" ? packages : packages.filter(x => x.provider_code === filter),
-    [packages, filter]
-  );
-
-  const startEdit = (pkg: Pkg) => {
-    setEditId(pkg.package_code);
-    setEditVal(pkg.cost_price != null ? String(pkg.cost_price) : "");
+      // Aggregate transactions by package_code stored in meta
+      const map: Record<string, { count: number; revenue: number }> = {};
+      for (const tx of ((txR.data ?? []) as TxRow[])) {
+        const pc =
+          (tx.meta?.package_code as string) ??
+          (tx.meta?.plan_id as string) ??
+          (tx.meta?.provider_code as string) ?? "";
+        if (!pc) continue;
+        if (!map[pc]) map[pc] = { count: 0, revenue: 0 };
+        map[pc].count++;
+        map[pc].revenue += tx.amount;
+      }
+      setTxMap(map);
+      setLoading(false);
+    });
   };
 
-  const saveCost = async (pkg: Pkg) => {
-    const val = parseFloat(editVal);
-    if (isNaN(val) || val < 0) { toast.error("Enter a valid cost price"); return; }
-    setSaving(true);
-    const { error } = await supabase.from("packages")
+  useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
+  if (!isAdmin) return null;
+
+  // ── Per-provider aggregates ──────────────────────────────────────────────
+  const byProvider = packages.reduce<
+    Record<string, { revenue: number; cost: number; margin: number; sold: number }>
+  >((acc, pkg) => {
+    const grp = providerGroup(pkg.provider_code);
+    const tx  = txMap[pkg.package_code] ?? { count: 0, revenue: 0 };
+    if (!acc[grp]) acc[grp] = { revenue: 0, cost: 0, margin: 0, sold: 0 };
+    acc[grp].revenue += tx.revenue;
+    acc[grp].cost    += tx.count * pkg.cost_price;
+    acc[grp].margin  += tx.count * (pkg.price - pkg.cost_price);
+    acc[grp].sold    += tx.count;
+    return acc;
+  }, {});
+
+  const totalMargin = Object.values(byProvider).reduce((s, v) => s + v.margin, 0);
+  const totalSold   = Object.values(byProvider).reduce((s, v) => s + v.sold, 0);
+
+  const filteredPkgs = packages.filter(p => {
+    if (filterProvider !== "all" && providerGroup(p.provider_code) !== filterProvider) return false;
+    if (filterNetwork  !== "all" && p.network !== filterNetwork) return false;
+    return true;
+  });
+
+  const saveEdit = async (pkg: Pkg) => {
+    const val = parseFloat(editing[pkg.package_code] ?? "0");
+    if (isNaN(val) || val < 0) { toast.error("Invalid value"); return; }
+    setSaving(s => ({ ...s, [pkg.package_code]: true }));
+    const { error } = await supabase
+      .from("packages")
       .update({ cost_price: val })
       .eq("package_code", pkg.package_code);
-    setSaving(false);
+    setSaving(s => ({ ...s, [pkg.package_code]: false }));
     if (error) { toast.error("Save failed: " + error.message); return; }
-    toast.success(`Cost saved for ${pkg.name}`);
-    setPkgs(prev => prev.map(p => p.package_code === pkg.package_code ? { ...p, cost_price: val } : p));
-    setEditId(null);
+    setPackages(pkgs => pkgs.map(p =>
+      p.package_code === pkg.package_code ? { ...p, cost_price: val } : p
+    ));
+    setEditing(e => { const n = { ...e }; delete n[pkg.package_code]; return n; });
+    toast.success("Cost price updated");
   };
 
-  if (loading) return <div className="py-20 grid place-items-center"><BoltLoader size={48} /></div>;
+  const cancelEdit = (code: string) =>
+    setEditing(e => { const n = { ...e }; delete n[code]; return n; });
 
   return (
     <div className="space-y-5 pb-10">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => nav(-1)} className="p-2 rounded-xl glass"><ArrowLeft className="h-5 w-5" /></button>
+          <button onClick={() => nav(-1)} className="p-2 rounded-xl glass">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           <h1 className="font-display text-xl font-semibold">Margin Report</h1>
         </div>
-        <Button variant="soft" size="sm" onClick={load}><RefreshCw className="h-3.5 w-3.5" /></Button>
+        <Button variant="soft" size="sm" onClick={load}>
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
-      {/* Provider Summary Cards */}
-      <div className="grid grid-cols-2 gap-3">
-        {providerStats.map(({ p, total, withCost, avgSell, avgCost, avgMargin, revenue }) => (
-          <div key={p} className="glass rounded-2xl p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <ProviderPill p={p} />
-              <span className="text-[10px] text-muted-foreground">{total} plans</span>
-            </div>
-            <div>
-              <div className="text-[10px] text-muted-foreground">Avg sell / cost</div>
-              <div className="text-sm font-bold">{naira(avgSell)} <span className="text-muted-foreground font-normal">/ {avgCost != null ? naira(avgCost) : "—"}</span></div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[10px] text-muted-foreground">Avg margin</div>
-                <MarginBar pct={avgMargin} provider={p} />
-              </div>
-              <div className="text-right">
-                <div className="text-[10px] text-muted-foreground">Tx revenue</div>
-                <div className="text-xs font-semibold text-green-400">{naira(revenue)}</div>
-              </div>
-            </div>
-            <div className="text-[10px] text-muted-foreground">{withCost}/{total} costs set</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Top Earners */}
-      {topEarners.length > 0 && (
-        <div className="glass rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-border/30 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">Top Earners</h2>
-          </div>
-          {topEarners.map((pkg, i) => (
-            <div key={pkg.package_code} className="flex items-center justify-between p-3 border-b border-border/20 last:border-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[10px] text-muted-foreground w-4 flex-shrink-0">#{i+1}</span>
-                <div className="min-w-0">
-                  <div className="text-xs font-medium truncate">{pkg.name}</div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <ProviderPill p={pkg.provider_code} />
-                    <span className="text-[10px] text-muted-foreground">{pkg.network} · {pkg.size}</span>
+      {loading ? (
+        <div className="py-10 grid place-items-center"><BoltLoader size={48} /></div>
+      ) : (
+        <>
+          {/* Provider summary cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(byProvider).map(([grp, stats]) => {
+              const pct = stats.revenue > 0 ? (stats.margin / stats.revenue) * 100 : 0;
+              return (
+                <div key={grp} className="glass rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-white/90">
+                      {PROVIDER_LABEL[grp] ?? grp}
+                    </span>
+                    <span className={
+                      "text-[10px] font-bold px-2 py-0.5 rounded-full border " +
+                      (stats.margin > 0
+                        ? "bg-green-500/10 text-green-400 border-green-500/20"
+                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20")
+                    }>
+                      {pct.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-y-1 text-xs text-white/60">
+                    <span>Revenue</span>
+                    <span className="text-right text-white/80">{naira(stats.revenue)}</span>
+                    <span>Cost</span>
+                    <span className="text-right text-white/80">{naira(stats.cost)}</span>
+                    <span>Margin</span>
+                    <span className={"text-right font-bold " + (stats.margin >= 0 ? "text-green-400" : "text-red-400")}>
+                      {naira(stats.margin)}
+                    </span>
+                    <span>Sold</span>
+                    <span className="text-right text-white/80">{stats.sold} tx</span>
                   </div>
                 </div>
-              </div>
-              <div className="text-right flex-shrink-0 ml-2">
-                <div className="text-xs font-semibold">{naira(pkg.price - (pkg.cost_price ?? 0))}</div>
-                <MarginBar pct={pkg.mg} provider={pkg.provider_code} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Package Cost Editor */}
-      <div className="glass rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-border/30 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">Package Cost Editor</h2>
+              );
+            })}
           </div>
-          {/* Filter tabs */}
-          <div className="flex items-center gap-1">
-            {(["all", ...PROVIDERS] as string[]).map(f => (
-              <button key={f}
-                onClick={() => setFilter(f)}
-                className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full transition ${
-                  filter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >{f === "all" ? "All" : f}</button>
+
+          {/* Total bar */}
+          <div className="glass rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-green-400" />
+              <span className="text-sm text-white/70">Total Realised Margin</span>
+            </div>
+            <div className="text-right">
+              <div className={"text-lg font-bold " + (totalMargin >= 0 ? "text-green-400" : "text-red-400")}>
+                {naira(totalMargin)}
+              </div>
+              <div className="text-xs text-white/40">{totalSold} transactions</div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="flex gap-2 flex-wrap items-center">
+            {(["all", "gsubz", "iacafe", "bsplug", "aidapay"] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setFilterProvider(p)}
+                className={
+                  "text-xs px-3 py-1.5 rounded-full border transition-colors " +
+                  (filterProvider === p
+                    ? "bg-white/10 border-white/30 text-white"
+                    : "border-white/10 text-white/40 hover:text-white/60")
+                }
+              >
+                {p === "all" ? "All Providers" : PROVIDER_LABEL[p]}
+              </button>
+            ))}
+            <div className="h-4 w-px bg-white/10 mx-1" />
+            {(["all", "MTN", "AIRTEL", "GLO", "9MOBILE"] as const).map(n => (
+              <button
+                key={n}
+                onClick={() => setFilterNetwork(n)}
+                className={
+                  "text-xs px-3 py-1.5 rounded-full border transition-colors " +
+                  (filterNetwork === n
+                    ? "bg-white/10 border-white/30 text-white"
+                    : "border-white/10 text-white/40 hover:text-white/60")
+                }
+              >
+                {n === "all" ? "All Networks" : n}
+              </button>
             ))}
           </div>
-        </div>
 
-        {/* Header row */}
-        <div className="grid grid-cols-[1fr_70px_70px_80px_32px] gap-2 px-3 py-2 border-b border-border/20 text-[10px] font-semibold uppercase text-muted-foreground">
-          <span>Plan</span><span className="text-right">Sell</span><span className="text-right">Cost</span><span className="text-right">Margin</span><span/>
-        </div>
-
-        {filteredPkgs.map(pkg => {
-          const mg = margin(pkg.price, pkg.cost_price);
-          const isEditing = editId === pkg.package_code;
-          return (
-            <div key={pkg.package_code} className="grid grid-cols-[1fr_70px_70px_80px_32px] gap-2 items-center px-3 py-2.5 border-b border-border/10 last:border-0 hover:bg-white/[0.02]">
-              <div className="min-w-0">
-                <div className="text-xs font-medium truncate">{pkg.name}</div>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <ProviderPill p={pkg.provider_code} />
-                  <span className="text-[10px] text-muted-foreground">{pkg.network}</span>
-                </div>
-              </div>
-              <div className="text-right text-xs font-mono">{naira(pkg.price)}</div>
-              <div className="text-right">
-                {isEditing ? (
-                  <Input
-                    autoFocus
-                    value={editVal}
-                    onChange={e => setEditVal(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") saveCost(pkg); if (e.key === "Escape") setEditId(null); }}
-                    className="h-6 w-16 text-xs text-right px-1 glass border-white/20"
-                    inputMode="decimal"
-                  />
-                ) : (
-                  <span className={`text-xs font-mono ${pkg.cost_price == null ? "text-muted-foreground" : ""}`}>
-                    {pkg.cost_price != null ? naira(pkg.cost_price) : "—"}
-                  </span>
-                )}
-              </div>
-              <div className="flex justify-end">
-                {isEditing ? null : <MarginBar pct={mg} provider={pkg.provider_code} />}
-              </div>
-              <div className="flex items-center justify-center gap-0.5">
-                {isEditing ? (
-                  <>
-                    <button onClick={() => saveCost(pkg)} disabled={saving}
-                      className="p-1 rounded-lg hover:bg-green-500/20 text-green-400 transition">
-                      <Check className="h-3 w-3"/>
-                    </button>
-                    <button onClick={() => setEditId(null)}
-                      className="p-1 rounded-lg hover:bg-red-500/20 text-red-400 transition">
-                      <X className="h-3 w-3"/>
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => startEdit(pkg)}
-                    className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground transition">
-                    <Pencil className="h-3 w-3"/>
-                  </button>
-                )}
-              </div>
+          {/* Notice if no cost_price set */}
+          {packages.every(p => p.cost_price === 0) && (
+            <div className="glass rounded-xl p-3 border border-yellow-500/20 text-yellow-400/80 text-xs flex items-center gap-2">
+              <span>⚠️</span>
+              <span>No cost prices set yet — click the <Edit2 className="h-3 w-3 inline" /> icon on any row to enter provider wholesale costs. Margin will calculate automatically.</span>
             </div>
-          );
-        })}
-      </div>
+          )}
+
+          {/* Package table */}
+          <div className="glass rounded-2xl overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-white/40">
+                  <th className="text-left p-3 font-medium">Package</th>
+                  <th className="text-right p-3 font-medium">Sell ₦</th>
+                  <th className="text-right p-3 font-medium">Cost ₦</th>
+                  <th className="text-right p-3 font-medium">Margin</th>
+                  <th className="text-right p-3 font-medium">Sold</th>
+                  <th className="text-right p-3 font-medium">Total ₦</th>
+                  <th className="p-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPkgs.map(pkg => {
+                  const tx       = txMap[pkg.package_code] ?? { count: 0, revenue: 0 };
+                  const marginN  = pkg.price - pkg.cost_price;
+                  const marginPct = pkg.price > 0 ? (marginN / pkg.price) * 100 : 0;
+                  const isEd     = pkg.package_code in editing;
+                  return (
+                    <tr key={pkg.package_code} className="border-b border-white/5 hover:bg-white/[0.02]">
+                      <td className="p-3">
+                        <div className="font-medium text-white/80">{pkg.size || pkg.name}</div>
+                        <div className="text-white/40">{pkg.network} · {pkg.provider_code?.substring(0, 14)}</div>
+                      </td>
+                      <td className="p-3 text-right text-white/70">{naira(pkg.price)}</td>
+                      <td className="p-3 text-right">
+                        {isEd ? (
+                          <input
+                            type="number"
+                            value={editing[pkg.package_code]}
+                            onChange={e => setEditing(ed => ({ ...ed, [pkg.package_code]: e.target.value }))}
+                            className="w-20 bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-right text-white text-xs focus:outline-none focus:border-white/40"
+                            placeholder="0"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className={pkg.cost_price === 0 ? "text-yellow-400/50" : "text-white/70"}>
+                            {naira(pkg.cost_price)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className={marginN >= 0 ? "text-green-400" : "text-red-400"}>{naira(marginN)}</div>
+                        <div className="text-white/30">{marginPct.toFixed(1)}%</div>
+                      </td>
+                      <td className="p-3 text-right text-white/60">{tx.count}</td>
+                      <td className="p-3 text-right">
+                        <span className={tx.count * marginN >= 0 ? "text-green-400/80" : "text-red-400"}>
+                          {naira(tx.count * marginN)}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        {isEd ? (
+                          <div className="flex gap-1 justify-end">
+                            <button
+                              onClick={() => saveEdit(pkg)}
+                              disabled={saving[pkg.package_code]}
+                              className="p-1.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-40"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => cancelEdit(pkg.package_code)}
+                              className="p-1.5 rounded bg-white/10 text-white/50 hover:bg-white/20"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setEditing(e => ({ ...e, [pkg.package_code]: String(pkg.cost_price) }))}
+                            className="p-1.5 rounded hover:bg-white/10 text-white/30 hover:text-white/70 transition-colors"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredPkgs.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-white/30">No packages match filter</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
