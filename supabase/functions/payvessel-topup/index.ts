@@ -65,9 +65,9 @@ serve(async (req) => {
           message: "Transfer any amount here. Balance updates instantly." });
       }
 
-      // Check KYC sufficiency
-      const hasBodyKYC    = !!bodyName && bodyNIN.length === 11;
-      const hasProfileKYC = !!(profile?.full_name && profile?.nin);
+      // Check KYC sufficiency — Payvessel requires NIN or BVN (name always set from email)
+      const hasBodyKYC    = bodyNIN.length === 11 || bodyBVN.length === 11;
+      const hasProfileKYC = !!(profile?.nin || profile?.bvn);
 
       if (!hasBodyKYC && !hasProfileKYC) {
         return json({ success: true, type: "static", needs_kyc: true });
