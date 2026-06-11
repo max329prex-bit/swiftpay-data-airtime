@@ -1,1 +1,12 @@
-{"rewrites": [{"source": "/(.*)", "destination": "/index.html"}]}
+{
+  "rewrites": [
+    {
+      "source": "/webhook/payvessel",
+      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/payvessel-webhook"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
