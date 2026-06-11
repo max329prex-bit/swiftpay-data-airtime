@@ -6,12 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Loader2, Copy, CheckCircle2, Building2, RefreshCw, Info,
-  Zap, Lock, Clock, ChevronRight
+  Zap, Lock, Clock, ChevronRight, ShieldCheck, User, Phone, CreditCard
 } from "lucide-react";
 
 interface VAResult {
   success: boolean;
   type: "static" | "dynamic";
+  needs_kyc?: boolean;
   account_number: string;
   account_name: string;
   bank_name: string;
@@ -21,13 +22,24 @@ interface VAResult {
   error?: string;
 }
 
+interface KYCPayload {
+  full_name?: string;
+  phone?: string;
+  nin?: string;
+  bvn?: string;
+}
+
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
-async function callTopup(accessToken: string, type: "static" | "dynamic"): Promise<VAResult> {
+async function callTopup(
+  accessToken: string,
+  type: "static" | "dynamic",
+  kyc?: KYCPayload
+): Promise<VAResult> {
   const res = await fetch(`${SUPA_URL}/functions/v1/payvessel-topup`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ type })
+    body: JSON.stringify({ type, ...kyc })
   });
   const raw = await res.text();
   try { return JSON.parse(raw); }
@@ -39,13 +51,22 @@ export default function Wallet() {
   const [tab, setTab] = useState<"static" | "dynamic">("static");
 
   // Static VA state
-  const [staticVA, setStaticVA]       = useState<VAResult | null>(null);
+  const [staticVA, setStaticVA]        = useState<VAResult | null>(null);
   const [staticLoading, setStaticLoad] = useState(false);
   const [staticError, setStaticError]  = useState<string | null>(null);
   const [copiedStatic, setCopiedStatic] = useState(false);
 
+  // KYC form state
+  const [showKYC, setShowKYC]           = useState(false);
+  const [kycName, setKycName]           = useState("");
+  const [kycPhone, setKycPhone]         = useState("");
+  const [kycNIN, setKycNIN]             = useState("");
+  const [kycBVN, setKycBVN]             = useState("");
+  const [kycSubmitting, setKycSubmit]   = useState(false);
+  const [kycError, setKycError]         = useState<string | null>(null);
+
   // Dynamic VA state
-  const [dynamicVA, setDynamicVA]       = useState<VAResult | null>(null);
+  const [dynamicVA, setDynamicVA]        = useState<VAResult | null>(null);
   const [dynamicLoading, setDynLoad]     = useState(false);
   const [dynamicError, setDynamicError]  = useState<string | null>(null);
   const [copiedDynamic, setCopiedDynamic] = useState(false);
@@ -94,14 +115,60 @@ export default function Wallet() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in");
       const data = await callTopup(session.access_token, "static");
+      if (data.needs_kyc) {
+        setShowKYC(true);
+        return;
+      }
       if (!data.success) throw new Error(data.error || "Could not load account");
       setStaticVA(data);
+      setShowKYC(false);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setStaticError(msg);
       if (!silent) toast.error(msg);
     } finally { setStaticLoad(false); }
   }, []);
+
+  const submitKYC = useCallback(async () => {
+    const name  = kycName.trim();
+    const phone = kycPhone.replace(/\D/g, "");
+    const nin   = kycNIN.replace(/\D/g, "");
+    const bvn   = kycBVN.replace(/\D/g, "");
+
+    if (!name || name.split(" ").filter(Boolean).length < 2) {
+      setKycError("Enter your full name (first and last name)"); return;
+    }
+    if (phone.length !== 11) {
+      setKycError("Enter a valid 11-digit Nigerian phone number"); return;
+    }
+    if (nin.length !== 11) {
+      setKycError("NIN must be exactly 11 digits"); return;
+    }
+    if (bvn && bvn.length !== 11) {
+      setKycError("BVN must be exactly 11 digits if provided"); return;
+    }
+
+    setKycSubmit(true);
+    setKycError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not signed in");
+      const data = await callTopup(session.access_token, "static", {
+        full_name: name, phone, nin, bvn: bvn || undefined
+      });
+      if (data.needs_kyc) {
+        setKycError("Please check your details and try again."); return;
+      }
+      if (!data.success) throw new Error(data.error || "Account creation failed");
+      setStaticVA(data);
+      setShowKYC(false);
+      toast.success("Permanent account created!");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Something went wrong";
+      setKycError(msg);
+      toast.error(msg);
+    } finally { setKycSubmit(false); }
+  }, [kycName, kycPhone, kycNIN, kycBVN]);
 
   const fetchDynamic = useCallback(async () => {
     setDynLoad(true);
@@ -216,13 +283,18 @@ export default function Wallet() {
       {/* ── STATIC TAB ────────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
         {tab === "static" && (
-          <motion.div key="static-tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div key="static-tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="space-y-3">
+
+            {/* Loading */}
             {staticLoading && (
               <div className="rounded-2xl bg-secondary/30 border border-white/5 p-6 flex items-center justify-center gap-3 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span className="text-sm">Loading your account…</span>
               </div>
             )}
+
+            {/* Error */}
             {!staticLoading && staticError && (
               <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-5 space-y-3">
                 <p className="text-sm text-destructive">{staticError}</p>
@@ -231,10 +303,118 @@ export default function Wallet() {
                 </button>
               </div>
             )}
+
+            {/* ── KYC Form ── */}
+            {!staticLoading && !staticError && showKYC && !staticVA && (
+              <motion.div key="kyc-form" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl bg-secondary/30 border border-primary/20 p-5 space-y-5">
+
+                {/* Header */}
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">Set up your permanent account</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Fill in your details to create a dedicated bank account.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inline error */}
+                {kycError && (
+                  <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3">
+                    <p className="text-sm text-destructive">{kycError}</p>
+                  </div>
+                )}
+
+                {/* Fields */}
+                <div className="space-y-3">
+                  {/* Full Name */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" /> Full Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="First Last Name"
+                      value={kycName}
+                      onChange={e => { setKycName(e.target.value); setKycError(null); }}
+                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition"
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5" /> Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="08012345678"
+                      value={kycPhone}
+                      onChange={e => { setKycPhone(e.target.value); setKycError(null); }}
+                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition"
+                    />
+                  </div>
+
+                  {/* NIN */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5" /> NIN <span className="text-primary/60">(required)</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={11}
+                      placeholder="11-digit NIN"
+                      value={kycNIN}
+                      onChange={e => { setKycNIN(e.target.value.replace(/\D/g, "")); setKycError(null); }}
+                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition font-mono"
+                    />
+                  </div>
+
+                  {/* BVN */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5" /> BVN <span className="text-muted-foreground/50">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={11}
+                      placeholder="11-digit BVN"
+                      value={kycBVN}
+                      onChange={e => { setKycBVN(e.target.value.replace(/\D/g, "")); setKycError(null); }}
+                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <button
+                  onClick={submitKYC}
+                  disabled={kycSubmitting}
+                  className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition disabled:opacity-50 shadow-glow"
+                >
+                  {kycSubmitting
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating account…</>
+                    : <><ShieldCheck className="w-4 h-4" /> Create my permanent account <ChevronRight className="w-4 h-4 opacity-60" /></>}
+                </button>
+
+                <p className="text-center text-xs text-muted-foreground">
+                  Your details are encrypted and used only for account verification
+                </p>
+              </motion.div>
+            )}
+
+            {/* Account card */}
             {!staticLoading && staticVA && (
               <AccountCard va={staticVA} copied={copiedStatic}
                 onCopy={() => copyText(staticVA.account_number, "static")} />
             )}
+
             {staticVA && (
               <button onClick={() => fetchStatic(true)}
                 className="w-full h-11 rounded-xl border border-white/10 text-sm text-muted-foreground flex items-center justify-center gap-2 hover:bg-white/5 transition">
@@ -276,7 +456,6 @@ export default function Wallet() {
 
             {dynamicVA && !dynamicLoading && (
               <div className="space-y-3">
-                {/* Countdown */}
                 {countdown !== null && (
                   <div className={`rounded-xl border px-4 py-2.5 flex items-center gap-2 text-sm
                     ${countdown < 120 ? "bg-orange-500/10 border-orange-500/20 text-orange-400"
