@@ -76,8 +76,12 @@ serve(async (req) => {
       try { pvData = JSON.parse(raw); }
       catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
 
-      console.log("[topup/static]", JSON.stringify(pvData).slice(0, 300));
-      if (!pvData.status) throw new Error((pvData.message as string) || "Account creation failed");
+      const pvStaticLog = JSON.stringify(pvData).slice(0, 500);
+      console.log("[topup/static]", pvStaticLog);
+      if (!pvData.status) {
+        const pvMsg = (pvData.message as string) || (pvData.detail as string) || pvStaticLog;
+        throw new Error(`Payvessel: ${pvMsg}`);
+      }
 
       const banks = pvData.banks as Record<string, string>[];
       const bank  = banks?.[0];
@@ -112,8 +116,12 @@ serve(async (req) => {
       try { pvData = JSON.parse(raw); }
       catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
 
-      console.log("[topup/dynamic]", JSON.stringify(pvData).slice(0, 300));
-      if (!pvData.status) throw new Error((pvData.message as string) || "Dynamic account creation failed");
+      const pvDynLog = JSON.stringify(pvData).slice(0, 500);
+      console.log("[topup/dynamic]", pvDynLog);
+      if (!pvData.status) {
+        const pvDynMsg = (pvData.message as string) || (pvData.detail as string) || pvDynLog;
+        throw new Error(`Payvessel: ${pvDynMsg}`);
+      }
 
       const banks = pvData.banks as Record<string, string>[];
       const bank  = banks?.[0];
