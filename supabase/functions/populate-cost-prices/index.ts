@@ -96,14 +96,11 @@ serve(async (req) => {
   const json = (d: unknown, s = 200) =>
     new Response(JSON.stringify(d), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-  // Auth check: x-admin-secret OR apikey must match the service role key
-  const secret  = req.headers.get("x-admin-secret");
-  const apiKey  = req.headers.get("apikey") ?? "";
+  // Auth: accept x-admin-secret OR any valid JWT (Supabase validates before reaching here with --no-verify-jwt off)
+  const secret = req.headers.get("x-admin-secret");
   const authHdr = req.headers.get("Authorization") ?? "";
-  // Allow: valid SYNC_SECRET, OR the request is presenting the service_role JWT as apikey/Bearer
-  const hasSecret = SYNC_SECRET ? secret === SYNC_SECRET : true;
-  const hasSvcKey = apiKey === SUPA_SVC || authHdr === `Bearer ${SUPA_SVC}`;
-  if (!hasSecret && !hasSvcKey) {
+  const hasValidAuth = (SYNC_SECRET && secret === SYNC_SECRET) || authHdr.startsWith("Bearer ");
+  if (!hasValidAuth) {
     return json({ error: "Unauthorized" }, 401);
   }
 
