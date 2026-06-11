@@ -147,6 +147,52 @@ async function fetchBsplugPlans(): Promise<Map<number, number>> {
   return costMap;
 }
 
+
+// Debug probe: try one endpoint per provider and return raw response
+async function probeEndpoints(): Promise<Record<string, unknown>> {
+  const results: Record<string, unknown> = {};
+
+  // Gsubz balance check
+  try {
+    const r = await fetch("https://gsubz.com/api/balance/", {
+      headers: { "api-key": GSUBZ_KEY },
+      signal: AbortSignal.timeout(8000),
+    });
+    results.gsubz_balance = { status: r.status, body: (await r.text()).slice(0, 300) };
+  } catch(e) { results.gsubz_balance = { error: String(e) }; }
+
+  // Gsubz plans
+  try {
+    const r = await fetch("https://gsubz.com/api/data-plans/", {
+      headers: { "api-key": GSUBZ_KEY },
+      signal: AbortSignal.timeout(8000),
+    });
+    results.gsubz_plans = { status: r.status, body: (await r.text()).slice(0, 300) };
+  } catch(e) { results.gsubz_plans = { error: String(e) }; }
+
+  // IACafe plans
+  try {
+    const r = await fetch("https://iacafe.com.ng/devapi/v1/budget-data", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${IACAFE_TOKEN}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+    });
+    results.iacafe_plans = { status: r.status, body: (await r.text()).slice(0, 300) };
+  } catch(e) { results.iacafe_plans = { error: String(e) }; }
+
+  // BSPlug plans
+  try {
+    const r = await fetch("https://bsplug.net/api/data/", {
+      method: "GET",
+      headers: { Authorization: `Token ${BSPLUG_TOKEN}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+    });
+    results.bsplug_plans = { status: r.status, body: (await r.text()).slice(0, 300) };
+  } catch(e) { results.bsplug_plans = { error: String(e) }; }
+
+  return results;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (d: unknown, s = 200) =>
@@ -161,6 +207,13 @@ serve(async (req) => {
   }
 
   const db = createClient(SUPA_URL, SUPA_SVC);
+
+  // If ?debug=1, run endpoint probe and return
+  const url = new URL(req.url);
+  if (url.searchParams.get("debug") === "1") {
+    const probe = await probeEndpoints();
+    return json({ probe, gsubz_key_present: !!GSUBZ_KEY, iacafe_token_present: !!IACAFE_TOKEN, bsplug_token_present: !!BSPLUG_TOKEN });
+  }
 
   // Fetch all packages from DB
   const { data: allPkgs, error: pkgErr } = await db
@@ -216,6 +269,11 @@ serve(async (req) => {
       gsubz: gsubzCosts.size,
       iacafe: iacafeCosts.size,
       bsplug: bsplugCosts.size,
+    },
+    debug: {
+      gsubz_sample: Array.from(gsubzCosts.entries()).slice(0,3).map(([k,v])=>({code:k,cost:v})),
+      iacafe_sample: Array.from(iacafeCosts.entries()).slice(0,3).map(([k,v])=>({id:k,cost:v})),
+      bsplug_sample: Array.from(bsplugCosts.entries()).slice(0,3).map(([k,v])=>({id:k,cost:v})),
     },
     errors: errors.length > 0 ? errors : undefined,
     at: new Date().toISOString(),
