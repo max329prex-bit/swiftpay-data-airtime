@@ -17,7 +17,7 @@ export default function TreasuryDashboard(){
   useEffect(()=>{if(isAdmin)load();},[isAdmin]);
   if(!isAdmin)return null;
   return(<div className="space-y-5 pb-10">
-    <div className="flex items-center justify-between"><div className="flex items-center gap-3"><button onClick={()=>nav(-1)} className="p-2 rounded-xl glass"><ArrowLeft className="h-5 w-5"/></button><h1 className="font-display text-xl font-semibold">Treasury</h1></div><Button variant="soft" size="sm" onClick={load}><RefreshCw className="h-3.5 w-3.5"/></Button></div>
+    <div className="flex items-center justify-between"><div className="flex items-center gap-3"><button onClick={()=>nav(-1)} className="p-2 rounded-xl glass"><ArrowLeft className="h-5 w-5"/></button><h1 className="font-display text-xl font-semibold">Treasury</h1></div><div className="flex gap-2"><Button variant="ghost" size="sm" onClick={()=>nav("/app/admin/margin")} className="text-xs gap-1"><TrendingUp className="h-3.5 w-3.5"/>Margins</Button><Button variant="soft" size="sm" onClick={load}><RefreshCw className="h-3.5 w-3.5"/></Button></div></div>
     {loading?<div className="py-10 grid place-items-center"><BoltLoader size={48}/></div>:(<>
       {rows.map(r=>{const usable=r.actual_balance-r.reserved_balance;const pct=Math.min(100,(usable/r.refill_target)*100);const crit=usable<=r.critical_stop_threshold;const low=usable<=r.refill_threshold;
         return(<div key={r.id} className="glass rounded-2xl p-4 space-y-3">
