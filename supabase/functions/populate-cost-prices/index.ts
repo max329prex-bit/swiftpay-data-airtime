@@ -96,11 +96,14 @@ serve(async (req) => {
   const json = (d: unknown, s = 200) =>
     new Response(JSON.stringify(d), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-  // Auth check: require x-admin-secret or service role
-  const secret = req.headers.get("x-admin-secret");
+  // Auth check: x-admin-secret OR apikey must match the service role key
+  const secret  = req.headers.get("x-admin-secret");
+  const apiKey  = req.headers.get("apikey") ?? "";
   const authHdr = req.headers.get("Authorization") ?? "";
-  const isServiceRole = authHdr.includes(SUPA_SVC);
-  if (SYNC_SECRET && secret !== SYNC_SECRET && !isServiceRole) {
+  // Allow: valid SYNC_SECRET, OR the request is presenting the service_role JWT as apikey/Bearer
+  const hasSecret = SYNC_SECRET ? secret === SYNC_SECRET : true;
+  const hasSvcKey = apiKey === SUPA_SVC || authHdr === `Bearer ${SUPA_SVC}`;
+  if (!hasSecret && !hasSvcKey) {
     return json({ error: "Unauthorized" }, 401);
   }
 
