@@ -125,7 +125,8 @@ export default function Wallet() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setStaticError(msg);
-      if (!silent) toast.error(msg);
+      // Don't toast KYC errors — they get a dedicated UI card
+      if (!silent && !msg.startsWith("KYC_REQUIRED:")) toast.error(msg);
     } finally { setStaticLoad(false); }
   }, []);
 
@@ -296,12 +297,28 @@ export default function Wallet() {
 
             {/* Error */}
             {!staticLoading && staticError && (
-              <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-5 space-y-3">
-                <p className="text-sm text-destructive">{staticError}</p>
-                <button onClick={() => fetchStatic()} className="flex items-center gap-2 text-sm font-medium text-primary">
-                  <RefreshCw className="w-4 h-4" /> Try again
-                </button>
-              </div>
+              staticError.startsWith("KYC_REQUIRED:") ? (
+                <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-5 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Lock className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-amber-400">Identity Verification Required</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Payvessel requires your NIN or BVN to create a permanent account.
+                        Go to <strong className="text-foreground">Settings → Verification</strong> to complete this once.
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 text-center">Your one-time account tab still works while you set this up</p>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-5 space-y-3">
+                  <p className="text-sm text-destructive">{staticError}</p>
+                  <button onClick={() => fetchStatic()} className="flex items-center gap-2 text-sm font-medium text-primary">
+                    <RefreshCw className="w-4 h-4" /> Try again
+                  </button>
+                </div>
+              )
             )}
 
             {/* ── KYC Form ── */}
@@ -431,8 +448,8 @@ export default function Wallet() {
             {!dynamicVA && !dynamicLoading && (
               <div className="space-y-3">
                 {dynamicError && (
-                  <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-4">
-                    <p className="text-sm text-destructive">{dynamicError}</p>
+                  <div className="rounded-2xl bg-secondary/30 border border-white/5 p-4">
+                    <p className="text-sm text-muted-foreground text-center">{dynamicError}</p>
                   </div>
                 )}
                 <button onClick={fetchDynamic} disabled={dynamicLoading}
