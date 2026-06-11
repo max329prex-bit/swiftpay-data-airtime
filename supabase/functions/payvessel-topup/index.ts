@@ -102,8 +102,14 @@ serve(async (req) => {
       try { pvData = JSON.parse(raw); }
       catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
 
-      console.log("[topup/static]", JSON.stringify(pvData).slice(0, 300));
-      if (!pvData.status) throw new Error((pvData.message as string) || "Account creation failed");
+      console.log("[topup/static]", JSON.stringify(pvData).slice(0, 500));
+      if (!pvData.status) {
+        const pvMsg = (pvData.message as string) || JSON.stringify(pvData.errors || pvData).slice(0, 200);
+        if (pvMsg.toLowerCase().includes("nin") || pvMsg.toLowerCase().includes("bvn")) {
+          throw new Error("KYC_REQUIRED: Please add your NIN or BVN in Settings to unlock your permanent account.");
+        }
+        throw new Error(pvMsg || "Account creation failed");
+      }
 
       const banks = pvData.banks as Record<string, string>[];
       const bank  = banks?.[0];
@@ -138,8 +144,19 @@ serve(async (req) => {
       try { pvData = JSON.parse(raw); }
       catch { throw new Error(`Payvessel unavailable (${pvRes.status}). Try again shortly.`); }
 
-      console.log("[topup/dynamic]", JSON.stringify(pvData).slice(0, 300));
-      if (!pvData.status) throw new Error((pvData.message as string) || "Dynamic account creation failed");
+      console.log("[topup/dynamic]", JSON.stringify(pvData).slice(0, 500));
+      if (!pvData.status) {
+        let pvDynMsg = (pvData.message as string) || "";
+        // Payvessel DYNAMIC errors can be in errors array: [{"BankName":"error text"}]
+        if (!pvDynMsg && Array.isArray(pvData.errors) && (pvData.errors as Record<string,string>[]).length > 0) {
+          pvDynMsg = Object.values((pvData.errors as Record<string,string>[])[0])[0] || "";
+        }
+        pvDynMsg = pvDynMsg || JSON.stringify(pvData.errors || pvData).slice(0, 200);
+        if (pvDynMsg.toLowerCase().includes("insufficient funds")) {
+          throw new Error("One-time accounts are temporarily unavailable. Please use the Permanent account tab.");
+        }
+        throw new Error(pvDynMsg || "Dynamic account creation failed");
+      }
 
       const banks = pvData.banks as Record<string, string>[];
       const bank  = banks?.[0];
