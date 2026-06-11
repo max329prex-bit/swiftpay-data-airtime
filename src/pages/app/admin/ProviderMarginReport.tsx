@@ -32,9 +32,10 @@ const PROVIDER_LABEL: Record<string, string> = {
 
 function providerGroup(code: string): string {
   if (!code) return "aidapay";
-  if (code.startsWith("GSZ-"))                       return "gsubz";
-  if (code.startsWith("bsplug") || code.includes("bsplug")) return "bsplug";
-  if (code.startsWith("iacafe") || code.includes("iacafe")) return "iacafe";
+  const c = code.toLowerCase();
+  if (c === "gsubz" || c.startsWith("gsz-"))         return "gsubz";
+  if (c.startsWith("bsplug"))                         return "bsplug";
+  if (c === "iacafe" || c.startsWith("iacafe"))       return "iacafe";
   return "aidapay";
 }
 
@@ -49,6 +50,33 @@ export default function ProviderMarginReport() {
   const [saving, setSaving]           = useState<Record<string, boolean>>({});
   const [filterProvider, setFilterProvider] = useState("all");
   const [filterNetwork, setFilterNetwork]   = useState("all");
+  const [syncing, setSyncing]               = useState(false);
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+  const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+  const SYNC_SECRET  = import.meta.env.VITE_SYNC_ADMIN_SECRET as string | undefined;
+
+  const syncCosts = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/populate-cost-prices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": ANON_KEY,
+          ...(SYNC_SECRET ? { "x-admin-secret": SYNC_SECRET } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Sync failed");
+      toast.success(`Cost prices synced: ${data.updated ?? 0} plans updated`);
+      load(); // refresh table
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -147,9 +175,15 @@ export default function ProviderMarginReport() {
           </button>
           <h1 className="font-display text-xl font-semibold">Margin Report</h1>
         </div>
-        <Button variant="soft" size="sm" onClick={load}>
-          <RefreshCw className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="soft" size="sm" onClick={syncCosts} disabled={syncing}>
+            {syncing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            <span className="text-xs ml-1">{syncing ? "Syncing..." : "Sync Costs"}</span>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={load}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {loading ? (
