@@ -90,11 +90,16 @@ Deno.serve(async (req) => {
       transaction.paid_amount ??
       transaction.settledAmount ??
       body.amount ?? "0";
-    const amount = parseFloat(String(rawAmt).replace(/[^0-9.]/g, ""));
+    const grossAmount = parseFloat(String(rawAmt).replace(/[^0-9.]/g, ""));
 
-    console.log(`[payvessel-webhook] rawAmt=${rawAmt} parsed=${amount}`);
+    // Apply BlitzPay 1.5% deposit fee — net credit is what lands in user wallet
+    const FEE_RATE  = 0.015;
+    const fee       = Math.round(grossAmount * FEE_RATE * 100) / 100;
+    const amount    = Math.round((grossAmount - fee) * 100) / 100;
 
-    if (!amount || amount < 50) {
+    console.log(`[payvessel-webhook] gross=₦${grossAmount} fee=₦${fee} net=₦${amount}`);
+
+    if (!grossAmount || grossAmount < 50) {
       console.warn("[payvessel-webhook] amount too small or missing:", rawAmt);
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
@@ -195,7 +200,7 @@ Deno.serve(async (req) => {
       }
     } else {
       console.log(`[payvessel-webhook] ✅ credited ₦${amount} to ${userId} ref=${ref}`);
-      await tg(`✅ *Deposit received*\nUser: ${userId}\n₦${amount.toLocaleString()}\nRef: ${ref}`);
+      await tg(`✅ *Deposit received*\nUser: ${userId}\nGross: ₦${grossAmount} | Fee: ₦${fee} | Net: ₦${amount}\nRef: ${ref}`);
     }
 
     return new Response(OK, { status: 200, headers: OK_HDR });
