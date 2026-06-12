@@ -283,8 +283,8 @@ export default function Wallet() {
       <div className="rounded-2xl bg-secondary/20 border border-white/5 p-4 flex gap-3 text-sm text-muted-foreground">
         <Info className="w-4 h-4 mt-0.5 text-primary/70 shrink-0" />
         {tab === "static"
-          ? <p>Your permanent account — transfer any amount anytime. Balance updates instantly.</p>
-          : <p>One-time account — valid for a single transfer only. Expires after use or 30 minutes.</p>}
+          ? <p>Your permanent account — transfer any amount anytime. Balance updates instantly. <span className="text-yellow-400/80 font-medium">1.5% deposit fee applies.</span></p>
+          : <p>One-time account — valid for a single transfer only. Expires after use or 30 minutes. <span className="text-yellow-400/80 font-medium">1.5% deposit fee applies.</span></p>}
       </div>
 
       {/* ── STATIC TAB ────────────────────────────────────────────────────── */}
@@ -499,7 +499,7 @@ export default function Wallet() {
         )}
       </AnimatePresence>
 
-      <p className="text-center text-xs text-muted-foreground">Secured by Payvessel · Instant bank transfer</p>
+      <p className="text-center text-xs text-muted-foreground">Secured by Payvessel · Instant bank transfer · <span className="text-yellow-400/70">1.5% fee on all deposits</span></p>
     </div>
   );
 }
