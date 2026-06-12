@@ -1,22 +1,70 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const SUPA_URL  = Deno.env.get("SUPABASE_URL")!;
-const SUPA_SVC  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TG_BOT    = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
-const TG_CHAT   = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
+const SUPA_URL    = Deno.env.get("SUPABASE_URL")!;
+const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const TG_BOT      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+const TG_CHAT     = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
 const AIDAPAY_TOK = Deno.env.get("AIDAPAY_TOKEN") ?? "";
 const BSPLUG_TOK  = Deno.env.get("BSPLUG_TOKEN") ?? "";
 const IACAFE_TOK  = Deno.env.get("IACAFE_TOKEN") ?? "";
+const GSUBZ_KEY   = Deno.env.get("GSUBZ_API_KEY") ?? "";
 const cors = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type" };
 
 async function tg(msg:string){if(!TG_BOT||!TG_CHAT)return;try{await fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_CHAT,text:msg,parse_mode:"Markdown"})});}catch{}}
 
 async function fetchBalance(code:string):Promise<number|null>{
   try{
-    if(code==="aidapay"){const r=await fetch("https://www.aidapay.ng/api/v1/balance",{headers:{Authorization:`Bearer ${AIDAPAY_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});const d=await r.json();return Number(d?.data?.balance??d?.balance??null);}
-    if(code==="bsplug"){const r=await fetch("https://bsplug.net/api/balance/",{headers:{Authorization:`Token ${BSPLUG_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});const d=await r.json();return Number(d?.wallet?.balance??d?.balance??null);}
-    if(code==="iacafe"){const r=await fetch("https://iacafe.com.ng/devapi/v1/balance",{headers:{Authorization:`Bearer ${IACAFE_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});const d=await r.json();return Number(d?.data?.wallet_balance??d?.balance??null);}
+    if(code==="aidapay"){
+      const r=await fetch("https://www.aidapay.ng/api/v1/balance",{headers:{Authorization:`Bearer ${AIDAPAY_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});
+      const d=await r.json();
+      const bal=Number(d?.data?.balance??d?.balance??null);
+      return isNaN(bal)?null:bal;
+    }
+
+    if(code==="bsplug"){
+      const r=await fetch("https://bsplug.net/api/balance/",{headers:{Authorization:`Token ${BSPLUG_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});
+      const d=await r.json();
+      const bal=Number(d?.wallet?.balance??d?.balance??d?.data?.balance??null);
+      return isNaN(bal)?null:bal;
+    }
+
+    if(code==="iacafe"){
+      const r=await fetch("https://iacafe.com.ng/devapi/v1/balance",{headers:{Authorization:`Bearer ${IACAFE_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});
+      const d=await r.json();
+      const bal=Number(d?.data?.wallet_balance??d?.data?.balance??d?.balance??null);
+      return isNaN(bal)?null:bal;
+    }
+
+    if(code==="gsubz"){
+      if(!GSUBZ_KEY){ console.warn("[reconcile] GSUBZ_API_KEY not set"); return null; }
+      // Try multiple Gsubz balance endpoints in order
+      const attempts = [
+        { url:"https://gsubz.com/api/v1/wallet/balance", hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`} },
+        { url:"https://gsubz.com/api/wallet/balance",    hdrs:{"api-key":GSUBZ_KEY} },
+        { url:"https://gsubz.com/api/v1/balance",        hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`} },
+        { url:"https://gsubz.com/api/balance/",          hdrs:{"api-key":GSUBZ_KEY} },
+        { url:"https://gsubz.com/api/v1/user",           hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`} },
+      ];
+      for(const {url,hdrs} of attempts){
+        try{
+          const r=await fetch(url,{headers:{...hdrs,Accept:"application/json"},signal:AbortSignal.timeout(8000)});
+          const text=await r.text();
+          console.log(`[gsubz-balance] ${url} → ${r.status} body=${text.slice(0,300)}`);
+          if(!r.ok) continue;
+          const d=JSON.parse(text);
+          const bal=Number(
+            d?.data?.balance??d?.data?.wallet_balance??d?.data?.available_balance??
+            d?.balance??d?.wallet_balance??d?.available_balance??
+            d?.data?.wallet??d?.wallet??null
+          );
+          if(!isNaN(bal)&&bal>=0) return bal;
+        }catch(e){ console.warn(`[gsubz-balance] ${url} error:`,e); }
+      }
+      console.warn("[gsubz-balance] all endpoints failed — balance unknown");
+      return null;
+    }
+
   }catch(e){console.warn(`Balance fetch failed ${code}:`,e);}
   return null;
 }
@@ -32,7 +80,7 @@ serve(async(req)=>{
     const{count:stale}=await sb.from("liquidity_reservations").update({status:"expired"}).eq("status","pending").lt("expires_at",now.toISOString()).select("id",{count:"exact",head:true});
     report.stale_released=stale??0;
 
-    // Check pending transfers
+    // Check pending treasury transfers
     const{data:pending}=await sb.from("treasury_transfers").select("*").in("status",["pending","verifying"]).order("initiated_at",{ascending:true});
     let confirmed=0,degraded=0;
     for(const t of pending??[]){
@@ -53,23 +101,46 @@ serve(async(req)=>{
     }
     report.confirmed=confirmed;report.degraded=degraded;
 
-    // Balance reconciliation
+    // Balance reconciliation — update actual_balance for each provider
     const{data:providers}=await sb.from("provider_treasury").select("*");
+    const balances:Record<string,number|null>={};
     const mismatches:string[]=[];
+
     for(const prov of providers??[]){
       const live=await fetchBalance(prov.provider_code);
-      if(live===null)continue;
+      balances[prov.provider_code]=live;
+      if(live===null){
+        console.log(`[reconcile] ${prov.provider_code}: balance unknown (API not responding)`);
+        continue;
+      }
       const drift=Math.abs(live-prov.actual_balance);
       const driftPct=prov.actual_balance>0?(drift/prov.actual_balance)*100:0;
-      await sb.from("provider_treasury").update({actual_balance:live,last_synced_at:now.toISOString()}).eq("provider_code",prov.provider_code);
-      if(driftPct>10&&drift>500)mismatches.push(`${prov.provider_code}: DB=₦${prov.actual_balance} Live=₦${live}`);
+      await sb.from("provider_treasury").update({
+        actual_balance:live,
+        last_synced_at:now.toISOString()
+      }).eq("provider_code",prov.provider_code);
+
+      // Auto-clear degraded if balance recovered
       if(live>prov.refill_threshold&&prov.transfer_health==="degraded"){
         const{count:pc}=await sb.from("treasury_transfers").select("id",{count:"exact",head:true}).eq("provider_code",prov.provider_code).in("status",["pending","verifying"]);
-        if((pc??0)===0){await sb.from("provider_treasury").update({transfer_health:"healthy"}).eq("provider_code",prov.provider_code);}
+        if((pc??0)===0){
+          await sb.from("provider_treasury").update({transfer_health:"healthy"}).eq("provider_code",prov.provider_code);
+        }
+      }
+
+      if(driftPct>10&&drift>500){
+        mismatches.push(`${prov.provider_code}: DB=₦${prov.actual_balance} Live=₦${live}`);
       }
     }
-    if(mismatches.length>0)await tg(`🔍 *Balance drift*\n${mismatches.join("\n")}`);
+
+    if(mismatches.length>0)await tg(`🔍 *Balance drift detected*\n${mismatches.join("\n")}`);
+    report.balances=balances;
     report.mismatches=mismatches;
+    report.providers_checked=providers?.length??0;
+
     return new Response(JSON.stringify({status:"ok",...report}),{headers:{...cors,"Content-Type":"application/json"}});
-  }catch(e){await tg(`🆘 *Reconcile crashed*\n${e}`);return new Response(JSON.stringify({error:String(e)}),{status:500,headers:{...cors,"Content-Type":"application/json"}});}
+  }catch(e){
+    await tg(`🆘 *Reconcile crashed*\n${e}`);
+    return new Response(JSON.stringify({error:String(e)}),{status:500,headers:{...cors,"Content-Type":"application/json"}});
+  }
 });
