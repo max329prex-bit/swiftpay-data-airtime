@@ -68,9 +68,13 @@ Deno.serve(async (req) => {
 
     // Accept any transaction success event (Payvessel uses different names in docs vs reality)
     const event = String(body.event ?? "").toLowerCase().replace(/[._\s]/g, "");
+    // Payvessel sends "COLLECTION.CREDIT" — stripped to "collectioncredit" by the replace above.
+    // We match on "credit" and "collection" so all Payvessel deposit events are caught.
     const isSuccessEvent = event.includes("transactionsuccess") ||
                            event.includes("paymentsuccess") ||
                            event.includes("success") ||
+                           event.includes("credit") ||      // ← COLLECTION.CREDIT
+                           event.includes("collection") ||  // ← COLLECTION.*
                            !body.event; // some providers omit event field
 
     console.log(`[payvessel-webhook] event="${body.event}" isSuccess=${isSuccessEvent}`);
