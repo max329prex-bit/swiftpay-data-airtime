@@ -78,6 +78,8 @@ Deno.serve(async (req) => {
                            !body.event; // some providers omit event field
 
     console.log(`[payvessel-webhook] event="${body.event}" isSuccess=${isSuccessEvent}`);
+    // Full payload dump for first-time debugging (first 2000 chars)
+    if (isSuccessEvent) console.log(`[payvessel-webhook] FULL_BODY=${JSON.stringify(body).slice(0, 2000)}`);
 
     if (!isSuccessEvent) {
       return new Response(OK, { status: 200, headers: OK_HDR });
@@ -179,6 +181,22 @@ Deno.serve(async (req) => {
         .eq("account_number", acctNum)
         .maybeSingle();
       if (va?.user_id) userId = va.user_id;
+    }
+
+    // Additional Payvessel field aliases: some versions send accountNo, virtualAccountNo
+    if (!userId) {
+      const altAcct = String(
+        transaction.accountNo ?? transaction.virtualAccountNo ??
+        body.accountNo ?? body.virtualAccountNo ?? ""
+      );
+      if (altAcct) {
+        const { data: va2 } = await admin
+          .from("payvessel_virtual_accounts")
+          .select("user_id")
+          .eq("account_number", altAcct)
+          .maybeSingle();
+        if (va2?.user_id) userId = va2.user_id;
+      }
     }
 
     if (!userId) {
