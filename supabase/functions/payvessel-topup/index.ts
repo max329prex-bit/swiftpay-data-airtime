@@ -87,7 +87,7 @@ serve(async (req) => {
       const payload: Record<string, unknown> = {
         email: user.email, name, phoneNumber: phone,
         bankcode: STATIC_BANKS, account_type: "STATIC",
-        businessid: PV_BIZ_ID, webhook_url: PV_WEBHOOK,
+        businessid: PV_BIZ_ID, webhook_url: PV_WEBHOOK, webhookUrl: PV_WEBHOOK,
         metadata: { user_id: user.id }
       };
       if (bvn) payload.bvn = bvn;
@@ -134,7 +134,7 @@ serve(async (req) => {
         body: JSON.stringify({
           email: user.email, name, phoneNumber: phone,
           bankcode: DYNAMIC_BANKS, account_type: "DYNAMIC",
-          businessid: PV_BIZ_ID, webhook_url: PV_WEBHOOK,
+          businessid: PV_BIZ_ID, webhook_url: PV_WEBHOOK, webhookUrl: PV_WEBHOOK,
           metadata: { user_id: user.id }
         }),
         signal: AbortSignal.timeout(25000)
