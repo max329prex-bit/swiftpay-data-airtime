@@ -94,7 +94,7 @@ serve(async(req)=>{
         await sb.from("treasury_transfers").update({status:"verifying",last_checked_at:now.toISOString(),retries:(t.retries??0)+1}).eq("id",t.id);
         await sb.from("provider_treasury").update({transfer_health:"degraded"}).eq("provider_code",t.provider_code);
         degraded++;
-        await tg(`⚠️ *${t.provider_code.toUpperCase()} transfer unconfirmed*\n${ageMin.toFixed(0)}min old\nAmount: ₦${t.amount}\nRef: \`${t.korapay_reference}\``);
+        await tg(`⚠️ *${t.provider_code.toUpperCase()} transfer unconfirmed*\n${ageMin.toFixed(0)}min old\nAmount: ₦${t.amount}\nRef: \`${t.provider_reference ?? t.reference}\``);
       }else{
         await sb.from("treasury_transfers").update({last_checked_at:now.toISOString(),status:"verifying"}).eq("id",t.id);
       }
