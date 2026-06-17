@@ -1,5 +1,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// payvessel-webhook — fixed 2026-06-17
+// PayVessel payload structure (per docs):
+//   body.event   = "transaction.success"
+//   body.order   = { amount, settlement_amount, fee, currency, status }  ← AMOUNT IS HERE
+//   body.transaction = { reference, channel, status, customer_email, paid_at }
+//   body.metadata = { customer_id, order_id, user_id? }
+//
+// Bug was: code read amount from body.transaction.amount (always empty) → grossAmount=0 → deposit dropped
+
 const PV_SECRET = Deno.env.get("PAYVESSEL_SECRET_KEY") ?? "";
 const SUPA_URL  = Deno.env.get("SUPABASE_URL")!;
 const SUPA_SVC  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -22,13 +31,12 @@ async function tg(msg: string) {
     await fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHAT, text: msg, parse_mode: "Markdown" })
+      body: JSON.stringify({ chat_id: TG_CHAT, text: msg, parse_mode: "Markdown" }),
     });
   } catch {}
 }
 
 Deno.serve(async (req) => {
-  // Always return 200 to Payvessel — never let them retry forever
   if (req.method === "OPTIONS") return new Response(OK, { status: 200, headers: OK_HDR });
   if (req.method !== "POST") return new Response(OK, { status: 200, headers: OK_HDR });
 
@@ -36,26 +44,22 @@ Deno.serve(async (req) => {
     const rawBody = await req.text();
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
-    // Log ALL incoming calls to help debug
-    console.log(`[payvessel-webhook] POST from ${clientIp} body_preview=${rawBody.slice(0, 500)}`);
+    // Log ALL incoming calls — critical for debugging
+    console.log(`[payvessel-webhook] POST from ${clientIp}`);
+    console.log(`[payvessel-webhook] FULL_BODY=${rawBody.slice(0, 2000)}`);
 
-    // Signature verification — only enforce if secret is configured
+    // Signature check (non-blocking — log mismatch but continue)
     if (PV_SECRET) {
-      // Try all known Payvessel signature header names
       const pvSig =
         req.headers.get("payvessel-http-signature") ??
         req.headers.get("http_payvessel_http_signature") ??
         req.headers.get("x-payvessel-signature") ??
         req.headers.get("payvessel-signature") ?? "";
-
       if (pvSig) {
         const expected = await hmacSha512(PV_SECRET, rawBody);
         if (pvSig !== expected) {
-          console.warn(`[payvessel-webhook] signature mismatch from ${clientIp} — logging but continuing`);
-          // NOTE: log but DO NOT drop — Payvessel may change signature algo
+          console.warn(`[payvessel-webhook] sig mismatch from ${clientIp} — continuing anyway`);
         }
-      } else {
-        console.log(`[payvessel-webhook] no signature header from ${clientIp} — proceeding without sig check`);
       }
     }
 
@@ -66,63 +70,66 @@ Deno.serve(async (req) => {
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
 
-    // Accept any transaction success event (Payvessel uses different names in docs vs reality)
-    const event = String(body.event ?? "").toLowerCase().replace(/[._\s]/g, "");
-    // Payvessel sends "COLLECTION.CREDIT" — stripped to "collectioncredit" by the replace above.
-    // We match on "credit" and "collection" so all Payvessel deposit events are caught.
-    const isSuccessEvent = event.includes("transactionsuccess") ||
-                           event.includes("paymentsuccess") ||
-                           event.includes("success") ||
-                           event.includes("credit") ||      // ← COLLECTION.CREDIT
-                           event.includes("collection") ||  // ← COLLECTION.*
-                           !body.event; // some providers omit event field
+    // ── Event detection ────────────────────────────────────────────────────
+    // PayVessel sends: event = "transaction.success"
+    // After strip: "transactionsuccess" → includes "success" → true
+    const eventRaw = String(body.event ?? "").toLowerCase().replace(/[._\s]/g, "");
+    const isSuccessEvent =
+      eventRaw.includes("transactionsuccess") ||
+      eventRaw.includes("paymentsuccess") ||
+      eventRaw.includes("success") ||
+      eventRaw.includes("credit") ||
+      eventRaw.includes("collection") ||
+      !body.event;
 
-    console.log(`[payvessel-webhook] event="${body.event}" isSuccess=${isSuccessEvent}`);
-    // Full payload dump for first-time debugging (first 2000 chars)
-    if (isSuccessEvent) console.log(`[payvessel-webhook] FULL_BODY=${JSON.stringify(body).slice(0, 2000)}`);
+    console.log(`[payvessel-webhook] event="${body.event}" normalized="${eventRaw}" isSuccess=${isSuccessEvent}`);
+    if (!isSuccessEvent) return new Response(OK, { status: 200, headers: OK_HDR });
 
-    if (!isSuccessEvent) {
-      return new Response(OK, { status: 200, headers: OK_HDR });
-    }
+    // ── Amount extraction ──────────────────────────────────────────────────
+    // PayVessel standard: amount lives in body.order (NOT body.transaction)
+    // body.order = { amount, settlement_amount, fee, currency, status }
+    const order       = (body.order ?? {}) as Record<string, unknown>;
+    const transaction = (body.transaction ?? body.data ?? body) as Record<string, unknown>;
+    const metadata    = (body.metadata ?? transaction.metadata ?? order.metadata ?? {}) as Record<string, unknown>;
 
-    // Parse transaction data — Payvessel wraps in different fields
-    const transaction = (body.transaction ?? body.order ?? body.data ?? body) as Record<string, unknown>;
-    const metadata    = (body.metadata ?? transaction.metadata ?? {}) as Record<string, unknown>;
-
-    // Amount — try every known field name
     const rawAmt =
-      transaction.amount ??
+      order.amount ??               // ✅ PayVessel standard: body.order.amount
+      order.settlement_amount ??    // net after PayVessel fee
+      transaction.amount ??         // legacy / other providers
       transaction.paidAmount ??
       transaction.paid_amount ??
       transaction.settledAmount ??
       body.amount ?? "0";
+
     const grossAmount = parseFloat(String(rawAmt).replace(/[^0-9.]/g, ""));
 
-    // Apply BlitzPay 1.5% deposit fee — net credit is what lands in user wallet
-    const FEE_RATE  = 0.015;
-    const fee       = Math.round(grossAmount * FEE_RATE * 100) / 100;
-    const amount    = Math.round((grossAmount - fee) * 100) / 100;
+    // Apply BlitzPay 1.5% deposit fee
+    const FEE_RATE = 0.015;
+    const fee      = Math.round(grossAmount * FEE_RATE * 100) / 100;
+    const amount   = Math.round((grossAmount - fee) * 100) / 100;
 
     console.log(`[payvessel-webhook] gross=₦${grossAmount} fee=₦${fee} net=₦${amount}`);
 
     if (!grossAmount || grossAmount < 50) {
       console.warn("[payvessel-webhook] amount too small or missing:", rawAmt);
+      console.warn("[payvessel-webhook] order object:", JSON.stringify(order).slice(0, 300));
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
 
-    // Idempotency reference
+    // ── Reference (idempotency key) ────────────────────────────────────────
+    // PayVessel: transaction.reference
     const pvRef = String(
       transaction.reference ??
       transaction.trackingReference ??
       transaction.tracking_reference ??
       transaction.transactionRef ??
-      transaction.transaction_reference ??
       body.reference ??
       body.trackingReference ??
-      ""
+      order.reference ??
+      `PV-${Date.now()}`
     );
 
-    // Tracking reference for user lookup
+    // ── Tracking reference (for account lookup) ────────────────────────────
     const trackingRef = String(
       transaction.trackingReference ??
       transaction.tracking_reference ??
@@ -132,85 +139,80 @@ Deno.serve(async (req) => {
       ""
     );
 
-    // Account number fallback
+    // ── Account number (for user lookup fallback) ──────────────────────────
     const acctNum = String(
       transaction.accountNumber ??
       transaction.account_number ??
       transaction.virtualAccountNumber ??
+      order.accountNumber ??
+      order.account_number ??
       body.accountNumber ??
       ""
     );
 
     console.log(`[payvessel-webhook] pvRef=${pvRef} trackingRef=${trackingRef} acctNum=${acctNum}`);
+    console.log(`[payvessel-webhook] metadata=${JSON.stringify(metadata)}`);
 
     const admin = createClient(SUPA_URL, SUPA_SVC);
-    let userId: string | null = String(metadata.user_id ?? "") || null;
+    let userId: string | null = String(metadata.user_id ?? metadata.customer_id ?? "") || null;
 
-    // ── User lookup: metadata → tracking_reference → account_number ────────
+    // ── User lookup chain ──────────────────────────────────────────────────
+    // 1. metadata.user_id (set at account creation)
+    // (already set above)
+
+    // 2. payvessel_virtual_accounts by tracking_reference
     if (!userId && trackingRef) {
-      const { data: staticVA } = await admin
-        .from("payvessel_virtual_accounts")
-        .select("user_id")
-        .eq("tracking_reference", trackingRef)
-        .maybeSingle();
-      if (staticVA?.user_id) userId = staticVA.user_id;
+      const { data: va } = await admin.from("payvessel_virtual_accounts")
+        .select("user_id").eq("tracking_reference", trackingRef).maybeSingle();
+      if (va?.user_id) userId = va.user_id;
     }
 
+    // 3. payvessel_dynamic_requests by tracking_reference
     if (!userId && trackingRef) {
-      const { data: dynReq } = await admin
-        .from("payvessel_dynamic_requests")
-        .select("user_id, is_used")
-        .eq("tracking_reference", trackingRef)
-        .maybeSingle();
+      const { data: dynReq } = await admin.from("payvessel_dynamic_requests")
+        .select("user_id, is_used").eq("tracking_reference", trackingRef).maybeSingle();
       if (dynReq?.user_id) {
         if (dynReq.is_used) {
           console.warn("[payvessel-webhook] DYNAMIC already used:", trackingRef);
           return new Response(OK, { status: 200, headers: OK_HDR });
         }
         userId = dynReq.user_id;
-        await admin.from("payvessel_dynamic_requests")
-          .update({ is_used: true })
-          .eq("tracking_reference", trackingRef);
+        await admin.from("payvessel_dynamic_requests").update({ is_used: true }).eq("tracking_reference", trackingRef);
       }
     }
 
+    // 4. payvessel_virtual_accounts by account_number
     if (!userId && acctNum) {
-      const { data: va } = await admin
-        .from("payvessel_virtual_accounts")
-        .select("user_id")
-        .eq("account_number", acctNum)
-        .maybeSingle();
+      const { data: va } = await admin.from("payvessel_virtual_accounts")
+        .select("user_id").eq("account_number", acctNum).maybeSingle();
       if (va?.user_id) userId = va.user_id;
     }
 
-    // Additional Payvessel field aliases: some versions send accountNo, virtualAccountNo
+    // 5. Alternative account number field aliases
     if (!userId) {
       const altAcct = String(
         transaction.accountNo ?? transaction.virtualAccountNo ??
-        body.accountNo ?? body.virtualAccountNo ?? ""
+        order.accountNo ?? body.accountNo ?? body.virtualAccountNo ?? ""
       );
       if (altAcct) {
-        const { data: va2 } = await admin
-          .from("payvessel_virtual_accounts")
-          .select("user_id")
-          .eq("account_number", altAcct)
-          .maybeSingle();
+        const { data: va2 } = await admin.from("payvessel_virtual_accounts")
+          .select("user_id").eq("account_number", altAcct).maybeSingle();
         if (va2?.user_id) userId = va2.user_id;
       }
     }
 
     if (!userId) {
       console.error("[payvessel-webhook] user not found — trackingRef:", trackingRef, "acct:", acctNum, "metadata:", JSON.stringify(metadata));
-      await tg(`⚠️ *Payvessel webhook: user not found*\ntracking: ${trackingRef}\nacct: ${acctNum}\namount: ₦${amount}\nip: ${clientIp}`);
+      await tg(`⚠️ *PayVessel webhook: user not found*\ntracking: ${trackingRef}\nacct: ${acctNum}\namount: ₦${amount}\nip: ${clientIp}\nfull_body_preview: ${rawBody.slice(0, 300)}`);
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
 
-    // Credit wallet
-    const ref = pvRef || trackingRef || `PV-${Date.now()}`;
+    // ── Credit wallet ──────────────────────────────────────────────────────
+    const ref = pvRef;
     const { error: creditErr } = await admin.rpc("credit_wallet_from_payvessel", {
       _user_id: userId,
       _amount:  amount,
-      _pv_ref:  ref
+      _pv_ref:  ref,
     });
 
     if (creditErr) {
@@ -218,7 +220,7 @@ Deno.serve(async (req) => {
         console.log("[payvessel-webhook] duplicate — already credited:", ref);
       } else {
         console.error("[payvessel-webhook] credit error:", creditErr.message);
-        await tg(`🚨 *Payvessel credit FAILED*\nUser: ${userId}\n₦${amount}\nRef: ${ref}\nErr: ${creditErr.message}`);
+        await tg(`🚨 *PayVessel credit FAILED*\nUser: ${userId}\n₦${amount}\nRef: ${ref}\nErr: ${creditErr.message}`);
       }
     } else {
       console.log(`[payvessel-webhook] ✅ credited ₦${amount} to ${userId} ref=${ref}`);
