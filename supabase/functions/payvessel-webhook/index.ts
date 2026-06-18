@@ -154,7 +154,11 @@ Deno.serve(async (req) => {
     console.log(`[payvessel-webhook] metadata=${JSON.stringify(metadata)}`);
 
     const admin = createClient(SUPA_URL, SUPA_SVC);
-    let userId: string | null = String(metadata.user_id ?? metadata.customer_id ?? "") || null;
+    // Only trust metadata.user_id if it looks like a UUID — PayVessel also sends
+    // metadata.customer_id (their own ID, not our UUID) which must NOT be used for lookup.
+    const _rawMetaUid = String(metadata.user_id ?? "");
+    const _isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_rawMetaUid);
+    let userId: string | null = _isUuid ? _rawMetaUid : null;
 
     // ── User lookup chain ──────────────────────────────────────────────────
     // 1. metadata.user_id (set at account creation)
