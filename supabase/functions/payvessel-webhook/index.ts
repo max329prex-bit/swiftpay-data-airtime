@@ -140,6 +140,8 @@ Deno.serve(async (req) => {
     );
 
     // ── Account number (for user lookup fallback) ──────────────────────────
+    // PayVessel sends account number in body.virtualAccount.virtualAccountNumber
+    const virtualAccountObj = (body.virtualAccount ?? {}) as Record<string, unknown>;
     const acctNum = String(
       transaction.accountNumber ??
       transaction.account_number ??
@@ -147,8 +149,13 @@ Deno.serve(async (req) => {
       order.accountNumber ??
       order.account_number ??
       body.accountNumber ??
+      virtualAccountObj.virtualAccountNumber ??  // ← PayVessel actual field
+      virtualAccountObj.accountNumber ??
       ""
     );
+    // Customer email (final lookup fallback)
+    const customerObj = (body.customer ?? {}) as Record<string, unknown>;
+    const customerEmail = String(customerObj.email ?? "");
 
     console.log(`[payvessel-webhook] pvRef=${pvRef} trackingRef=${trackingRef} acctNum=${acctNum}`);
     console.log(`[payvessel-webhook] metadata=${JSON.stringify(metadata)}`);
@@ -205,8 +212,31 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 6. Look up by customer email (PayVessel sends customer.email)
+    if (!userId && customerEmail) {
+      const { data: userByEmail } = await admin
+        .from("payvessel_virtual_accounts")
+        .select("user_id")
+        .eq("account_number", acctNum || "NOOP")  // skip if already found above
+        .maybeSingle();
+      // Try auth.users by email
+      if (!userByEmail) {
+        const { data: { users } } = await admin.auth.admin.listUsers();
+        const matched = users?.find(u => u.email === customerEmail);
+        if (matched?.id) {
+          // Verify this user has a virtual account
+          const { data: vaCheck } = await admin
+            .from("payvessel_virtual_accounts")
+            .select("user_id")
+            .eq("user_id", matched.id)
+            .maybeSingle();
+          if (vaCheck?.user_id) userId = vaCheck.user_id;
+        }
+      }
+    }
+
     if (!userId) {
-      console.error("[payvessel-webhook] user not found — trackingRef:", trackingRef, "acct:", acctNum, "metadata:", JSON.stringify(metadata));
+      console.error("[payvessel-webhook] user not found — trackingRef:", trackingRef, "acct:", acctNum, "customerEmail:", customerEmail, "metadata:", JSON.stringify(metadata));
       await tg(`⚠️ *PayVessel webhook: user not found*\ntracking: ${trackingRef}\nacct: ${acctNum}\namount: ₦${amount}\nip: ${clientIp}\nfull_body_preview: ${rawBody.slice(0, 300)}`);
       return new Response(OK, { status: 200, headers: OK_HDR });
     }
