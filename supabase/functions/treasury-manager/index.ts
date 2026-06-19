@@ -5,13 +5,13 @@ const SUPA_URL    = Deno.env.get("SUPABASE_URL")!;
 const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PV_API_KEY  = Deno.env.get("PAYVESSEL_API_KEY")!;
 const PV_SECRET   = Deno.env.get("PAYVESSEL_SECRET_KEY")!;
-const PV_BIZ_ID   = Deno.env.get("PAYVESSEL_BUSINESS_ID")!;
 const PV_BASE     = "https://api.payvessel.com/pms/api/external";
 const TG_BOT      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TG_CHAT     = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const cors        = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 
+// Auth headers — api-key + api-secret as per PayVessel docs
 const PV_HEADERS  = { "api-key": PV_API_KEY, "api-secret": PV_SECRET, "Content-Type": "application/json" };
 
 async function tg(msg: string) {
@@ -19,43 +19,64 @@ async function tg(msg: string) {
   try { await fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ chat_id:TG_CHAT, text:msg, parse_mode:"Markdown" }) }); } catch {}
 }
 
-/** Check Payvessel wallet balance (NGN) */
+/**
+ * Check PayVessel wallet balance (NGN)
+ * Correct endpoint: GET /pms/api/external/request/wallet/balance/
+ * Docs: https://docs.payvessel.com (API Reference → Wallets)
+ */
 async function payvesselBalance(): Promise<number> {
   try {
-    const r = await fetch(`${PV_BASE}/wallet/balance?businessid=${PV_BIZ_ID}`, {
+    const r = await fetch(`${PV_BASE}/request/wallet/balance/`, {
+      method: "GET",
       headers: PV_HEADERS,
       signal: AbortSignal.timeout(10000)
     });
-    const d = await r.json();
-    // Payvessel returns { status: true, data: { balance: 12345.67, currency: "NGN" } }
-    return Number(d?.data?.balance ?? d?.data?.available_balance ?? 0);
-  } catch (e) { console.error("[treasury] payvesselBalance error:", e); return 0; }
+    const text = await r.text();
+    console.log("[treasury] payvesselBalance raw:", text.slice(0, 300));
+    const d = JSON.parse(text);
+    // PayVessel returns { status: true, data: { balance: 12345.67 } } or available_balance
+    const bal = Number(d?.data?.balance ?? d?.data?.available_balance ?? d?.data?.wallet_balance ?? 0);
+    console.log("[treasury] payvesselBalance parsed:", bal);
+    return bal;
+  } catch (e) {
+    console.error("[treasury] payvesselBalance error:", e);
+    return 0;
+  }
 }
 
-/** Disburse from Payvessel wallet to a bank account */
-async function payvesselDisburse(amount: number, bankCode: string, accountNo: string, ref: string) {
+/**
+ * Disburse from PayVessel wallet to a bank account
+ * Correct endpoint: POST /pms/api/external/request/wallet/transfer/
+ * Correct body: { amount, account_number, bank_code, account_name, narration, reference }
+ * Docs: https://docs.payvessel.com/api-reference/transfers/initiate-transfer
+ */
+async function payvesselDisburse(amount: number, bankCode: string, accountNo: string, accountName: string, ref: string) {
   try {
-    const r = await fetch(`${PV_BASE}/request/transfer`, {
+    const body = {
+      amount: String(amount),          // PayVessel expects string e.g. "15000.00"
+      account_number: accountNo,       // snake_case as per docs
+      bank_code: bankCode,             // snake_case as per docs
+      account_name: accountName,       // optional but good practice
+      narration: "BlitzPay treasury refill",
+      reference: ref                   // must be unique per transfer
+    };
+    console.log("[treasury] payvesselDisburse body:", JSON.stringify(body));
+    const r = await fetch(`${PV_BASE}/request/wallet/transfer/`, {
       method: "POST",
       headers: PV_HEADERS,
-      body: JSON.stringify({
-        businessid: PV_BIZ_ID,
-        reference: ref,
-        amount,
-        currency: "NGN",
-        bankcode: bankCode,
-        accountnumber: accountNo,
-        narration: "BlitzPay treasury refill"
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(20000)
     });
-    const d = await r.json();
-    console.log("[treasury] payvesselDisburse response:", JSON.stringify(d).slice(0, 200));
+    const text = await r.text();
+    console.log("[treasury] payvesselDisburse response:", text.slice(0, 400));
+    const d = JSON.parse(text);
     if (d.status) {
       return { success: true, reference: d.data?.reference ?? d.data?.transactionRef ?? ref };
     }
-    return { success: false, error: d.message ?? "Disburse failed" };
-  } catch (e) { return { success: false, error: `Unreachable: ${e}` }; }
+    return { success: false, error: d.message ?? "Disburse failed", raw: text.slice(0, 200) };
+  } catch (e) {
+    return { success: false, error: `Unreachable: ${e}` };
+  }
 }
 
 serve(async (req) => {
@@ -113,15 +134,16 @@ serve(async (req) => {
         if (prov.daily_refilled_today + refillAmount > prov.daily_refill_cap) { await tg(`[CAP] ${code.toUpperCase()} daily cap reached`); results[code]="daily_cap"; continue; }
         if (refillPending) { results[code]="refill_pending"; continue; }
 
-        // ── Check Payvessel wallet balance before disbursing ──────────────
+        // ── Check PayVessel wallet balance before disbursing ──────────────
         const pvBal = await payvesselBalance();
         if (pvBal < refillAmount + 500) {
-          await tg(`[LOW] Payvessel wallet low for ${code.toUpperCase()} refill. PV: NGN${pvBal.toFixed(0)}, Need: NGN${refillAmount}`);
+          await tg(`[LOW] PayVessel wallet low for ${code.toUpperCase()} refill. PV: NGN${pvBal.toFixed(0)}, Need: NGN${refillAmount}`);
           results[code]="payvessel_insufficient"; continue;
         }
 
         const refRef = `TR-${code.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
-        const disburse = await payvesselDisburse(refillAmount, prov.bank_code, prov.bank_account_number, refRef);
+        const accountName = prov.bank_account_name ?? "PROVIDER";
+        const disburse = await payvesselDisburse(refillAmount, prov.bank_code, prov.bank_account_number, accountName, refRef);
         if (!disburse.success) {
           const newF = (prov.cb_failures ?? 0) + 1;
           const cbPause = newF >= 3 ? new Date(now.getTime() + 10*60000) : null;
@@ -131,7 +153,7 @@ serve(async (req) => {
         }
         await sb.rpc("record_treasury_transfer", { _provider:code, _amount:refillAmount, _kp_ref:(disburse as any).reference ?? refRef, _bank_code:prov.bank_code, _account:prov.bank_account_number });
         await sb.from("provider_treasury").update({ cb_failures:0, last_refill_at:now.toISOString(), transfer_health:"healthy", daily_refilled_today:prov.daily_refilled_today+refillAmount }).eq("provider_code",code);
-        await tg(`[REFILL] ${code.toUpperCase()} refill initiated NGN${refillAmount.toLocaleString()} via Payvessel. Ref: ${(disburse as any).reference ?? refRef}`);
+        await tg(`[REFILL] ${code.toUpperCase()} refill initiated NGN${refillAmount.toLocaleString()} via PayVessel. Ref: ${(disburse as any).reference ?? refRef}`);
         results[code]=`refilled_NGN${refillAmount}`;
       } catch(e) { console.error(`Treasury error ${prov.provider_code}:`,e); results[prov.provider_code]="error"; }
     }
