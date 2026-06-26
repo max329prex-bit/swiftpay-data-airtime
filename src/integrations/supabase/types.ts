@@ -85,6 +85,30 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_otps: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -266,7 +290,10 @@ export type Database = {
         Row: {
           bp_value: number
           coming_soon: boolean
+          cost_price: number
           created_at: string
+          fallback_package_code: string | null
+          fallback_provider_code: string | null
           health_score: number
           id: string
           is_active: boolean
@@ -284,7 +311,10 @@ export type Database = {
         Insert: {
           bp_value?: number
           coming_soon?: boolean
+          cost_price?: number
           created_at?: string
+          fallback_package_code?: string | null
+          fallback_provider_code?: string | null
           health_score?: number
           id?: string
           is_active?: boolean
@@ -302,7 +332,10 @@ export type Database = {
         Update: {
           bp_value?: number
           coming_soon?: boolean
+          cost_price?: number
           created_at?: string
+          fallback_package_code?: string | null
+          fallback_provider_code?: string | null
           health_score?: number
           id?: string
           is_active?: boolean
@@ -319,12 +352,131 @@ export type Database = {
         }
         Relationships: []
       }
+      payvessel_dynamic_requests: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_used: boolean
+          tracking_reference: string
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean
+          tracking_reference: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean
+          tracking_reference?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payvessel_virtual_accounts: {
+        Row: {
+          account_name: string | null
+          account_number: string
+          bank_code: string | null
+          bank_name: string | null
+          created_at: string
+          id: string
+          pv_reference: string | null
+          tracking_reference: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number: string
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          pv_reference?: string | null
+          tracking_reference?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string
+          bank_code?: string | null
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          pv_reference?: string | null
+          tracking_reference?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payvessel_webhook_raw_logs: {
+        Row: {
+          account_num: string | null
+          amount_raw: string | null
+          client_ip: string | null
+          credit_result: string | null
+          event_field: string | null
+          id: string
+          pv_ref: string | null
+          raw_body: string | null
+          received_at: string
+          tracking_ref: string | null
+          user_found: boolean | null
+          user_id: string | null
+        }
+        Insert: {
+          account_num?: string | null
+          amount_raw?: string | null
+          client_ip?: string | null
+          credit_result?: string | null
+          event_field?: string | null
+          id?: string
+          pv_ref?: string | null
+          raw_body?: string | null
+          received_at?: string
+          tracking_ref?: string | null
+          user_found?: boolean | null
+          user_id?: string | null
+        }
+        Update: {
+          account_num?: string | null
+          amount_raw?: string | null
+          client_ip?: string | null
+          credit_result?: string | null
+          event_field?: string | null
+          id?: string
+          pv_ref?: string | null
+          raw_body?: string | null
+          received_at?: string
+          tracking_ref?: string | null
+          user_found?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
+          bvn: string | null
           created_at: string
           full_name: string | null
           id: string
+          nin: string | null
           phone: string | null
           swift_points: number
           transaction_pin: string | null
@@ -333,9 +485,11 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          bvn?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          nin?: string | null
           phone?: string | null
           swift_points?: number
           transaction_pin?: string | null
@@ -344,9 +498,11 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          bvn?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          nin?: string | null
           phone?: string | null
           swift_points?: number
           transaction_pin?: string | null
@@ -800,6 +956,33 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_log: {
+        Row: {
+          client_ip: string | null
+          created_at: string | null
+          headers: Json | null
+          id: string
+          raw_body: string | null
+          source: string | null
+        }
+        Insert: {
+          client_ip?: string | null
+          created_at?: string | null
+          headers?: Json | null
+          id?: string
+          raw_body?: string | null
+          source?: string | null
+        }
+        Update: {
+          client_ip?: string | null
+          created_at?: string | null
+          headers?: Json | null
+          id?: string
+          raw_body?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -893,14 +1076,24 @@ export type Database = {
         Args: { _amount: number; _korapay_ref: string; _user_id: string }
         Returns: undefined
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      credit_wallet_from_payvessel: {
+        Args: { _amount: number; _pv_ref: string; _user_id: string }
+        Returns: undefined
       }
+      has_role:
+        | {
+            Args: { _role: Database["public"]["Enums"]["app_role"] }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              _role: Database["public"]["Enums"]["app_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
       has_transaction_pin: { Args: never; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
       mark_bundle_available: {
         Args: {
           _network: string
