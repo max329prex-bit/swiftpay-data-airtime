@@ -79,7 +79,8 @@ export default function Wallet() {
   useEffect(() => {
     const ch = supabase.channel("wallet-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, (p) => {
-        if (p.new?.type === "wallet_fund" && p.new?.status === "success") {
+        const n = p.new as any;
+        if (n?.type === "wallet_fund" && n?.status === "success") {
           refresh();
           toast.success("Deposit confirmed! Balance updated.");
           if (dynamicVA) { setDynamicVA(null); clearCountdown(); }
