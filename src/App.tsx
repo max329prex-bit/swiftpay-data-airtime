@@ -19,6 +19,8 @@ import Electricity from "./pages/app/Electricity.tsx";
 import Cable from "./pages/app/Cable.tsx";
 import PinSetup from "./pages/app/PinSetup.tsx";
 import Bills from "./pages/app/Bills.tsx";
+import Schedules from "./pages/app/Schedules.tsx";
+import ScheduleNew from "./pages/app/ScheduleNew.tsx";
 import Settings from "./pages/app/Settings.tsx";
 import Support from "./pages/app/Support.tsx";
 import TransactionDetail from "./pages/app/TransactionDetail.tsx";
@@ -66,6 +68,8 @@ const App = () => (
             <Route path="/app" element={<AppShell />}>
               <Route index element={<Dashboard />} />
               <Route path="bills" element={<Bills />} />
+              <Route path="schedules" element={<Schedules />} />
+              <Route path="schedules/new" element={<ScheduleNew />} />
               <Route path="support" element={<Support />} />
               <Route path="settings" element={<Settings />} />
               <Route path="airtime" element={<Airtime />} />
