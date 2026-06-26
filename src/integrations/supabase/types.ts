@@ -586,6 +586,128 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_purchases: {
+        Row: {
+          amount: number
+          bp_value: number | null
+          bundle_size: string | null
+          created_at: string
+          end_at: string | null
+          frequency: Database["public"]["Enums"]["schedule_frequency"]
+          id: string
+          interval_days: number | null
+          last_error: string | null
+          last_run_at: string | null
+          meta: Json
+          network: string
+          next_run_at: string
+          package_code: string | null
+          phone: string
+          provider_code: string | null
+          recipient_label: string | null
+          reserved_amount: number
+          retry_count: number
+          status: Database["public"]["Enums"]["schedule_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          bp_value?: number | null
+          bundle_size?: string | null
+          created_at?: string
+          end_at?: string | null
+          frequency?: Database["public"]["Enums"]["schedule_frequency"]
+          id?: string
+          interval_days?: number | null
+          last_error?: string | null
+          last_run_at?: string | null
+          meta?: Json
+          network: string
+          next_run_at: string
+          package_code?: string | null
+          phone: string
+          provider_code?: string | null
+          recipient_label?: string | null
+          reserved_amount?: number
+          retry_count?: number
+          status?: Database["public"]["Enums"]["schedule_status"]
+          type?: Database["public"]["Enums"]["tx_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          bp_value?: number | null
+          bundle_size?: string | null
+          created_at?: string
+          end_at?: string | null
+          frequency?: Database["public"]["Enums"]["schedule_frequency"]
+          id?: string
+          interval_days?: number | null
+          last_error?: string | null
+          last_run_at?: string | null
+          meta?: Json
+          network?: string
+          next_run_at?: string
+          package_code?: string | null
+          phone?: string
+          provider_code?: string | null
+          recipient_label?: string | null
+          reserved_amount?: number
+          retry_count?: number
+          status?: Database["public"]["Enums"]["schedule_status"]
+          type?: Database["public"]["Enums"]["tx_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scheduled_runs: {
+        Row: {
+          attempt_no: number
+          error: string | null
+          id: string
+          meta: Json
+          ran_at: string
+          schedule_id: string
+          status: string
+          tx_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attempt_no?: number
+          error?: string | null
+          id?: string
+          meta?: Json
+          ran_at?: string
+          schedule_id: string
+          status: string
+          tx_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attempt_no?: number
+          error?: string | null
+          id?: string
+          meta?: Json
+          ran_at?: string
+          schedule_id?: string
+          status?: string
+          tx_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_runs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           admin_notes: string | null
@@ -906,6 +1028,7 @@ export type Database = {
           id: string
           profit_balance: number
           refund_balance: number
+          reserved_balance: number
           updated_at: string
           user_id: string
         }
@@ -915,6 +1038,7 @@ export type Database = {
           id?: string
           profit_balance?: number
           refund_balance?: number
+          reserved_balance?: number
           updated_at?: string
           user_id: string
         }
@@ -924,6 +1048,7 @@ export type Database = {
           id?: string
           profit_balance?: number
           refund_balance?: number
+          reserved_balance?: number
           updated_at?: string
           user_id?: string
         }
@@ -988,13 +1113,104 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_schedule_after_success: {
+        Args: { _schedule_id: string }
+        Returns: undefined
+      }
+      cancel_schedule: { Args: { _id: string }; Returns: undefined }
       complete_vtu_transaction: {
         Args: { _aidapay_hash: string; _meta?: Json; _status: string }
         Returns: undefined
       }
+      compute_next_run: {
+        Args: {
+          _freq: Database["public"]["Enums"]["schedule_frequency"]
+          _from: string
+          _interval_days: number
+        }
+        Returns: string
+      }
       confirm_treasury_transfer: {
         Args: { _new_balance: number; _transfer_id: string }
         Returns: undefined
+      }
+      consume_schedule_reservation: {
+        Args: { _aidapay_hash: string; _schedule_id: string }
+        Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
+          amount: number
+          created_at: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_verification_at: string | null
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          provider_reference: string | null
+          reference: string
+          retry_count: number
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_schedule: {
+        Args: {
+          _amount: number
+          _bp_value: number
+          _bundle_size: string
+          _first_run_at: string
+          _frequency: Database["public"]["Enums"]["schedule_frequency"]
+          _interval_days: number
+          _meta?: Json
+          _network: string
+          _package_code: string
+          _phone: string
+          _pin: string
+          _provider_code: string
+          _recipient_label: string
+          _type: Database["public"]["Enums"]["tx_type"]
+        }
+        Returns: {
+          amount: number
+          bp_value: number | null
+          bundle_size: string | null
+          created_at: string
+          end_at: string | null
+          frequency: Database["public"]["Enums"]["schedule_frequency"]
+          id: string
+          interval_days: number | null
+          last_error: string | null
+          last_run_at: string | null
+          meta: Json
+          network: string
+          next_run_at: string
+          package_code: string | null
+          phone: string
+          provider_code: string | null
+          recipient_label: string | null
+          reserved_amount: number
+          retry_count: number
+          status: Database["public"]["Enums"]["schedule_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "scheduled_purchases"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_vtu_transaction:
         | {
@@ -1080,6 +1296,44 @@ export type Database = {
         Args: { _amount: number; _pv_ref: string; _user_id: string }
         Returns: undefined
       }
+      fetch_due_schedules: {
+        Args: { _limit?: number }
+        Returns: {
+          amount: number
+          bp_value: number | null
+          bundle_size: string | null
+          created_at: string
+          end_at: string | null
+          frequency: Database["public"]["Enums"]["schedule_frequency"]
+          id: string
+          interval_days: number | null
+          last_error: string | null
+          last_run_at: string | null
+          meta: Json
+          network: string
+          next_run_at: string
+          package_code: string | null
+          phone: string
+          provider_code: string | null
+          recipient_label: string | null
+          reserved_amount: number
+          retry_count: number
+          status: Database["public"]["Enums"]["schedule_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "scheduled_purchases"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      handle_schedule_failure: {
+        Args: { _err: string; _schedule_id: string }
+        Returns: undefined
+      }
       has_role:
         | {
             Args: { _role: Database["public"]["Enums"]["app_role"] }
@@ -1111,6 +1365,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      pause_schedule: { Args: { _id: string }; Returns: undefined }
       purchase_vtu: {
         Args: {
           _amount: number
@@ -1202,6 +1457,7 @@ export type Database = {
         }
         Returns: string
       }
+      resume_schedule: { Args: { _id: string }; Returns: undefined }
       set_transaction_pin: { Args: { _pin: string }; Returns: boolean }
       topup_wallet: {
         Args: { _amount: number; _method: string }
@@ -1236,6 +1492,20 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      schedule_frequency:
+        | "once"
+        | "daily"
+        | "weekly"
+        | "monthly"
+        | "every_n_days"
+        | "until_cancelled"
+      schedule_status:
+        | "active"
+        | "paused"
+        | "cancelled"
+        | "completed"
+        | "failed"
+        | "needs_funding"
       tx_status:
         | "pending"
         | "success"
@@ -1380,6 +1650,22 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      schedule_frequency: [
+        "once",
+        "daily",
+        "weekly",
+        "monthly",
+        "every_n_days",
+        "until_cancelled",
+      ],
+      schedule_status: [
+        "active",
+        "paused",
+        "cancelled",
+        "completed",
+        "failed",
+        "needs_funding",
+      ],
       tx_status: [
         "pending",
         "success",

@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Zap, Wifi, BatteryCharging, Tv, ChevronRight, Receipt } from "lucide-react";
+import { Zap, Wifi, BatteryCharging, Tv, ChevronRight, Receipt, CalendarClock } from "lucide-react";
 
 const BILLS = [
   { i: Zap, l: "Airtime", d: "All networks · instant top-up", to: "/app/airtime", grad: "from-yellow-400 to-orange-500" },
   { i: Wifi, l: "Data Bundles", d: "MTN · Airtel · Glo · 9mobile", to: "/app/data", grad: "from-primary to-accent" },
   { i: BatteryCharging, l: "Electricity", d: "Pay any disco bill", to: "/app/electricity", grad: "from-emerald-400 to-teal-500" },
   { i: Tv, l: "Cable TV", d: "DStv · GOtv · StarTimes", to: "/app/cable", grad: "from-fuchsia-500 to-purple-600" },
+  { i: CalendarClock, l: "BlitzData Scheduler", d: "Auto-renew · Family & Friends · Reserve funds", to: "/app/schedules", grad: "from-indigo-500 to-blue-600" },
 ];
 
 export default function Bills() {

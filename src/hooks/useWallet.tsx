@@ -5,12 +5,14 @@ import { useAuth } from "./useAuth";
 export function useWallet() {
   const { user } = useAuth();
   const [balance, setBalance] = useState<number>(0);
+  const [reserved, setReserved] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!user) { setBalance(0); setLoading(false); return; }
-    const { data } = await supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle();
+    if (!user) { setBalance(0); setReserved(0); setLoading(false); return; }
+    const { data } = await supabase.from("wallets").select("balance, reserved_balance").eq("user_id", user.id).maybeSingle();
     setBalance(Number(data?.balance ?? 0));
+    setReserved(Number((data as any)?.reserved_balance ?? 0));
     setLoading(false);
   }, [user]);
 
@@ -24,5 +26,6 @@ export function useWallet() {
     return () => { supabase.removeChannel(ch); };
   }, [user, refresh]);
 
-  return { balance, loading, refresh };
+  const available = Math.max(0, balance - reserved);
+  return { balance, reserved, available, loading, refresh };
 }
