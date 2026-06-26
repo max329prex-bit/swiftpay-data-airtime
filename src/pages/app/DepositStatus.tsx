@@ -54,9 +54,10 @@ export default function DepositStatus() {
     const interval = setInterval(checkStatus, 15000); // poll every 15s
     const ch = supabase.channel("deposit-status")
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, (p) => {
-        if (p.new?.reference === reference && p.new?.status === "success") {
+        const n = p.new as any;
+        if (n?.reference === reference && n?.status === "success") {
           setStatus("success");
-          setAmount(Number(p.new.amount));
+          setAmount(Number(n.amount));
           refresh();
           toast.success("Deposit confirmed!");
         }
