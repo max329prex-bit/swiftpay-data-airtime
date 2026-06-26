@@ -48,7 +48,7 @@ async function callTopup(
 }
 
 export default function Wallet() {
-  const { balance, refresh } = useWallet();
+  const { balance, reserved, available, refresh } = useWallet();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"static" | "dynamic">("static");
 
@@ -262,8 +262,20 @@ export default function Wallet() {
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
-        <div className="text-xs uppercase tracking-widest text-white/70">Available balance</div>
+        <div className="text-xs uppercase tracking-widest text-white/70">Wallet balance</div>
         <div className="mt-1 font-display text-4xl font-bold text-white">{naira(balance)}</div>
+        {reserved > 0 && (
+          <div className="mt-3 grid grid-cols-2 gap-3 text-white/90">
+            <div className="rounded-xl bg-white/10 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-widest text-white/70">Reserved</div>
+              <div className="font-display text-base font-bold">{naira(reserved)}</div>
+            </div>
+            <div className="rounded-xl bg-white/10 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-widest text-white/70">Available</div>
+              <div className="font-display text-base font-bold">{naira(available)}</div>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Tab switcher */}
