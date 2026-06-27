@@ -1,65 +1,52 @@
-# BlitzData Scheduler — Build Plan
+Three small, surgical polish fixes — no business logic changes.
 
-Going with **Option 2 (Reserved Balance)** as recommended. Wallet shows main + reserved + available. Cron drains the reservation on the scheduled date by calling the existing `vtu-purchase` path.
+## 1. Landing page "Download App" button is invisible
 
-## Phase 1 — Core (launch)
+**Cause:** `App.tsx` forces `defaultTheme="dark"`, so shadcn's `outline` button variant resolves `bg-background` to near-black. On the white hero section it renders as a black button on a black-ish chip with no visible text.
 
-**Database**
-- `wallets`: add `reserved_balance numeric default 0`. Available = `balance − reserved_balance`. (Refund balance untouched.)
-- New table `scheduled_purchases`:
-  - `id, user_id, type (data/airtime), network, phone, package_code, provider_code, amount, bp_value`
-  - `frequency` enum: `once | daily | weekly | monthly | every_n_days | until_cancelled`
-  - `interval_days int null`, `next_run_at timestamptz`, `last_run_at`, `end_at null`
-  - `status` enum: `active | paused | cancelled | completed | failed`
-  - `reserved_amount numeric` (funds currently held for the *next* run)
-  - `recipient_label text` (e.g. "Dad's MTN" — supports Family & Friends)
-  - `retry_count int`, `last_error text`, `meta jsonb`, timestamps
-- New table `scheduled_runs` (history): `id, schedule_id, ran_at, status, tx_id, error, attempt_no`
-- RPCs (SECURITY DEFINER, search_path=public):
-  - `create_schedule(...)` — validates PIN, reserves `amount` from wallet → `reserved_balance` (rejects if available < amount), inserts row, computes `next_run_at`.
-  - `cancel_schedule(id)` — releases reservation back to `balance`, status=cancelled.
-  - `pause_schedule(id)` / `resume_schedule(id)` — keeps reservation; resume recomputes `next_run_at`.
-  - `execute_scheduled_purchase(id)` — called by the edge function: consumes reservation, calls vtu logic, on success creates next reservation (if recurring) or releases leftover; on failure schedules retry.
-- RLS: users CRUD their own; service_role full access. Standard `GRANT` block.
+**Fix (`src/pages/Index.tsx`, line 158):** Replace the outline variant with explicit light styling so it always reads correctly on the white hero, regardless of theme:
+```tsx
+<Button size="lg" variant="outline"
+  className="rounded-full px-6 bg-white text-slate-900 border-slate-300 hover:bg-slate-50 hover:text-slate-900">
+  <Download className="mr-1 h-4 w-4" /> Download App
+</Button>
+```
+The second Download button (line 312, dark CTA band) already has explicit dark-section classes — leave it untouched.
 
-**Edge function `schedule-runner`** (cron every 5 min via pg_cron + pg_net):
-- Selects `active` schedules where `next_run_at <= now()`.
-- For each: reuses the existing provider routing in `vtu-purchase` (extract shared helper or invoke internally with a service token). Records to `scheduled_runs`.
-- On success: advance `next_run_at` per frequency; if recurring, attempt to reserve next cycle from wallet (if insufficient, mark `needs_funding`, notify).
-- On failure: **Smart Retry** ladder — +10 min, +1 hr, +6 hr (max 3 attempts) before marking the run failed and refunding the reservation.
+## 2. PIN setup boxes are not visible
 
-**Frontend (`src/pages/app/Scheduler/`)**
-- `Index.tsx` — list of active/paused/cancelled schedules + upcoming calendar strip.
-- `New.tsx` — wizard: network → phone (with recipient label) → bundle → frequency → review → PIN confirm.
-- `Detail.tsx` — pause/resume/cancel, run history, next run countdown.
-- Dashboard widget: "Reserved ₦X · Y upcoming purchases".
-- Wallet page: show three lines — Main / Reserved / Available.
+**Cause:** `InputOTPSlot` defaults to `border-input` which is extremely faint on the `bg-gradient-aurora` backdrop. The 4 slots blend into the card.
 
-**Notifications**
-- 24 h before run: in-app + push (existing `usePushNotifications`).
-- On success/failure: existing notification path.
+**Fix (`src/pages/app/PinSetup.tsx`):** Add visible surface + border to each slot via className (8 slots, both create + confirm). Tokens only, no hardcoded colors:
+```tsx
+className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/30 bg-background/40 first:rounded-2xl last:rounded-2xl"
+```
+Also add `gap-3` to `InputOTPGroup` (override `flex items-center` with a wrapper class) so the rounded slots sit apart instead of touching — the default group joins them edge-to-edge which hides the per-slot rounding.
 
-## Phase 2 — Smart features (post-core, same release if time allows)
+## 3. BlitzData Scheduler is hidden
 
-1. **Family & Friends** — already supported via `recipient_label` + phone per schedule; add a "Recipients" quick-pick in the new-schedule wizard pulling from `beneficiaries`.
-2. **Auto-Renew Forever** — `frequency = until_cancelled` with `interval_days`. Handled by runner.
-3. **Upcoming Charges Calendar** — read-only month view computed from active schedules.
-4. **Schedule Templates** — seed table `schedule_templates` (Student/Heavy/Weekly/Monthly). One-tap creates schedule with defaults.
-5. **Data Expiry Reminder** — store `expires_at` estimate on successful tx (from package validity in `packages`), background job nudges 2 days before.
+Currently only reachable from `/app/bills`. Promote it to the dashboard with a single, premium entry card placed directly under the Quick actions row — keeps the existing dashboard hierarchy intact (wallet → points → quick actions → **scheduler** → support → recent).
 
-## Phase 3 — Differentiators (after launch, not in this PR)
-Data Budget Mode, Smart Recommendations, Auto Top-Up nudges, Price Lock. Listed for roadmap, not built now.
+**Fix (`src/pages/app/Dashboard.tsx`):** Add one card linking to `/app/schedules`:
+```tsx
+<Link to="/app/schedules"
+  className="relative overflow-hidden rounded-2xl border border-accent/20 bg-gradient-to-r from-primary/10 to-accent/10 p-4 flex items-center gap-3 hover:border-accent/40 transition group">
+  <span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-primary shadow-glow">
+    <CalendarClock className="h-5 w-5 text-white" />
+  </span>
+  <div className="flex-1 min-w-0">
+    <div className="text-sm font-semibold flex items-center gap-2">
+      BlitzData Scheduler
+      <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent">New</span>
+    </div>
+    <div className="text-xs text-muted-foreground">Auto-renew data & airtime on your schedule</div>
+  </div>
+  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition" />
+</Link>
+```
+Import `CalendarClock` from `lucide-react`.
 
-## Technical notes
-
-- All reservation math goes through RPCs with `FOR UPDATE` on `wallets` to avoid races.
-- The runner uses `SERVICE_ROLE_KEY` and a `CRON_SECRET` header check (secret already exists).
-- `vtu-purchase` logic refactored: extract the provider-routing block into a shared module both `vtu-purchase` and `schedule-runner` import, so we don't duplicate Gsubz/IACafe/BSPlug/AidaPay routing.
-- Existing treasury reservation (`reserve_provider_liquidity`) still runs at execution time — only the *wallet-side* reservation is new.
-
-## Questions before I start
-
-1. **Min lead time** for a schedule (e.g. must be ≥ 15 min in the future)?
-2. **Max active schedules per user** at launch (e.g. 20)?
-3. For **recurring schedules**, when should the *next* reservation be made — immediately after a successful run, or 24 h before the next run? (Immediately = stronger guarantee, but locks more funds.)
-4. Should **paused** schedules keep their reservation or release it until resumed?
+## What is NOT changing
+- No backend, RPC, or schema changes.
+- No restructuring of the dashboard, landing layout, or PIN flow.
+- All other components untouched.

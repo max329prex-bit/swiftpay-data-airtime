@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Plus, Zap, Wifi, BatteryCharging, Tv, Sparkles, Gift, Mail, ChevronRight } from "lucide-react";
+import { Eye, EyeOff, Plus, Zap, Wifi, BatteryCharging, Tv, Sparkles, Gift, Mail, ChevronRight, CalendarClock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useBlitzPoints } from "@/hooks/useBlitzPoints";
@@ -144,6 +144,27 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Support bar — links to support page */}
+      {/* BlitzData Scheduler entry */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+        <Link
+          to="/app/schedules"
+          className="relative overflow-hidden rounded-2xl border border-accent/20 bg-gradient-to-r from-primary/10 to-accent/10 p-4 flex items-center gap-3 hover:border-accent/40 transition group"
+        >
+          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl bg-gradient-primary shadow-glow">
+            <CalendarClock className="h-5 w-5 text-white" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold flex items-center gap-2">
+              BlitzData Scheduler
+              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent">New</span>
+            </div>
+            <div className="text-xs text-muted-foreground">Auto-renew data & airtime on your schedule</div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition flex-shrink-0" />
+        </Link>
+      </motion.div>
 
       {/* Support bar — links to support page */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>

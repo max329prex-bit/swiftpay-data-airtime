@@ -44,20 +44,20 @@ export default function PinSetup() {
         <div className="flex justify-center">
           {step === "create" ? (
             <InputOTP maxLength={4} value={pin} onChange={(v) => { setPin(v); if (v.length === 4) setStep("confirm"); }}>
-              <InputOTPGroup>
-                <InputOTPSlot index={0} className="h-14 w-14 text-xl rounded-2xl" />
-                <InputOTPSlot index={1} className="h-14 w-14 text-xl rounded-2xl" />
-                <InputOTPSlot index={2} className="h-14 w-14 text-xl rounded-2xl" />
-                <InputOTPSlot index={3} className="h-14 w-14 text-xl rounded-2xl" />
+              <InputOTPGroup className="gap-3">
+                <InputOTPSlot index={0} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
+                <InputOTPSlot index={1} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
+                <InputOTPSlot index={2} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
+                <InputOTPSlot index={3} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
               </InputOTPGroup>
             </InputOTP>
           ) : (
             <InputOTP maxLength={4} value={confirm} onChange={setConfirm}>
-              <InputOTPGroup>
-                <InputOTPSlot index={0} className="h-14 w-14 text-xl rounded-2xl" />
-                <InputOTPSlot index={1} className="h-14 w-14 text-xl rounded-2xl" />
-                <InputOTPSlot index={2} className="h-14 w-14 text-xl rounded-2xl" />
-                <InputOTPSlot index={3} className="h-14 w-14 text-xl rounded-2xl" />
+              <InputOTPGroup className="gap-3">
+                <InputOTPSlot index={0} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
+                <InputOTPSlot index={1} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
+                <InputOTPSlot index={2} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
+                <InputOTPSlot index={3} className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/40 bg-background/60" />
               </InputOTPGroup>
             </InputOTP>
           )}
