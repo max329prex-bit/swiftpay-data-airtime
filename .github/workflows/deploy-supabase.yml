@@ -50,5 +50,6 @@ jobs:
           supabase functions deploy admin-otp --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy populate-cost-prices --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
           supabase functions deploy pv-diag --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
+          supabase functions deploy schedule-runner --project-ref tljnhlhzyntotadxoypz --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
