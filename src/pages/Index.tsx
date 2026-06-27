@@ -155,7 +155,7 @@ export default function Index() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/auth?mode=signup"><Button size="lg" className="bg-slate-900 hover:bg-slate-800 text-white rounded-full px-6">Start free <ArrowRight className="ml-1 h-4 w-4" /></Button></Link>
-              <a href="/downloads/blitzpay.apk" download><Button variant="outline" size="lg" className="rounded-full px-6 border-slate-200"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
+              <a href="/downloads/blitzpay.apk" download><Button size="lg" className="rounded-full px-6 bg-white text-slate-900 border border-slate-300 hover:bg-slate-50 hover:text-slate-900 shadow-sm"><Download className="mr-1 h-4 w-4" /> Download App</Button></a>
             </div>
             <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-slate-500">
               <div className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-600" /> No hidden fees</div>
