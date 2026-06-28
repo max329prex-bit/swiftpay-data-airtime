@@ -5,7 +5,6 @@ const SUPA_URL    = Deno.env.get("SUPABASE_URL")!;
 const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TG_BOT      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TG_CHAT     = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
-const AIDAPAY_TOK = Deno.env.get("AIDAPAY_TOKEN") ?? "";
 const BSPLUG_TOK  = Deno.env.get("BSPLUG_TOKEN") ?? "";
 const IACAFE_TOK  = Deno.env.get("IACAFE_TOKEN") ?? "";
 const GSUBZ_KEY   = Deno.env.get("GSUBZ_API_KEY") ?? "";
@@ -15,13 +14,6 @@ async function tg(msg:string){if(!TG_BOT||!TG_CHAT)return;try{await fetch(`https
 
 async function fetchBalance(code:string):Promise<number|null>{
   try{
-    if(code==="aidapay"){
-      const r=await fetch("https://www.aidapay.ng/api/v1/balance",{headers:{Authorization:`Bearer ${AIDAPAY_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});
-      const d=await r.json();
-      const bal=Number(d?.data?.balance??d?.balance??null);
-      return isNaN(bal)?null:bal;
-    }
-
     if(code==="bsplug"){
       const r=await fetch("https://bsplug.net/api/balance/",{headers:{Authorization:`Token ${BSPLUG_TOK}`,Accept:"application/json"},signal:AbortSignal.timeout(10000)});
       const d=await r.json();
