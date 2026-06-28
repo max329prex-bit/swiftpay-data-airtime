@@ -68,32 +68,22 @@ async function pingIACafe(): Promise<Result> {
   return { provider: "iacafe", ok, http: r.http, balance: d?.data?.balance ?? d?.data?.wallet_balance ?? pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
 }
 
-// GSubz real API: POST https://api.gsubz.com/api/balance/ with FormData { api: api_key }
+// GSubz real API: POST to https://api.gsubz.com/api/balance/ with FormData
 // Auth: Authorization: Bearer {api_key}
 async function pingGsubz(): Promise<Result> {
   const has = !!GSUBZ_KEY;
   if (!has) return { provider: "gsubz", ok: false, has_credentials: false, error: "GSUBZ_API_KEY missing" };
-
   const fd = new FormData();
   fd.append("api", GSUBZ_KEY);
-
   const r = await tryFetch("https://api.gsubz.com/api/balance/", {
     method: "POST",
     headers: { "Authorization": `Bearer ${GSUBZ_KEY}` },
     body: fd
   });
-
   if ("error" in r) return { provider: "gsubz", ok: false, has_credentials: has, error: r.error };
   let d: any = null; try { d = JSON.parse(r.text); } catch {}
-  const ok = r.http >= 200 && r.http < 300 && d?.status === "TRANSACTION_SUCCESSFUL";
-  return {
-    provider: "gsubz",
-    ok,
-    http: r.http,
-    balance: d?.data?.balance ?? d?.balance ?? pickBalance(d),
-    raw: r.text.slice(0, 260),
-    has_credentials: has
-  };
+  const ok = r.http >= 200 && r.http < 300 && (d?.status === "TRANSACTION_SUCCESSFUL" || d?.balance !== undefined || d?.data?.balance !== undefined);
+  return { provider: "gsubz", ok, http: r.http, balance: d?.balance ?? d?.data?.balance ?? pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
 }
 
 serve(async (req) => {
