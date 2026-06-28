@@ -69,15 +69,10 @@ async function iacafeBuy(planId:number,phone:string,reqId:string):Promise<PR> {
   }catch(e){return{success:false,msg:`IA Cafe unreachable: ${e}`};}
 }
 
-// Gsubz: package_code format = "GSZ-{service}-{planId}"  e.g. "GSZ-mtn_awoof-354"
-async function gsubzBuy(pkgCode:string, phone:string, reqId:string): Promise<PR> {
+// Core Gsubz buy with raw parameters — works for data, airtime, electricity, cable
+async function gsubzBuyRaw(service: string, planId: string, phone: string, reqId: string): Promise<PR> {
+  if (!service || !planId || !GSUBZ_KEY) return { success: false, msg: "Gsubz: missing service/plan_id or no API key" };
   try {
-    // Parse GSZ-{service}-{planId}
-    const parts = pkgCode.replace("GSZ-","").split("-");
-    // service can contain underscore — rejoin correctly: "GSZ-mtn_awoof-354" → parts=["mtn_awoof","354"]
-    const planId = parts[parts.length - 1];
-    const service = parts.slice(0, parts.length - 1).join("-");
-    if (!planId || !service || !GSUBZ_KEY) return { success:false, msg:"Gsubz: invalid plan code or no API key" };
     const r = await fetch(`${GSUBZ_BASE}/pay/`, {
       method: "POST",
       headers: { "api-key": GSUBZ_KEY, "Content-Type": "application/json" },
@@ -85,15 +80,23 @@ async function gsubzBuy(pkgCode:string, phone:string, reqId:string): Promise<PR>
       signal: AbortSignal.timeout(30000)
     });
     const d = await r.json();
-    console.log("[gsubz] response:", JSON.stringify(d).slice(0,400));
+    console.log("[gsubz] response:", JSON.stringify(d).slice(0, 400));
     if (!r.ok || d?.success === false || d?.status === false) {
       const m = d?.message || d?.error || "Gsubz failed";
-      return { success:false, msg:m, bundle_down:isBundleDown(m) };
+      return { success: false, msg: m, bundle_down: isBundleDown(m) };
     }
-    return { success:true, ref: String(d?.data?.reference || d?.data?.id || d?.reference || reqId) };
-  } catch(e) {
-    return { success:false, msg:`Gsubz unreachable: ${e}` };
+    return { success: true, ref: String(d?.data?.reference || d?.data?.id || d?.reference || reqId) };
+  } catch (e) {
+    return { success: false, msg: `Gsubz unreachable: ${e}` };
   }
+}
+
+// Gsubz: package_code format = "GSZ-{service}-{planId}"  e.g. "GSZ-mtn_awoof-354"
+async function gsubzBuy(pkgCode:string, phone:string, reqId:string): Promise<PR> {
+  const parts = pkgCode.replace("GSZ-","").split("-");
+  const planId = parts[parts.length - 1];
+  const service = parts.slice(0, parts.length - 1).join("-");
+  return gsubzBuyRaw(service, planId, phone, reqId);
 }
 
 // Check Gsubz success rate in last hour — returns true if Gsubz is healthy
@@ -291,6 +294,60 @@ serve(async (req) => {
         return json({error:"Invalid BSPlug plan"},400);
       }
       pr=await bsplugBuy(nId,pId,phone);
+
+    } else if (type === "airtime" || type === "electricity" || type === "cable") {
+      // ── Try GSubz first for airtime/electricity/cable ────────────────────
+      let gsubzService = "";
+      let gsubzPlanId = "";
+      let gsubzPhone = "";
+
+      if (type === "airtime") {
+        gsubzService = AIRTIME_MAP[network?.toUpperCase()] || "mtn-airtime";
+        gsubzPlanId = String(amount || 0);
+        gsubzPhone = phone || "";
+      } else if (type === "electricity") {
+        gsubzService = prvCode || "";
+        gsubzPlanId = String(amount || 0);
+        gsubzPhone = meter_number || phone || "";
+      } else { // cable
+        gsubzService = prvCode || "";
+        gsubzPlanId = pkgCode || "";
+        gsubzPhone = phone || "";
+      }
+
+      const gsubzReqId = `GSZ-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      txMeta.gsubz_request_id = gsubzReqId;
+
+      if (gsubzService && gsubzPlanId && GSUBZ_KEY) {
+        pr = await gsubzBuyRaw(gsubzService, gsubzPlanId, gsubzPhone, gsubzReqId);
+        if (pr.success) {
+          usedProvider = "gsubz";
+          txMeta.provider_used = "gsubz";
+          txMeta.gsubz_ref = pr.ref;
+        } else {
+          console.warn(`[vtu] Gsubz ${type} failed (${pr.msg}), falling back to AidaPay`);
+          await tg(`⚠️ *Gsubz ${type} fallback*\nService: ${gsubzService}\nReason: ${pr.msg}\nFalling back to AidaPay`);
+        }
+      }
+
+      // ── Fallback to AidaPay ────────────────────────────────────────────
+      if (!pr.success) {
+        let apCode: string;
+        if (type === "airtime") apCode = AIRTIME_MAP[network?.toUpperCase()] || "mtn-airtime";
+        else if (type === "electricity") apCode = prvCode;
+        else apCode = prvCode;
+
+        const recipient = type === "electricity" ? (meter_number || phone || "") : (phone || "");
+        const ap: Record<string, string> = { recipient, provider_code: apCode, account_pin: AIDAPAY_PIN, ref };
+        if (amount) ap.amount = String(amount);
+        if (pkgCode) ap.package_code = pkgCode;
+        txMeta.aidapay_ref = ref;
+        txMeta.aidapay_code = apCode;
+        if (type === "electricity") { txMeta.meter_type = meter_type; txMeta.meter_number = recipient; }
+        pr = await aidapayBuy(ap);
+        if (pr.meter_token) txMeta.meter_token = pr.meter_token;
+        if (pr.meter_unit) txMeta.meter_unit = pr.meter_unit;
+      }
 
     } else {
       let apCode:string;
