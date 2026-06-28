@@ -18,6 +18,13 @@ const PV_HEADERS  = { "api-key": PV_API_KEY, "api-secret": PV_SECRET, "Content-T
 const STATIC_BANKS  = ["999991", "120001"];
 const DYNAMIC_BANKS = ["090175"];
 
+// Operator-provided default KYC used to auto-provision accounts for every user
+// so the end-user never has to enter NIN/BVN manually. Set these in Supabase secrets.
+const DEFAULT_FULLNAME = (Deno.env.get("DEFAULT_KYC_FULLNAME") || "").trim();
+const DEFAULT_PHONE    = (Deno.env.get("DEFAULT_KYC_PHONE") || "").replace(/\D/g, "");
+const DEFAULT_NIN      = (Deno.env.get("DEFAULT_KYC_NIN") || "").replace(/\D/g, "");
+const DEFAULT_BVN      = (Deno.env.get("DEFAULT_KYC_BVN") || "").replace(/\D/g, "");
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (d: unknown, s = 200) =>
@@ -47,10 +54,10 @@ serve(async (req) => {
     const bodyNIN   = (body.nin || "").replace(/\D/g, "");
     const bodyBVN   = (body.bvn || "").replace(/\D/g, "");
 
-    const name  = (bodyName || profile?.full_name || user.email?.split("@")[0] || "BLITZPAY USER").toUpperCase();
-    const phone = (bodyPhone || profile?.phone || "09012345678").replace(/\D/g, "").slice(0, 11);
-    const nin   = bodyNIN || profile?.nin || "";
-    const bvn   = bodyBVN || profile?.bvn || "";
+    const name  = (bodyName || profile?.full_name || DEFAULT_FULLNAME || user.email?.split("@")[0] || "BLITZPAY USER").toUpperCase();
+    const phone = (bodyPhone || profile?.phone || DEFAULT_PHONE || "09012345678").replace(/\D/g, "").slice(0, 11);
+    const nin   = bodyNIN || profile?.nin || DEFAULT_NIN || "";
+    const bvn   = bodyBVN || profile?.bvn || DEFAULT_BVN || "";
 
     // STATIC (permanent)
     if (type === "static") {
@@ -65,11 +72,10 @@ serve(async (req) => {
           message: "Transfer any amount here. Balance updates instantly." });
       }
 
-      // Check KYC sufficiency — Payvessel requires NIN or BVN (name always set from email)
-      const hasBodyKYC    = bodyNIN.length === 11 || bodyBVN.length === 11;
-      const hasProfileKYC = !!(profile?.nin || profile?.bvn);
-
-      if (!hasBodyKYC && !hasProfileKYC) {
+      // Auto-KYC: use body → profile → operator defaults. Only ask the user
+      // for KYC if NOTHING is available (defaults missing in secrets).
+      const hasKYC = (nin && nin.length === 11) || (bvn && bvn.length === 11);
+      if (!hasKYC) {
         return json({ success: true, type: "static", needs_kyc: true });
       }
 
