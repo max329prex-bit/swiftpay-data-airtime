@@ -12,7 +12,7 @@ const BSPLUG_TOKEN  = Deno.env.get("BSPLUG_TOKEN") ?? "";
 const IACAFE_BASE   = "https://iacafe.com.ng/devapi/v1";
 const IACAFE_TOKEN  = Deno.env.get("IACAFE_TOKEN") ?? "";
 const GSUBZ_BASE    = "https://api.gsubz.com/api";
-const GSUBZ_KEY     = Deno.env.get("GSUBZ_API_KEY") ?? "";
+const GSUBZ_KEY     = Deno.env.get("GSUBZ_API_KEY") ?? "ap_3c7c405fe9cea54cfa07ba460eea05be";
 const GSUBZ_AIRTIME_MAP: Record<string,string> = { MTN:"mtn", AIRTEL:"airtel", GLO:"glo", "9MOBILE":"9mobile" };
 
 const GSUBZ_MIN_SUCCESS_RATE = 0.20;
