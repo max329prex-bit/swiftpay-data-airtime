@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Loader2, ShieldCheck, ArrowLeft, Mail } from "lucide-react";
+import { Loader2, ShieldCheck, ArrowLeft, KeyRound } from "lucide-react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-const ADMIN_EMAIL  = "onojav79@gmail.com";
+
+const ADMIN_SESSION_KEY = "blitzpay_admin_session";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -27,18 +28,15 @@ export default function AdminLogin() {
     return data;
   };
 
-  /** Step 1: verify password → send Brevo OTP */
+  /** Step 1: verify password → send OTP via Telegram */
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      // 1a. Verify password
       await otpCall({ action: "verify-password", password });
-
-      // 1b. Request OTP via Brevo (sends email to ADMIN_OTP_EMAIL)
       const d = await otpCall({ action: "request-otp" });
-      setOtpSentTo(d.message || `OTP sent to admin email`);
+      setOtpSentTo(d.message || "OTP sent to Telegram admin");
       setStep("otp");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -47,25 +45,20 @@ export default function AdminLogin() {
     }
   }
 
-  /** Step 2: verify Brevo OTP → sign in admin */
+  /** Step 2: verify OTP → receive admin session token */
   async function handleOtp(e: React.FormEvent) {
     e.preventDefault();
     if (otp.length < 6) return setError("Enter the 6-digit code");
     setLoading(true);
     setError("");
     try {
-      // Verify OTP against DB (set used=true on match)
-      await otpCall({ action: "verify-otp", code: otp });
+      const d = await otpCall({ action: "verify-otp", code: otp });
+      if (!d.token) throw new Error("No session token received");
 
-      // OTP passed — sign admin into Supabase session
-      const { error: signInErr } = await supabase.auth.signInWithOtp({
-        email: ADMIN_EMAIL,
-        options: { shouldCreateUser: true },
-      });
-      // Even if Supabase OTP delivery fails, we already verified via Brevo — proceed
-      if (signInErr) console.warn("[admin-login] Supabase OTP warning:", signInErr.message);
+      // Store independent admin session token (NOT tied to any user account)
+      sessionStorage.setItem(ADMIN_SESSION_KEY, d.token);
 
-      // Navigate to admin panel immediately (Brevo OTP was the real 2FA)
+      // Navigate to admin panel
       navigate("/app/admin/treasury", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed");
@@ -87,7 +80,7 @@ export default function AdminLogin() {
           <p className="text-sm text-muted-foreground">
             {step === "password"
               ? "Enter admin password to continue"
-              : otpSentTo || `Check your email for the 6-digit code`}
+              : otpSentTo || "Check Telegram for the 6-digit code"}
           </p>
         </div>
 
@@ -113,7 +106,7 @@ export default function AdminLogin() {
             >
               {loading
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending code…</>
-                : <><Mail className="h-4 w-4" /> Send Verification Code</>}
+                : <><KeyRound className="h-4 w-4" /> Send Verification Code</>}
             </button>
           </form>
 
