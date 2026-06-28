@@ -30,7 +30,7 @@ export default function Airtime() {
       refresh();
       const receiptId = data?.id || data?.reference;
       nav(`/app/receipt/${receiptId}`);
-    } catch (e: any) { toast.error(e.message ?? "Failed"); } finally { setBusy(false); }
+    } catch (e: any) { toast.error(e.message ?? "Failed"); setStep("form"); } finally { setBusy(false); }
   }
   return (
     <div className="space-y-4 pb-10">

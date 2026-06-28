@@ -388,7 +388,7 @@ serve(async (req) => {
         try{ await admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"gsubz",_network:network,_error:errMsg}); }catch{}
       }
       await failAndRefund(errMsg);
-      return json({error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:true},400);
+      return json({success:false,error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:true},200);
     }
 
     // ── STEP 3: COMMIT transaction to success ────────────────────────────

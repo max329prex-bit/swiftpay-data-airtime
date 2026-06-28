@@ -256,6 +256,7 @@ export default function Data() {
         try { const body = await e.context.json(); msg = body?.error || msg; } catch {}
       }
       toast.error(msg);
+      setStep("form");
     }
     finally { setBusy(false); }
   }
