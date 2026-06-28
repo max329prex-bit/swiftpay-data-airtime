@@ -1,31 +1,29 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "./useAuth";
+
+const ADMIN_SESSION_KEY = "blitzpay_admin_session";
 
 /**
- * Returns true if the current user has the 'admin' role.
- * Used by RequireAdmin to protect admin routes.
+ * Returns true if a valid admin session token exists.
+ * This is INDEPENDENT of user accounts — no link to auth.users.
  */
 export function useAdminRole(): { isAdmin: boolean; loading: boolean } {
-  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) { setIsAdmin(false); setLoading(false); return; }
+    const token = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    // We only check token exists locally. The server validates it on each admin request.
+    setIsAdmin(!!token && token.length >= 32);
+    setLoading(false);
+  }, []);
 
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => {
-        setIsAdmin(!!data);
-        setLoading(false);
-      });
-  }, [user, authLoading]);
+  return { isAdmin, loading };
+}
 
-  return { isAdmin, loading: authLoading || loading };
+export function getAdminToken(): string | null {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY);
+}
+
+export function logoutAdmin(): void {
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
 }
