@@ -14,19 +14,20 @@ const BSPLUG_BASE   = "https://bsplug.net/api";
 const BSPLUG_TOKEN  = Deno.env.get("BSPLUG_TOKEN") ?? "";
 const IACAFE_BASE   = "https://iacafe.com.ng/devapi/v1";
 const IACAFE_TOKEN  = Deno.env.get("IACAFE_TOKEN") ?? "";
-const GSUBZ_BASE    = "https://gsubz.com/api";
+// GSubz: real API uses https://api.gsubz.com/api/ with Bearer auth and FormData body
+const GSUBZ_BASE    = "https://api.gsubz.com/api";
 const GSUBZ_KEY     = Deno.env.get("GSUBZ_API_KEY") ?? "";
-const AIRTIME_MAP: Record<string,string> = { MTN:"mtn-airtime", AIRTEL:"airtel-airtime", GLO:"glo-airtime", "9MOBILE":"9mobile-airtime" };
+const AIRTIME_MAP: Record<string,string> = { MTN:"mtn", AIRTEL:"airtel", GLO:"glo", "9MOBILE":"9mobile" };
 
-// Gsubz success-rate threshold: if fewer than 20% of last 100 Gsubz tx succeed, fallback to IACafe
+// Gsubz success-rate threshold: if fewer than 20% of last 100 Gsubz tx succeed, fallback to AidaPay
 const GSUBZ_MIN_SUCCESS_RATE = 0.20;
-const GSUBZ_SAMPLE_WINDOW    = 100; // transactions to sample
+const GSUBZ_SAMPLE_WINDOW    = 100;
 const GSUBZ_HOUR_WINDOW_MS   = 60 * 60 * 1000;
 
 function treasuryKey(type: string, prvCode: string): string {
   if (type==="data" && prvCode==="iacafe")          return "iacafe";
   if (type==="data" && prvCode?.startsWith("bsplug")) return "bsplug";
-  if (type==="data" && prvCode==="gsubz")           return "iacafe"; // Gsubz shares IACafe float
+  // gsubz shares AidaPay float in treasury (they are primary, same float bucket)
   return "aidapay";
 }
 function genRef(){ return "SP-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).substr(2,5).toUpperCase(); }
@@ -69,34 +70,46 @@ async function iacafeBuy(planId:number,phone:string,reqId:string):Promise<PR> {
   }catch(e){return{success:false,msg:`IA Cafe unreachable: ${e}`};}
 }
 
-// Core Gsubz buy with raw parameters — works for data, airtime, electricity, cable
-async function gsubzBuyRaw(service: string, planId: string, phone: string, reqId: string): Promise<PR> {
-  if (!service || !planId || !GSUBZ_KEY) return { success: false, msg: "Gsubz: missing service/plan_id or no API key" };
+// GSubz real API: POST to https://api.gsubz.com/api/pay/ with FormData
+// Fields: serviceID, plan, api, phone (meter for electricity)
+// Auth: Authorization: Bearer {api_key}
+async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
+  if (!GSUBZ_KEY) return { success: false, msg: "Gsubz: no API key configured" };
   try {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(params)) {
+      if (v != null) fd.append(k, v);
+    }
     const r = await fetch(`${GSUBZ_BASE}/pay/`, {
       method: "POST",
-      headers: { "api-key": GSUBZ_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ service, plan_id: planId, mobile_number: phone, request_id: reqId }),
+      headers: { "Authorization": `Bearer ${GSUBZ_KEY}` },
+      body: fd,
       signal: AbortSignal.timeout(30000)
     });
     const d = await r.json();
     console.log("[gsubz] response:", JSON.stringify(d).slice(0, 400));
-    if (!r.ok || d?.success === false || d?.status === false) {
-      const m = d?.message || d?.error || "Gsubz failed";
+    if (!r.ok || d?.status === "TRANSACTION_FAILED" || d?.success === false) {
+      const m = d?.message || d?.description || d?.error || "Gsubz failed";
       return { success: false, msg: m, bundle_down: isBundleDown(m) };
     }
-    return { success: true, ref: String(d?.data?.reference || d?.data?.id || d?.reference || reqId) };
+    return { success: true, ref: String(d?.data?.reference || d?.reference || d?.transaction_id || d?.request_id || "") };
   } catch (e) {
     return { success: false, msg: `Gsubz unreachable: ${e}` };
   }
 }
 
-// Gsubz: package_code format = "GSZ-{service}-{planId}"  e.g. "GSZ-mtn_awoof-354"
-async function gsubzBuy(pkgCode:string, phone:string, reqId:string): Promise<PR> {
-  const parts = pkgCode.replace("GSZ-","").split("-");
+// Gsubz: package_code format = "GSZ-{service}-{planId}"  e.g. "GSZ-mtn_sme-354"
+async function gsubzBuy(pkgCode: string, phone: string, reqId: string): Promise<PR> {
+  const parts = pkgCode.replace("GSZ-", "").split("-");
   const planId = parts[parts.length - 1];
-  const service = parts.slice(0, parts.length - 1).join("-");
-  return gsubzBuyRaw(service, planId, phone, reqId);
+  const serviceID = parts.slice(0, parts.length - 1).join("-");
+  return gsubzBuyRaw({
+    serviceID,
+    plan: planId,
+    api: GSUBZ_KEY,
+    phone,
+    requestID: reqId
+  });
 }
 
 // Check Gsubz success rate in last hour — returns true if Gsubz is healthy
@@ -169,7 +182,7 @@ serve(async (req) => {
         const d=await r.json();
         if(!d.data?.verified)return json({error:d.data?.message||d.message||"Verification failed"},400);
         const msg:string=d.data.message||"";
-        const cn=msg.includes(":")?msg.split(":").slice(1).join(":").trim():msg||"Verified";
+        const cn=msg.includes(":")?msg.split(":") .slice(1).join(":").trim():msg||"Verified";
         return json({success:true,customer_name:cn,verified:true});
       }catch{return json({error:"Could not reach verification service"},503);}
     }
@@ -211,7 +224,7 @@ serve(async (req) => {
 
     // ── Provider routing ──────────────────────────────────────────────────
     if(type==="data" && prvCode==="gsubz") {
-      // Gsubz with IACafe smart fallback
+      // Gsubz with AidaPay fallback (IACafe removed per user request)
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
 
@@ -223,56 +236,29 @@ serve(async (req) => {
           txMeta.provider_used = "gsubz";
           txMeta.gsubz_ref = pr.ref;
         } else {
-          console.warn(`[vtu] Gsubz failed (${pr.msg}), trying IACafe fallback`);
-          await tg(`⚠️ *Gsubz fallback triggered*\nPlan: ${pkgCode}\nReason: ${pr.msg}\nSwitching to IACafe`);
+          console.warn(`[vtu] Gsubz failed (${pr.msg}), falling back to AidaPay`);
+          await tg(`⚠️ *Gsubz fallback triggered*\nPlan: ${pkgCode}\nReason: ${pr.msg}\nSwitching to AidaPay`);
         }
       } else {
-        console.warn("[vtu] Gsubz success rate below threshold — skipping to IACafe");
+        console.warn("[vtu] Gsubz success rate below threshold — skipping to AidaPay");
         await tg(`⚠️ *Gsubz low success rate — bypassed for this order*`);
       }
 
-      // Fallback if Gsubz failed or unhealthy — supports iacafe, bsplug-X, and aidapay
+      // Fallback to AidaPay only (no IACafe)
       if (!pr.success) {
-        // Look up fallback provider+code from packages table
-        const { data: pkg } = await admin.from("packages")
-          .select("fallback_provider_code, fallback_package_code")
-          .eq("package_code", pkgCode||"")
-          .maybeSingle();
-        const fbPrvCode = (pkg as Record<string,string>|null)?.fallback_provider_code || "iacafe";
-        const fbPkgCode = (pkg as Record<string,string>|null)?.fallback_package_code || "";
-
-        if (fbPrvCode === "iacafe" && fbPkgCode) {
-          // IACafe fallback
-          const planId = parseInt(fbPkgCode.replace("IAC-",""), 10);
-          if (planId) {
-            const fbReqId = `IAC-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
-            pr = await iacafeBuy(planId, phone, fbReqId);
-            if (pr.success) {
-              usedProvider = "iacafe-fallback";
-              txMeta.provider_used = "iacafe_fallback";
-              txMeta.iacafe_request_id = fbReqId;
-            }
-          }
-        } else if (fbPrvCode?.startsWith("bsplug") && fbPkgCode) {
-          // BSPlug fallback
-          const nId = parseInt(fbPrvCode.split("-")[1] || "1", 10);
-          const pId = parseInt(fbPkgCode.replace("BSP-",""), 10);
-          if (pId && nId) {
-            pr = await bsplugBuy(nId, pId, phone);
-            if (pr.success) {
-              usedProvider = "bsplug-fallback";
-              txMeta.provider_used = "bsplug_fallback";
-            }
-          }
-        } else if (fbPrvCode && fbPkgCode) {
-          // AidaPay catch-all fallback (airtel-sme-cg, custom codes, etc.)
-          const fbReqId = `AP-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
-          pr = await aidapayBuy({ recipient: phone, provider_code: fbPrvCode, account_pin: AIDAPAY_PIN, package_code: fbPkgCode, ref: fbReqId });
-          if (pr.success) {
-            usedProvider = "aidapay-fallback";
-            txMeta.provider_used = "aidapay_fallback";
-            txMeta.aidapay_ref = fbReqId;
-          }
+        const fbReqId = `AP-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
+        // For data, AidaPay uses the original provider_code (e.g. mtn-sme) + package_code
+        pr = await aidapayBuy({
+          recipient: phone,
+          provider_code: prvCode || "mtn-sme",
+          account_pin: AIDAPAY_PIN,
+          package_code: pkgCode || "",
+          ref: fbReqId
+        });
+        if (pr.success) {
+          usedProvider = "aidapay-fallback";
+          txMeta.provider_used = "aidapay_fallback";
+          txMeta.aidapay_ref = fbReqId;
         }
       }
 
@@ -297,36 +283,45 @@ serve(async (req) => {
 
     } else if (type === "airtime" || type === "electricity" || type === "cable") {
       // ── Try GSubz first for airtime/electricity/cable ────────────────────
-      let gsubzService = "";
-      let gsubzPlanId = "";
+      let serviceID = "";
+      let plan = "";
       let gsubzPhone = "";
+      let extra: Record<string, string> = {};
 
       if (type === "airtime") {
-        gsubzService = AIRTIME_MAP[network?.toUpperCase()] || "mtn-airtime";
-        gsubzPlanId = String(amount || 0);
+        serviceID = AIRTIME_MAP[network?.toUpperCase()] || "mtn";
+        plan = String(amount || 0);
         gsubzPhone = phone || "";
       } else if (type === "electricity") {
-        gsubzService = prvCode || "";
-        gsubzPlanId = String(amount || 0);
+        serviceID = prvCode || "";
+        plan = String(amount || 0);
         gsubzPhone = meter_number || phone || "";
+        extra = { meter: meter_number || phone || "" };
       } else { // cable
-        gsubzService = prvCode || "";
-        gsubzPlanId = pkgCode || "";
+        serviceID = prvCode || "";
+        plan = pkgCode || "";
         gsubzPhone = phone || "";
       }
 
       const gsubzReqId = `GSZ-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
       txMeta.gsubz_request_id = gsubzReqId;
 
-      if (gsubzService && gsubzPlanId && GSUBZ_KEY) {
-        pr = await gsubzBuyRaw(gsubzService, gsubzPlanId, gsubzPhone, gsubzReqId);
+      if (serviceID && plan && GSUBZ_KEY) {
+        pr = await gsubzBuyRaw({
+          serviceID,
+          plan,
+          api: GSUBZ_KEY,
+          phone: gsubzPhone,
+          requestID: gsubzReqId,
+          ...extra
+        });
         if (pr.success) {
           usedProvider = "gsubz";
           txMeta.provider_used = "gsubz";
           txMeta.gsubz_ref = pr.ref;
         } else {
           console.warn(`[vtu] Gsubz ${type} failed (${pr.msg}), falling back to AidaPay`);
-          await tg(`⚠️ *Gsubz ${type} fallback*\nService: ${gsubzService}\nReason: ${pr.msg}\nFalling back to AidaPay`);
+          await tg(`⚠️ *Gsubz ${type} fallback*\nService: ${serviceID}\nReason: ${pr.msg}\nFalling back to AidaPay`);
         }
       }
 
