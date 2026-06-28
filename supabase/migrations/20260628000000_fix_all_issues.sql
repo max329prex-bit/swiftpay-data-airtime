@@ -159,13 +159,13 @@ CREATE POLICY "Service role manages notifications"
   USING (true) WITH CHECK (true);
 
 -- ============================================================
--- 6. GSubz minimum price enforcement
+-- 6. Cost price column for margin tracking
 -- ============================================================
 -- Add cost_price column to packages if not exists
 ALTER TABLE public.packages
   ADD COLUMN IF NOT EXISTS cost_price NUMERIC(14,2);
 
--- Function: get package with enforced minimum sell price
+-- Function: get package by code
 CREATE OR REPLACE FUNCTION public.get_package_with_min_price(_pkg_code TEXT)
 RETURNS public.packages LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT * FROM public.packages WHERE package_code = _pkg_code;
