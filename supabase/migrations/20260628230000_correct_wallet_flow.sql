@@ -9,7 +9,7 @@
 -- 1. Debit wallet and create pending transaction (atomic)
 CREATE OR REPLACE FUNCTION public.debit_and_create_transaction(
   _user_id UUID,
-  _type TEXT,
+  _type public.tx_type,
   _network TEXT,
   _phone TEXT,
   _amount NUMERIC,
