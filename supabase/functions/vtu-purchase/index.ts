@@ -19,7 +19,7 @@ const GSUBZ_AIRTIME_MAP: Record<string,string> = { MTN:"mtn", AIRTEL:"airtel", G
 const GSUBZ_MIN_SUCCESS_RATE = 0.20;
 const GSUBZ_SAMPLE_WINDOW    = 100; // transactions to sample
 const GSUBZ_HOUR_WINDOW_MS   = 60 * 60 * 1000;
-const GSUBZ_MIN_AMOUNT       = 250; // Minimum sell price for GSubz plans
+const GSUBZ_MIN_AMOUNT       = 100; // Absolute minimum for any purchase
 
 function treasuryKey(type: string, prvCode: string): string {
   if (type==="data" && prvCode==="iacafe")          return "iacafe";
@@ -176,11 +176,6 @@ serve(async (req) => {
 
     const ref=genRef();
     const txMeta:Record<string,unknown>={...meta,provider_code:prvCode||"",package_code:pkgCode||""};
-
-    // ── GSubz minimum amount check ───────────────────────────────────────
-    if ((prvCode === "gsubz" || pkgCode?.toLowerCase().startsWith("gsz-")) && Number(amount) < GSUBZ_MIN_AMOUNT) {
-      return json({ error: `Minimum purchase for this plan is ₦${GSUBZ_MIN_AMOUNT}` }, 400);
-    }
 
     // ── Treasury: Reserve liquidity ───────────────────────────────────────
     const tProv = treasuryKey(type, prvCode||"");
