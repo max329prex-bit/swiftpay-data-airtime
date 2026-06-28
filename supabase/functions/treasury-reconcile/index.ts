@@ -38,19 +38,26 @@ async function fetchBalance(code:string):Promise<number|null>{
 
     if(code==="gsubz"){
       if(!GSUBZ_KEY){ console.warn("[reconcile] GSUBZ_API_KEY not set"); return null; }
-      // Try multiple Gsubz balance endpoints in order
+      // Try multiple Gsubz balance endpoints in order — they use inconsistent auth
       const attempts = [
-        { url:"https://gsubz.com/api/v1/wallet/balance", hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`} },
-        { url:"https://gsubz.com/api/wallet/balance",    hdrs:{"api-key":GSUBZ_KEY} },
-        { url:"https://gsubz.com/api/v1/balance",        hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`} },
-        { url:"https://gsubz.com/api/balance/",          hdrs:{"api-key":GSUBZ_KEY} },
-        { url:"https://gsubz.com/api/v1/user",           hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`} },
+        // 1) GET with api-key header
+        { url:"https://gsubz.com/api/balance/",  method:"GET",  hdrs:{"api-key":GSUBZ_KEY}, body:null },
+        { url:"https://gsubz.com/api/v1/balance", method:"GET",  hdrs:{"api-key":GSUBZ_KEY}, body:null },
+        // 2) GET with Bearer
+        { url:"https://gsubz.com/api/balance/",  method:"GET",  hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`}, body:null },
+        // 3) POST with api-key + empty JSON (matches /pay/ style)
+        { url:"https://gsubz.com/api/balance/",  method:"POST", hdrs:{"api-key":GSUBZ_KEY,"Content-Type":"application/json"}, body:JSON.stringify({}) },
+        { url:"https://gsubz.com/api/v1/balance", method:"POST", hdrs:{"api-key":GSUBZ_KEY,"Content-Type":"application/json"}, body:JSON.stringify({}) },
+        // 4) FormData (legacy)
+        { url:"https://gsubz.com/api/balance/",  method:"POST", hdrs:{}, body:(()=>{const fd=new FormData();fd.append("api-key",GSUBZ_KEY);return fd;})() },
+        // 5) User endpoint
+        { url:"https://gsubz.com/api/v1/user",   method:"GET",  hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`}, body:null },
       ];
-      for(const {url,hdrs} of attempts){
+      for(const {url,method,hdrs,body} of attempts){
         try{
-          const r=await fetch(url,{headers:{...hdrs,Accept:"application/json"},signal:AbortSignal.timeout(8000)});
+          const r=await fetch(url,{method,headers:{...hdrs,Accept:"application/json"},body:body||undefined,signal:AbortSignal.timeout(8000)});
           const text=await r.text();
-          console.log(`[gsubz-balance] ${url} → ${r.status} body=${text.slice(0,300)}`);
+          console.log(`[gsubz-balance] ${method} ${url} → ${r.status} body=${text.slice(0,300)}`);
           if(!r.ok) continue;
           const d=JSON.parse(text);
           const bal=Number(
@@ -140,7 +147,7 @@ serve(async(req)=>{
 
     return new Response(JSON.stringify({status:"ok",...report}),{headers:{...cors,"Content-Type":"application/json"}});
   }catch(e){
-    await tg(`🆘 *Reconcile crashed*\n${e}`);
+    await tg(`🚘 *Reconcile crashed*\n${e}`);
     return new Response(JSON.stringify({error:String(e)}),{status:500,headers:{...cors,"Content-Type":"application/json"}});
   }
 });
