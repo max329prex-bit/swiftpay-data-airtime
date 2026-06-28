@@ -65,7 +65,8 @@ export default function Cable() {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "Purchase failed");
       refresh();
-      nav(`/app/success?ref=${data.reference}&type=cable&amount=${pkg.price}&network=${provider.id}`);
+      const receiptId = data?.id || data?.reference;
+      nav(`/app/receipt/${receiptId}`);
     } catch (e: any) { toast.error(e.message ?? "Failed"); }
     finally { setBusy(false); }
   }

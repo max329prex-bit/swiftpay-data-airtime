@@ -367,6 +367,7 @@ serve(async (req) => {
     }
 
     const resp:Record<string,unknown>={success:true,reference:(tx as Record<string,unknown>)?.reference||ref,status:"success"};
+    if((tx as Record<string,unknown>)?.id) resp.id = (tx as Record<string,unknown>).id;
     if(pr.meter_token)resp.meter_token=pr.meter_token;
     console.log(`[vtu] ✅ purchase complete: ${resp.reference} via ${usedProvider}`);
     return json(resp);

@@ -246,7 +246,8 @@ export default function Data() {
         throw new Error(data?.error || "Purchase failed");
       }
       refresh();
-      nav(`/app/success?ref=${data.reference}&type=data&amount=${plan.sell_price}&network=${network}&bundle=${encodeURIComponent(plan.size)}`);
+      const receiptId = data?.id || data?.reference;
+      nav(`/app/receipt/${receiptId}`);
     } catch (e: any) {
       // Extract actual error from Supabase FunctionsHttpError
       let msg = e.message ?? "Failed";

@@ -120,7 +120,8 @@ export default function Electricity() {
       }
       if (!data?.success) throw new Error(data?.error || data?.message || "Payment failed");
       refresh();
-      nav(`/app/success?ref=${data.reference}&type=electricity&amount=${amount}&network=${provider.name}`);
+      const receiptId = data?.id || data?.reference;
+      nav(`/app/receipt/${receiptId}`);
     } catch (e: any) {
       toast.error(e.message || "Payment failed");
     } finally {
