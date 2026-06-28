@@ -77,8 +77,25 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
     });
     const d = await r.json();
     console.log("[gsubz] status:", r.status, "response:", JSON.stringify(d).slice(0, 400));
-    if (!r.ok || d?.success === false || d?.status === false || d?.code === "error") {
-      const m = d?.message || d?.error || d?.msg || "Gsubz failed";
+    const statusStr = typeof d?.status === "string" ? d.status.toLowerCase() : "";
+    const codeStr   = typeof d?.code === "string" ? d.code : "";
+    const isFailed  = !r.ok
+      || d?.success === false
+      || d?.status === false
+      || d?.code === "error"
+      || statusStr.includes("failed")
+      || statusStr.includes("error")
+      || codeStr === "401"
+      || codeStr === "400"
+      || codeStr === "403"
+      || codeStr === "500"
+      || codeStr === "502"
+      || codeStr === "503"
+      || (codeStr && codeStr !== "100" && codeStr !== "200" && codeStr !== "success");
+
+    if (isFailed) {
+      const m = d?.description || d?.message || d?.error || d?.msg || d?.status || "Gsubz failed";
+      console.error("[gsubz] FAILED response:", JSON.stringify(d));
       return { success: false, msg: m, bundle_down: isBundleDown(m) };
     }
     return { success: true, ref: String(d?.data?.reference || d?.data?.id || d?.reference || d?.requestId || params.requestID || "") };
