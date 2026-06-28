@@ -8,6 +8,7 @@ const cors = {
 
 const SUPA_URL  = Deno.env.get("SUPABASE_URL")!;
 const SUPA_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPA_SVC  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const BASE_SYS = `You are Blitzi, the AI assistant inside BlitzPay — a Nigerian fintech app for buying airtime, data, electricity and cable TV.
 
@@ -41,9 +42,6 @@ serve(async (req) => {
   try {
     const body = await req.json();
 
-    // Support BOTH formats:
-    // AppShell sends { messages: [...] } with full history
-    // Legacy: { message: "..." } single string
     let messages: Array<{ role: string; content: string }> = [];
     if (Array.isArray(body.messages) && body.messages.length > 0) {
       messages = body.messages;
@@ -60,14 +58,17 @@ serve(async (req) => {
     // Build personalized system prompt with user account context
     let sysPrompt = BASE_SYS;
     const authHeader = req.headers.get("Authorization");
+    let currentUserId: string | null = null;
+
     if (authHeader) {
       try {
         const uc = createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: authHeader } } });
         const { data: { user } } = await uc.auth.getUser();
         if (user) {
+          currentUserId = user.id;
           // Get wallet balance
           const { data: wallet } = await uc.from("wallets").select("balance, refund_balance").eq("user_id", user.id).maybeSingle();
-          // Get recent transactions
+          // Get recent transactions (user's own)
           const { data: txs } = await uc.from("transactions")
             .select("type, network, amount, status, reference, created_at")
             .eq("user_id", user.id)
@@ -96,6 +97,36 @@ serve(async (req) => {
         }
       } catch {
         // auth context optional — proceed without it
+      }
+    }
+
+    // ── AI SUPPORT: Search ALL receipts by reference if user asks ────────────────────
+    // If the last user message contains a transaction reference, look it up across ALL users
+    const lastUserMsg = messages.filter(m => m.role === "user").pop()?.content || "";
+    const refMatch = lastUserMsg.match(/(?:ref|reference)[\s:#=]*(SP-[A-Z0-9-]+)/i) ||
+                     lastUserMsg.match(/(SP-[A-Z0-9-]+)/i) ||
+                     lastUserMsg.match(/(TP-[A-Z0-9-]+)/i) ||
+                     lastUserMsg.match(/(SCH-[A-Z0-9-]+)/i);
+
+    if (refMatch) {
+      const searchRef = refMatch[1];
+      try {
+        const svc = createClient(SUPA_URL, SUPA_SVC);
+        const { data: foundTxs } = await svc.rpc("search_transaction_by_reference", { _ref: searchRef });
+        if (foundTxs && foundTxs.length > 0) {
+          let txCtx = "\n\nTRANSACTION LOOKUP RESULTS:";
+          for (const tx of foundTxs.slice(0, 3)) {
+            txCtx += `\n- Ref: ${tx.reference}`;
+            txCtx += `\n  Type: ${tx.tx_type}, Network: ${tx.network || "N/A"}, Amount: ₦${tx.amount}`;
+            txCtx += `\n  Status: ${tx.status}, Phone: ${tx.phone || "N/A"}`;
+            txCtx += `\n  User: ${tx.user_name || tx.user_email || "Unknown"}, Date: ${new Date(tx.created_at).toLocaleDateString("en-NG")}`;
+            if (tx.meta?.provider_used) txCtx += `\n  Provider: ${tx.meta.provider_used}`;
+            if (tx.meta?.provider_reference) txCtx += `\n  Provider Ref: ${tx.meta.provider_reference}`;
+          }
+          sysPrompt += txCtx;
+        }
+      } catch (e) {
+        console.error("[swift-chat] ref search error:", e);
       }
     }
 
