@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCircle, Mail, CheckCircle2, AlertTriangle, Loader2, Send } from "lucide-react";
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
 export default function Support() {
   const { user } = useAuth();
   const [showTicket, setShowTicket] = useState(false);
@@ -41,7 +44,19 @@ export default function Support() {
         .select("ticket_ref")
         .single();
       if (error) throw error;
-      setTicketRef((data as Record<string, string>).ticket_ref);
+      const ref = (data as Record<string, string>).ticket_ref;
+      setTicketRef(ref);
+
+      // Trigger email to blitzpaysup@gmail.com immediately
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/support-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": ANON_KEY },
+          body: JSON.stringify({ ticket_ref: ref }),
+        });
+      } catch (e) {
+        console.warn("[support] email trigger failed (will retry via cron):", e);
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to submit ticket");
     } finally {
@@ -144,7 +159,8 @@ export default function Support() {
             <div>
               <h2 className="font-display text-xl font-bold">Ticket Submitted</h2>
               <p className="text-sm text-muted-foreground mt-1">Ref: <span className="font-mono text-primary">{ticketRef}</span></p>
-              <p className="text-xs text-muted-foreground mt-2">We'll get back to you within 24 hours.</p>
+              <p className="text-xs text-muted-foreground mt-2">We've also notified our support team at blitzpaysup@gmail.com.</p>
+              <p className="text-xs text-muted-foreground">We'll get back to you within 24 hours.</p>
             </div>
             <button onClick={() => { setTicketRef(null); setShowTicket(false); setMessage(""); }}
               className="h-11 px-6 rounded-xl bg-secondary/40 border border-white/10 text-sm font-semibold">
