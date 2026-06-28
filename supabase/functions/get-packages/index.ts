@@ -5,6 +5,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const MIN_HEALTH = 60;
+const GSUBZ_MIN_PRICE = 250; // GSubz plans must sell for at least ₦250
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -39,9 +40,17 @@ serve(async (req) => {
       const total = ((s.success_count as number) || 0) + ((s.fail_count as number) || 0);
       if (total > 5) success_rate = Math.round(((s.success_count as number) / total) * 100);
 
+      // Enforce minimum sell price for GSubz plans
+      let sell_price = pkg.price;
+      const providerCode = String(pkg.provider_code || "").toLowerCase();
+      const pkgCode = String(pkg.package_code || "").toLowerCase();
+      if (providerCode === "gsubz" || pkgCode.startsWith("gsz-")) {
+        sell_price = Math.max(sell_price, GSUBZ_MIN_PRICE);
+      }
+
       const plan = {
         id: pkg.package_code, name: pkg.name, size: pkg.size, validity: pkg.validity,
-        sell_price: pkg.price, provider_code: pkg.provider_code, package_code: pkg.package_code,
+        sell_price, provider_code: pkg.provider_code, package_code: pkg.package_code,
         bp_value: pkg.bp_value ?? 1, tier: pkg.tier ?? "promo",
         health_score: pkgHealth, is_blitz_prime: pkg.is_blitz_prime ?? false,
         coming_soon: comingSoon, available, success_rate,
