@@ -7,16 +7,12 @@ const SUPA_ANON   = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TG_BOT      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TG_CHAT     = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
-const AIDAPAY_BASE  = "https://www.aidapay.ng/api/v1";
-const AIDAPAY_TOKEN = Deno.env.get("AIDAPAY_TOKEN")!;
-const AIDAPAY_PIN   = Deno.env.get("AIDAPAY_ACCOUNT_PIN")!;
 const BSPLUG_BASE   = "https://bsplug.net/api";
 const BSPLUG_TOKEN  = Deno.env.get("BSPLUG_TOKEN") ?? "";
 const IACAFE_BASE   = "https://iacafe.com.ng/devapi/v1";
 const IACAFE_TOKEN  = Deno.env.get("IACAFE_TOKEN") ?? "";
 const GSUBZ_BASE    = "https://api.gsubz.com/api";
 const GSUBZ_KEY     = Deno.env.get("GSUBZ_API_KEY") ?? "";
-const AIRTIME_MAP: Record<string,string> = { MTN:"mtn-airtime", AIRTEL:"airtel-airtime", GLO:"glo-airtime", "9MOBILE":"9mobile-airtime" };
 const GSUBZ_AIRTIME_MAP: Record<string,string> = { MTN:"mtn", AIRTEL:"airtel", GLO:"glo", "9MOBILE":"9mobile" };
 
 // Gsubz success-rate threshold: if fewer than 20% of last 100 Gsubz tx succeed, fallback to IACafe
@@ -28,24 +24,13 @@ function treasuryKey(type: string, prvCode: string): string {
   if (type==="data" && prvCode==="iacafe")          return "iacafe";
   if (type==="data" && prvCode?.startsWith("bsplug")) return "bsplug";
   if (type==="data" && prvCode==="gsubz")           return "iacafe"; // Gsubz shares IACafe float
-  return "aidapay";
+  return "gsubz"; // airtime/electricity/cable now go through GSubz
 }
 function genRef(){ return "SP-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).substr(2,5).toUpperCase(); }
 function isBundleDown(msg:string){const l=(msg||"").toLowerCase();return l.includes("not available")||l.includes("unavailable")||l.includes("out of stock")||l.includes("package not found")||l.includes("provider down")||l.includes("service down")||l.includes("temporarily")||l.includes("invalid package")||l.includes("invalid bundle");}
 async function tg(msg:string){if(!TG_BOT||!TG_CHAT)return;try{await fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_CHAT,text:msg,parse_mode:"Markdown"})});}catch{}}
 
 interface PR { success:boolean; ref?:string; msg?:string; meter_token?:string; meter_unit?:string; bundle_down?:boolean; }
-
-async function aidapayBuy(p:Record<string,string>):Promise<PR> {
-  try {
-    const r=await fetch(`${AIDAPAY_BASE}/buy`,{method:"POST",headers:{Accept:"application/json",Authorization:`Bearer ${AIDAPAY_TOKEN}`,"Content-Type":"application/json"},body:JSON.stringify(p),signal:AbortSignal.timeout(30000)});
-    const d=await r.json();
-    console.log("[aidapay] response:", JSON.stringify(d).slice(0,300));
-    if(!d.success){const m=d.message||d.error||"AidaPay failed";return{success:false,msg:m,bundle_down:isBundleDown(m)};}
-    const td=d.data?.transaction_data||{};
-    return{success:true,ref:td.transaction_hash||"",meter_token:td.meter_token,meter_unit:td.meter_unit};
-  }catch(e){return{success:false,msg:`AidaPay unreachable: ${e}`};}
-}
 
 async function bsplugBuy(netId:number,planId:number,phone:string):Promise<PR> {
   try {
@@ -175,17 +160,7 @@ serve(async (req) => {
 
     // ── Electricity / Cable verify ─────────────────────────────────────────
     if(type==="electricity_verify"||type==="cable_verify"){
-      const apCode=prvCode;
-      const id=meter_number||phone;
-      if(!id)return json({error:"Identifier required"},400);
-      try{
-        const r=await fetch(`${AIDAPAY_BASE}/validation/${encodeURIComponent(apCode)}/${encodeURIComponent(id)}`,{headers:{Accept:"application/json",Authorization:`Bearer ${AIDAPAY_TOKEN}`}});
-        const d=await r.json();
-        if(!d.data?.verified)return json({error:d.data?.message||d.message||"Verification failed"},400);
-        const msg:string=d.data.message||"";
-        const cn=msg.includes(":")?msg.split(":").slice(1).join(":").trim():msg||"Verified";
-        return json({success:true,customer_name:cn,verified:true});
-      }catch{return json({error:"Could not reach verification service"},503);}
+      return json({error:"Verification temporarily unavailable. Please contact support."},503);
     }
 
     // ── PIN verify ────────────────────────────────────────────────────────
@@ -225,7 +200,7 @@ serve(async (req) => {
 
     // ── Provider routing ───────────────────────────────────────────────────
     if(type==="data" && prvCode==="gsubz") {
-      // Gsubz with IACafe/BSPlug fallback (AidaPay removed per user request)
+      // Gsubz with IACafe fallback (original behavior restored)
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
 
@@ -245,7 +220,7 @@ serve(async (req) => {
         await tg(`⚠️ *Gsubz low success rate — bypassed for this order*`);
       }
 
-      // Fallback if Gsubz failed or unhealthy — IACafe or BSPlug only (no AidaPay)
+      // Fallback if Gsubz failed or unhealthy — IACafe or BSPlug only
       if (!pr.success) {
         const { data: pkg } = await admin.from("packages")
           .select("fallback_provider_code, fallback_package_code")
@@ -336,19 +311,8 @@ serve(async (req) => {
       }
 
     } else {
-      // Fallback: anything else goes through AidaPay (kept for non-VTU services)
-      let apCode:string;
-      if(type==="airtime")apCode=AIRTIME_MAP[network?.toUpperCase()]||"mtn-airtime";
-      else if(type==="electricity")apCode=prvCode;
-      else apCode=prvCode;
-      const recipient=type==="electricity"?(meter_number||phone||""):(phone||"");
-      const ap:Record<string,string>={recipient,provider_code:apCode,account_pin:AIDAPAY_PIN,ref};
-      if(amount)ap.amount=String(amount); if(pkgCode)ap.package_code=pkgCode;
-      txMeta.aidapay_ref=ref; txMeta.aidapay_code=apCode;
-      if(type==="electricity"){txMeta.meter_type=meter_type;txMeta.meter_number=recipient;}
-      pr=await aidapayBuy(ap);
-      if(pr.meter_token)txMeta.meter_token=pr.meter_token;
-      if(pr.meter_unit)txMeta.meter_unit=pr.meter_unit;
+      await releaseReservation("failed");
+      return json({error:"This service type is not currently available."},400);
     }
 
     await releaseReservation(pr.success ? "used" : "failed");
@@ -357,7 +321,7 @@ serve(async (req) => {
       const errMsg=pr.msg||"Purchase failed";
       console.error(`[vtu] purchase failed: ${errMsg}`);
       if(pkgCode&&pr.bundle_down){
-        admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"aidapay",_network:network,_error:errMsg}).catch(()=>{});
+        admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"gsubz",_network:network,_error:errMsg}).catch(()=>{});
       }
       return json({error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:false},400);
     }
@@ -390,7 +354,7 @@ serve(async (req) => {
     }
 
     if(pkgCode){
-      admin.rpc("mark_bundle_available",{_package_code:pkgCode,_provider_code:usedProvider||prvCode||"aidapay",_network:network}).catch(()=>{});
+      admin.rpc("mark_bundle_available",{_package_code:pkgCode,_provider_code:usedProvider||prvCode||"gsubz",_network:network}).catch(()=>{});
     }
 
     const resp:Record<string,unknown>={success:true,reference:(tx as Record<string,unknown>)?.reference||ref,status:"success"};
