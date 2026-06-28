@@ -236,6 +236,7 @@ export default function Data() {
     if (pin.length < 4) return toast.error("Enter 4-digit PIN");
     if (plan.sell_price > balance) return toast.error("Insufficient balance");
     setBusy(true);
+    setStep("verifying");
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
         body: { type: "data", network: plan.network, phone, amount: plan.sell_price, pin, bundle: plan.id, provider: plan.provider_code },

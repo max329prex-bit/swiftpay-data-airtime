@@ -15,11 +15,10 @@ const GSUBZ_BASE    = "https://api.gsubz.com/api";
 const GSUBZ_KEY     = Deno.env.get("GSUBZ_API_KEY") ?? "";
 const GSUBZ_AIRTIME_MAP: Record<string,string> = { MTN:"mtn", AIRTEL:"airtel", GLO:"glo", "9MOBILE":"9mobile" };
 
-// Gsubz success-rate threshold: if fewer than 20% of last 100 Gsubz tx succeed, fallback to IACafe
 const GSUBZ_MIN_SUCCESS_RATE = 0.20;
 const GSUBZ_SAMPLE_WINDOW    = 100;
 const GSUBZ_HOUR_WINDOW_MS   = 60 * 60 * 1000;
-const GSUBZ_MIN_AMOUNT       = 100; // Absolute minimum for any purchase
+const GSUBZ_MIN_AMOUNT       = 100;
 
 function treasuryKey(type: string, prvCode: string): string {
   if (type==="data" && prvCode==="iacafe")          return "iacafe";
@@ -57,20 +56,27 @@ async function iacafeBuy(planId:number,phone:string,reqId:string):Promise<PR> {
 }
 
 async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
-  if (!GSUBZ_KEY) return { success: false, msg: "Gsubz: no API key configured" };
+  const key = (GSUBZ_KEY || "").trim();
+  console.log("[gsubz] key length:", key.length, "key first 10 chars:", key.substring(0,10));
+  if (!key) {
+    console.error("[gsubz] GSUBZ_API_KEY is empty or not configured");
+    return { success: false, msg: "Gsubz API key not configured. Contact support." };
+  }
   try {
     const fd = new FormData();
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null) fd.append(k, String(v));
     }
+    // Ensure api key is in the form data too
+    fd.append("api", key);
     const r = await fetch(`${GSUBZ_BASE}/pay/`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${GSUBZ_KEY}` },
+      headers: { "Authorization": `Bearer ${key}` },
       body: fd,
       signal: AbortSignal.timeout(30000)
     });
     const d = await r.json();
-    console.log("[gsubz] response:", JSON.stringify(d).slice(0, 400));
+    console.log("[gsubz] status:", r.status, "response:", JSON.stringify(d).slice(0, 400));
     if (!r.ok || d?.success === false || d?.status === false || d?.code === "error") {
       const m = d?.message || d?.error || d?.msg || "Gsubz failed";
       return { success: false, msg: m, bundle_down: isBundleDown(m) };
@@ -145,13 +151,18 @@ serve(async (req) => {
     }
   }
 
-  async function cleanupPending(reason: string): Promise<void> {
+  async function failAndRefund(reason: string): Promise<void> {
     if (!pendingTxId) return;
     try {
-      const { data: rev } = await admin.rpc("reverse_vtu_transaction", { _tx_id: pendingTxId, _reason: reason });
-      console.log(`[vtu] reversed pending tx ${pendingTxId}: ${reason}`);
+      const { data: rev, error: revErr } = await admin.rpc("fail_and_refund_transaction", { _tx_id: pendingTxId, _reason: reason });
+      if (revErr) {
+        console.error(`[vtu] fail_and_refund failed for tx ${pendingTxId}:`, revErr.message);
+        await tg(`🚨 *CRITICAL: refund failed*\nTx: ${pendingTxId}\nReason: ${reason}\nError: ${revErr.message}`);
+      } else {
+        console.log(`[vtu] refunded tx ${pendingTxId}: ${reason}`);
+      }
     } catch (e) {
-      console.error(`[vtu] failed to reverse tx ${pendingTxId}:`, e);
+      console.error(`[vtu] exception during refund for tx ${pendingTxId}:`, e);
     }
     pendingTxId = null;
   }
@@ -184,8 +195,8 @@ serve(async (req) => {
     const ref=genRef();
     const txMeta:Record<string,unknown>={...meta,provider_code:prvCode||"",package_code:pkgCode||""};
 
-    // ── STEP 1: Create PENDING transaction (wallet untouched) ────────────
-    const { data: pendingTx, error: pendingErr } = await admin.rpc("create_vtu_transaction_pending", {
+    // ── STEP 1: Debit wallet + create PENDING transaction (ATOMIC) ─────────
+    const { data: pendingTx, error: pendingErr } = await admin.rpc("debit_and_create_transaction", {
       _user_id: user.id,
       _type: type,
       _network: network || prvCode || "",
@@ -195,13 +206,13 @@ serve(async (req) => {
       _meta: txMeta,
     });
     if (pendingErr || !pendingTx) {
-      console.error("[vtu] FAILED to create pending transaction:", pendingErr?.message);
-      await tg(`🚨 *Critical: pending tx creation failed*\nUser: ${user.id}\n₦${amount} ${type}\n${pendingErr?.message || ""}`);
+      console.error("[vtu] FAILED to debit wallet / create pending transaction:", pendingErr?.message);
+      await tg(`🚨 *Critical: debit+pending creation failed*\nUser: ${user.id}\n₦${amount} ${type}\n${pendingErr?.message || ""}`);
       return json({ error: "Could not initiate purchase. Please try again." }, 500);
     }
     pendingTxId = (pendingTx as Record<string,unknown>).id as string;
     const txReference = (pendingTx as Record<string,unknown>).reference as string || ref;
-    console.log(`[vtu] pending tx ${pendingTxId} created, ref=${txReference}`);
+    console.log(`[vtu] wallet debited, pending tx ${pendingTxId} created, ref=${txReference}`);
 
     // ── Treasury: Reserve liquidity ───────────────────────────────────────
     const tProv = treasuryKey(type, prvCode||"");
@@ -212,7 +223,7 @@ serve(async (req) => {
       if(re){
         const m=re.message||"";
         if(m.includes("INSUFFICIENT_LIQUIDITY")||m.includes("paused")){
-          await cleanupPending("Liquidity reservation failed");
+          await failAndRefund("Liquidity reservation failed");
           await tg(`🚨 *Low Float — ${tProv}*\nInsufficient liquidity for ₦${amount}\nUser: ${user.id}`);
           return json({error:"Service temporarily unavailable. Please try again shortly.",code:"LOW_FLOAT"},503);
         }
@@ -289,7 +300,7 @@ serve(async (req) => {
     } else if(type==="data" && prvCode==="iacafe"){
       const planId=parseInt((pkgCode||"").replace("IAC-",""),10);
       if(!planId){
-        await cleanupPending("Invalid IA Cafe plan");
+        await failAndRefund("Invalid IA Cafe plan");
         await releaseReservation("failed");
         return json({error:"Invalid IA Cafe plan"},400);
       }
@@ -301,7 +312,7 @@ serve(async (req) => {
       const nId=parseInt(prvCode.split("-")[1]||"1",10);
       const pId=parseInt((pkgCode||"").replace("BSP-",""),10);
       if(!pId||!nId){
-        await cleanupPending("Invalid BSPlug plan");
+        await failAndRefund("Invalid BSPlug plan");
         await releaseReservation("failed");
         return json({error:"Invalid BSPlug plan"},400);
       }
@@ -345,7 +356,7 @@ serve(async (req) => {
       }
 
     } else {
-      await cleanupPending("Service type unavailable");
+      await failAndRefund("Service type unavailable");
       await releaseReservation("failed");
       return json({error:"This service type is not currently available."},400);
     }
@@ -359,25 +370,21 @@ serve(async (req) => {
       if(pkgCode&&pr.bundle_down){
         try{ await admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"gsubz",_network:network,_error:errMsg}); }catch{}
       }
-      await cleanupPending(errMsg);
-      return json({error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:false},400);
+      await failAndRefund(errMsg);
+      return json({error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:true},400);
     }
 
-    // ── STEP 3: COMMIT transaction — debit wallet now that provider succeeded ──
+    // ── STEP 3: COMMIT transaction to success ────────────────────────────
     txMeta.provider_reference = pr.ref || ref;
-    const{data:pkgRow}=await admin.from("packages").select("bp_value").eq("package_code",pkgCode||"").maybeSingle();
-    const{data:committedTx,error:commitErr}=await admin.rpc("commit_vtu_transaction",{
+    const{data:committedTx,error:commitErr}=await admin.rpc("commit_transaction",{
       _tx_id: pendingTxId,
-      _user_id: user.id,
-      _amount: Number(amount || 0),
       _provider_reference: pr.ref || ref,
       _meta: txMeta,
     });
     if(commitErr){
       console.error("[vtu] COMMIT failed after provider success:", commitErr.message);
       await tg(`🚨 *CRITICAL: commit failed after delivery*\nUser: ${user.id}\nTx: ${pendingTxId}\n₦${amount} ${type}/${network||prvCode}\nError: ${commitErr.message}`);
-      // Provider already delivered but wallet debit failed — log for manual review
-      return json({error:"Purchase delivered but wallet update failed. Contact support.",tx_id:pendingTxId,reference:txReference},500);
+      return json({success:true,warning:"Purchase delivered but status update delayed. Contact support if needed.",tx_id:pendingTxId,reference:txReference,status:"pending"},200);
     }
     console.log(`[vtu] committed tx ${pendingTxId}: ${(committedTx as Record<string,unknown>)?.reference}`);
 
@@ -394,7 +401,7 @@ serve(async (req) => {
 
   }catch(e){
     console.error("vtu-purchase unhandled error:",e);
-    await cleanupPending("Unhandled error");
+    await failAndRefund("Unhandled error");
     await releaseReservation("failed");
     return json({error:e instanceof Error?e.message:"Unknown"},500);
   }
