@@ -40,6 +40,7 @@ const queryClient = new QueryClient();
 
 /**
  * Protects admin routes — redirects non-admins to /admin login.
+ * Admin auth is independent of user accounts (sessionStorage token).
  */
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { isAdmin, loading } = useAdminRole();
@@ -62,7 +63,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            {/* Standalone admin login — password + OTP, no email field */}
+            {/* Standalone admin login — password + OTP, no email field, no user account */}
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/app/setup-pin" element={<PinSetup />} />
             <Route path="/app" element={<AppShell />}>
