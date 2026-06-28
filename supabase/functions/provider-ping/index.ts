@@ -34,11 +34,19 @@ function pickBalance(d: any): number | string | null {
 async function pingAidaPay(): Promise<Result> {
   const has = !!AIDAPAY_TOKEN;
   if (!has) return { provider: "aidapay", ok: false, has_credentials: false, error: "AIDAPAY_TOKEN missing" };
-  const r = await tryFetch("https://www.aidapay.ng/api/v1/user", { headers: { Authorization: `Bearer ${AIDAPAY_TOKEN}`, Accept: "application/json" } });
-  if ("error" in r) return { provider: "aidapay", ok: false, has_credentials: has, error: r.error };
-  let d: any = null; try { d = JSON.parse(r.text); } catch {}
-  const ok = r.http >= 200 && r.http < 300 && (d?.success !== false);
-  return { provider: "aidapay", ok, http: r.http, balance: pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
+  // Try a few common paths
+  const paths = ["/profile", "/balance", "/wallet", "/me", "/account"];
+  let last: any = null;
+  for (const p of paths) {
+    const r = await tryFetch(`https://www.aidapay.ng/api/v1${p}`, { headers: { Authorization: `Bearer ${AIDAPAY_TOKEN}`, Accept: "application/json" } });
+    if ("error" in r) { last = { http: 0, text: r.error }; continue; }
+    last = r;
+    if (r.http >= 200 && r.http < 300) {
+      let d: any = null; try { d = JSON.parse(r.text); } catch {}
+      return { provider: "aidapay", ok: true, http: r.http, balance: pickBalance(d), raw: `${p} → ${r.text.slice(0,220)}`, has_credentials: has };
+    }
+  }
+  return { provider: "aidapay", ok: false, http: last?.http ?? 0, raw: last?.text?.slice?.(0,240), has_credentials: has, error: "no working balance endpoint" };
 }
 
 async function pingBSPlug(): Promise<Result> {
@@ -54,21 +62,21 @@ async function pingBSPlug(): Promise<Result> {
 async function pingIACafe(): Promise<Result> {
   const has = !!IACAFE_TOKEN;
   if (!has) return { provider: "iacafe", ok: false, has_credentials: false, error: "IACAFE_TOKEN missing" };
-  const r = await tryFetch("https://iacafe.com.ng/devapi/v1/user", { headers: { Authorization: `Bearer ${IACAFE_TOKEN}`, Accept: "application/json" } });
+  const r = await tryFetch("https://iacafe.com.ng/devapi/v1/wallet", { headers: { Authorization: `Bearer ${IACAFE_TOKEN}`, Accept: "application/json" } });
   if ("error" in r) return { provider: "iacafe", ok: false, has_credentials: has, error: r.error };
   let d: any = null; try { d = JSON.parse(r.text); } catch {}
-  const ok = r.http >= 200 && r.http < 300 && (d?.code !== "error");
-  return { provider: "iacafe", ok, http: r.http, balance: pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
+  const ok = r.http >= 200 && r.http < 300 && d?.success !== false;
+  return { provider: "iacafe", ok, http: r.http, balance: d?.data?.balance ?? d?.data?.wallet_balance ?? pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
 }
 
 async function pingGsubz(): Promise<Result> {
   const has = !!GSUBZ_KEY;
   if (!has) return { provider: "gsubz", ok: false, has_credentials: false, error: "GSUBZ_API_KEY missing" };
-  const r = await tryFetch("https://gsubz.com/api/balance/", { headers: { "api-key": GSUBZ_KEY, Accept: "application/json" } });
+  const r = await tryFetch("https://gsubz.com/api/balance/", { method: "POST", headers: { "api-key": GSUBZ_KEY, Accept: "application/json", "Content-Type": "application/json" }, body: "{}" });
   if ("error" in r) return { provider: "gsubz", ok: false, has_credentials: has, error: r.error };
   let d: any = null; try { d = JSON.parse(r.text); } catch {}
-  const ok = r.http >= 200 && r.http < 300 && d?.status !== false;
-  return { provider: "gsubz", ok, http: r.http, balance: d?.balance ?? pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
+  const ok = r.http >= 200 && r.http < 300 && (d?.status === "TRANSACTION_SUCCESSFUL" || d?.balance !== undefined || d?.data?.balance !== undefined);
+  return { provider: "gsubz", ok, http: r.http, balance: d?.balance ?? d?.data?.balance ?? pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
 }
 
 serve(async (req) => {
