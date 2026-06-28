@@ -200,7 +200,7 @@ serve(async (req) => {
 
     // ── Provider routing ───────────────────────────────────────────────────
     if(type==="data" && prvCode==="gsubz") {
-      // Gsubz with IACafe fallback (original behavior restored)
+      // Gsubz with per-plan fallback from packages table
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
 
@@ -212,15 +212,15 @@ serve(async (req) => {
           txMeta.provider_used = "gsubz";
           txMeta.gsubz_ref = pr.ref;
         } else {
-          console.warn(`[vtu] Gsubz failed (${pr.msg}), trying IACafe fallback`);
-          await tg(`⚠️ *Gsubz fallback triggered*\nPlan: ${pkgCode}\nReason: ${pr.msg}\nSwitching to IACafe`);
+          console.warn(`[vtu] Gsubz failed (${pr.msg}), trying fallback`);
+          await tg(`⚠️ *Gsubz fallback triggered*\nPlan: ${pkgCode}\nReason: ${pr.msg}\nChecking fallback from packages table`);
         }
       } else {
-        console.warn("[vtu] Gsubz success rate below threshold — skipping to IACafe");
+        console.warn("[vtu] Gsubz success rate below threshold — skipping to fallback");
         await tg(`⚠️ *Gsubz low success rate — bypassed for this order*`);
       }
 
-      // Fallback if Gsubz failed or unhealthy — IACafe or BSPlug only
+      // Fallback per plan from packages table (iacafe, bsplug, or others)
       if (!pr.success) {
         const { data: pkg } = await admin.from("packages")
           .select("fallback_provider_code, fallback_package_code")
@@ -250,6 +250,14 @@ serve(async (req) => {
               txMeta.provider_used = "bsplug_fallback";
             }
           }
+        } else if (fbPrvCode && fbPkgCode) {
+          // Catch-all fallback for custom provider codes (airtel-sme-cg, etc.)
+          const fbReqId = `FB-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
+          pr = await gsubzBuyRaw({ serviceID: fbPrvCode, plan: fbPkgCode, api: GSUBZ_KEY, phone, requestID: fbReqId });
+          if (pr.success) {
+            usedProvider = `${fbPrvCode}-fallback`;
+            txMeta.provider_used = `${fbPrvCode}_fallback`;
+          }
         }
       }
 
@@ -273,7 +281,7 @@ serve(async (req) => {
       pr=await bsplugBuy(nId,pId,phone);
 
     } else if (type === "airtime" || type === "electricity" || type === "cable") {
-      // ── GSubz for airtime/electricity/cable (replaces AidaPay) ─────────
+      // ── GSubz for airtime/electricity/cable ──────────────────────────────
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
 
