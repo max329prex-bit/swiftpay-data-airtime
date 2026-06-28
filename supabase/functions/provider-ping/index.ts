@@ -68,38 +68,32 @@ async function pingIACafe(): Promise<Result> {
   return { provider: "iacafe", ok, http: r.http, balance: d?.data?.balance ?? d?.data?.wallet_balance ?? pickBalance(d), raw: r.text.slice(0, 240), has_credentials: has };
 }
 
+// GSubz real API: POST https://api.gsubz.com/api/balance/ with FormData { api: api_key }
+// Auth: Authorization: Bearer {api_key}
 async function pingGsubz(): Promise<Result> {
   const has = !!GSUBZ_KEY;
   if (!has) return { provider: "gsubz", ok: false, has_credentials: false, error: "GSUBZ_API_KEY missing" };
 
-  // Try multiple Gsubz balance approaches (they are inconsistent across endpoints)
-  const attempts = [
-    // 1) GET with api-key header (some Gsubz endpoints expect this)
-    { url: "https://gsubz.com/api/balance/",  method: "GET",  headers: { "api-key": GSUBZ_KEY },       body: null,         note: "GET+api-key header" },
-    { url: "https://gsubz.com/api/v1/balance", method: "GET",  headers: { "api-key": GSUBZ_KEY },       body: null,         note: "GET+v1+api-key header" },
-    // 2) GET with Authorization Bearer (alternative auth style)
-    { url: "https://gsubz.com/api/balance/",  method: "GET",  headers: { "Authorization": `Bearer ${GSUBZ_KEY}` }, body: null, note: "GET+Bearer" },
-    // 3) POST with api-key header + empty JSON body (matches /pay/ style)
-    { url: "https://gsubz.com/api/balance/",  method: "POST", headers: { "api-key": GSUBZ_KEY, "Content-Type": "application/json" }, body: JSON.stringify({}), note: "POST+api-key+JSON" },
-    { url: "https://gsubz.com/api/v1/balance", method: "POST", headers: { "api-key": GSUBZ_KEY, "Content-Type": "application/json" }, body: JSON.stringify({}), note: "POST+v1+api-key+JSON" },
-    // 4) POST with FormData (original approach)
-    { url: "https://gsubz.com/api/balance/",  method: "POST", headers: {}, body: (() => { const fd = new FormData(); fd.append("api-key", GSUBZ_KEY); return fd; })(), note: "POST+FormData" },
-    // 5) POST with plain text body (rare but some APIs do this)
-    { url: "https://gsubz.com/api/balance/",  method: "POST", headers: { "Content-Type": "text/plain" }, body: `api-key=${GSUBZ_KEY}`, note: "POST+text body" },
-  ];
+  const fd = new FormData();
+  fd.append("api", GSUBZ_KEY);
 
-  const tried: any[] = [];
-  for (const { url, method, headers, body, note } of attempts) {
-    const r = await tryFetch(url, { method, headers: { ...headers, Accept: "application/json" }, body: body || undefined });
-    if ("error" in r) { tried.push({ note, error: r.error }); continue; }
-    tried.push({ note, http: r.http });
-    if (r.http >= 200 && r.http < 300) {
-      let d: any = null; try { d = JSON.parse(r.text); } catch {}
-      const bal = d?.balance ?? d?.data?.balance ?? d?.data?.wallet_balance ?? pickBalance(d);
-      return { provider: "gsubz", ok: true, http: r.http, balance: bal, raw: `${note} → ${r.text.slice(0,260)}`, has_credentials: has };
-    }
-  }
-  return { provider: "gsubz", ok: false, has_credentials: has, error: "no working endpoint", raw: JSON.stringify(tried).slice(0, 400) };
+  const r = await tryFetch("https://api.gsubz.com/api/balance/", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${GSUBZ_KEY}` },
+    body: fd
+  });
+
+  if ("error" in r) return { provider: "gsubz", ok: false, has_credentials: has, error: r.error };
+  let d: any = null; try { d = JSON.parse(r.text); } catch {}
+  const ok = r.http >= 200 && r.http < 300 && d?.status === "TRANSACTION_SUCCESSFUL";
+  return {
+    provider: "gsubz",
+    ok,
+    http: r.http,
+    balance: d?.data?.balance ?? d?.balance ?? pickBalance(d),
+    raw: r.text.slice(0, 260),
+    has_credentials: has
+  };
 }
 
 serve(async (req) => {
