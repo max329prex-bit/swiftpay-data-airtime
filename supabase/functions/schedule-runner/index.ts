@@ -99,7 +99,7 @@ serve(async (req) => {
         meta: { schedule_id: s.id, provider_ref: providerResp.ref, bundle: s.bundle_size },
       }).eq("id", (tx as any).id);
       if (s.bp_value && s.bp_value > 0) {
-        await sb.rpc("redeem_swift_points" as any, {}).catch(() => {}); // no-op; points awarded via direct profile bump
+        try { await sb.rpc("redeem_swift_points" as any, {}); } catch {} // no-op; points awarded via direct profile bump
       }
       await sb.rpc("advance_schedule_after_success", { _schedule_id: s.id });
       await sb.from("scheduled_runs").insert({
