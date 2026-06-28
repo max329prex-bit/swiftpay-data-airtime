@@ -2,9 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPA_URL   = Deno.env.get("SUPABASE_URL")!;
 const SUPA_SVC   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const BREVO_KEY  = Deno.env.get("BREVO_API_KEY") ?? "";
-const OTP_EMAIL  = Deno.env.get("ADMIN_OTP_EMAIL") ?? "";
-const BREVO_BASE = "https://api.brevo.com/v3";
+const TG_BOT     = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+const TG_CHAT    = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,41 +15,31 @@ function genOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function sendBrevoOtp(code: string): Promise<boolean> {
-  if (!BREVO_KEY || !OTP_EMAIL) {
-    console.warn("[admin-otp] BREVO_API_KEY or ADMIN_OTP_EMAIL not set");
+async function sendTelegramOtp(code: string): Promise<boolean> {
+  if (!TG_BOT || !TG_CHAT) {
+    console.warn("[admin-otp] TELEGRAM_BOT_TOKEN or TELEGRAM_ADMIN_CHAT_ID not set");
     return false;
   }
   try {
-    const r = await fetch(`${BREVO_BASE}/smtp/email`, {
+    const r = await fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage`, {
       method: "POST",
-      headers: { "api-key": BREVO_KEY, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sender: { name: "BlitzPay Admin", email: "noreply@blitzpay.ng" },
-        to: [{ email: OTP_EMAIL }],
-        subject: "BlitzPay Admin OTP",
-        htmlContent: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
-            <h2 style="color:#f59e0b;margin:0 0 8px;">BlitzPay Admin Access</h2>
-            <p style="color:#666;margin:0 0 24px;">Your one-time password is:</p>
-            <div style="background:#111;border:2px solid #f59e0b;border-radius:8px;padding:20px;text-align:center;">
-              <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#f59e0b;font-family:monospace;">${code}</span>
-            </div>
-            <p style="color:#999;font-size:12px;margin-top:16px;">Valid for 5 minutes. Do not share with anyone.</p>
-          </div>`,
-        textContent: `Your BlitzPay Admin OTP is: ${code}\nValid for 5 minutes.`
+        chat_id: TG_CHAT,
+        text: `🔐 *BlitzPay Admin OTP*\n\nCode: \`${code}\`\nValid for 5 minutes.\nDo not share with anyone.`,
+        parse_mode: "Markdown"
       }),
       signal: AbortSignal.timeout(15000)
     });
     const d = await r.json();
-    if (!r.ok) {
-      console.error("[admin-otp] Brevo send failed:", JSON.stringify(d).slice(0, 200));
+    if (!r.ok || !d.ok) {
+      console.error("[admin-otp] Telegram send failed:", JSON.stringify(d).slice(0, 200));
       return false;
     }
-    console.log("[admin-otp] OTP sent via Brevo, messageId:", d.messageId);
+    console.log("[admin-otp] OTP sent via Telegram, messageId:", d.result?.message_id);
     return true;
   } catch (e) {
-    console.error("[admin-otp] Brevo error:", e);
+    console.error("[admin-otp] Telegram error:", e);
     return false;
   }
 }
@@ -63,7 +52,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, password, code } = body as Record<string, string>;
 
-    // ── 1. Verify password (unchanged) ─────────────────────────────────────
+    // ── 1. Verify password ────────────────────────────────────────────────
     if (action === "verify-password") {
       if (!password || password !== ADMIN_PASSWORD) {
         return new Response(JSON.stringify({ success: false, error: "Invalid password" }),
@@ -72,7 +61,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true }), { headers: cors });
     }
 
-    // ── 2. Request OTP (generate + send via Brevo) ─────────────────────────
+    // ── 2. Request OTP (generate + send via Telegram) ─────────────────────
     if (action === "request-otp") {
       // Rate-limit: don't allow more than 1 OTP every 60s
       const sb = createClient(SUPA_URL, SUPA_SVC);
@@ -90,20 +79,18 @@ Deno.serve(async (req) => {
       // Store in DB (expires in 5min)
       await sb.from("admin_otps").insert({ code: otp, expires_at: expiresAt });
 
-      // Send via Brevo
-      const sent = await sendBrevoOtp(otp);
+      // Send via Telegram
+      const sent = await sendTelegramOtp(otp);
       if (!sent) {
-        return new Response(JSON.stringify({ success: false, error: "Failed to send OTP email" }),
+        return new Response(JSON.stringify({ success: false, error: "Failed to send OTP via Telegram" }),
           { status: 500, headers: cors });
       }
 
-      const maskedEmail = OTP_EMAIL.replace(/(.{2})(.+)(@.+)/, (_, a, b, c) =>
-        a + "*".repeat(Math.max(b.length - 1, 2)) + b.slice(-1) + c);
-      return new Response(JSON.stringify({ success: true, message: `OTP sent to ${maskedEmail}` }),
+      return new Response(JSON.stringify({ success: true, message: "OTP sent to Telegram admin" }),
         { headers: cors });
     }
 
-    // ── 3. Verify OTP ──────────────────────────────────────────────────────
+    // ── 3. Verify OTP ────────────────────────────────────────────────────
     if (action === "verify-otp") {
       if (!code) return new Response(JSON.stringify({ success: false, error: "OTP required" }),
         { status: 400, headers: cors });
