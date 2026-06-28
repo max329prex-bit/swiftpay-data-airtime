@@ -335,7 +335,7 @@ serve(async (req) => {
       const errMsg=pr.msg||"Purchase failed";
       console.error(`[vtu] purchase failed: ${errMsg}`);
       if(pkgCode&&pr.bundle_down){
-        admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"gsubz",_network:network,_error:errMsg}).catch(()=>{});
+        try{ await admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"gsubz",_network:network,_error:errMsg}); }catch{}
       }
       return json({error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:false},400);
     }
@@ -368,7 +368,7 @@ serve(async (req) => {
     }
 
     if(pkgCode){
-      admin.rpc("mark_bundle_available",{_package_code:pkgCode,_provider_code:usedProvider||prvCode||"gsubz",_network:network}).catch(()=>{});
+      try{ await admin.rpc("mark_bundle_available",{_package_code:pkgCode,_provider_code:usedProvider||prvCode||"gsubz",_network:network}); }catch{}
     }
 
     const resp:Record<string,unknown>={success:true,reference:(tx as Record<string,unknown>)?.reference||ref,status:"success"};
