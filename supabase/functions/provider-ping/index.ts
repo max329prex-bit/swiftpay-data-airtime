@@ -6,8 +6,6 @@ const cors = {
   "Content-Type": "application/json",
 };
 
-const AIDAPAY_TOKEN = Deno.env.get("AIDAPAY_TOKEN") ?? "";
-const AIDAPAY_PIN   = Deno.env.get("AIDAPAY_ACCOUNT_PIN") ?? "";
 const BSPLUG_TOKEN  = Deno.env.get("BSPLUG_TOKEN") ?? "";
 const IACAFE_TOKEN  = Deno.env.get("IACAFE_TOKEN") ?? "";
 const GSUBZ_KEY     = Deno.env.get("GSUBZ_API_KEY") ?? "";
@@ -29,23 +27,6 @@ function pickBalance(d: any): number | string | null {
   const candidates = [d?.data?.balance, d?.data?.wallet_balance, d?.data?.available_balance, d?.balance, d?.wallet_balance, d?.user?.balance, d?.data?.user?.balance];
   for (const c of candidates) if (c !== undefined && c !== null) return c;
   return null;
-}
-
-async function pingAidaPay(): Promise<Result> {
-  const has = !!AIDAPAY_TOKEN;
-  if (!has) return { provider: "aidapay", ok: false, has_credentials: false, error: "AIDAPAY_TOKEN missing" };
-  const paths = ["/transactions", "/user/balance", "/wallet-balance", "/wallet", "/user", "/services"];
-  const tried: any[] = [];
-  for (const p of paths) {
-    const r = await tryFetch(`https://www.aidapay.ng/api/v1${p}`, { headers: { Authorization: `Bearer ${AIDAPAY_TOKEN}`, Accept: "application/json" } });
-    if ("error" in r) { tried.push({ p, err: r.error }); continue; }
-    tried.push({ p, http: r.http });
-    if (r.http >= 200 && r.http < 300) {
-      let d: any = null; try { d = JSON.parse(r.text); } catch {}
-      return { provider: "aidapay", ok: true, http: r.http, balance: d?.data?.balance ?? pickBalance(d), raw: `${p} → ${r.text.slice(0,260)}`, has_credentials: has };
-    }
-  }
-  return { provider: "aidapay", ok: false, has_credentials: has, error: "no working endpoint", raw: JSON.stringify(tried).slice(0, 400) };
 }
 
 async function pingBSPlug(): Promise<Result> {
@@ -88,10 +69,9 @@ async function pingGsubz(): Promise<Result> {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
-  const results = await Promise.all([pingAidaPay(), pingBSPlug(), pingIACafe(), pingGsubz()]);
+  const results = await Promise.all([pingBSPlug(), pingIACafe(), pingGsubz()]);
   const summary = {
     ok: results.every(r => r.ok),
-    aidapay_pin_set: !!AIDAPAY_PIN,
     checked_at: new Date().toISOString(),
     results,
   };
