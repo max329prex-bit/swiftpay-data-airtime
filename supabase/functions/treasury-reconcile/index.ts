@@ -38,37 +38,29 @@ async function fetchBalance(code:string):Promise<number|null>{
 
     if(code==="gsubz"){
       if(!GSUBZ_KEY){ console.warn("[reconcile] GSUBZ_API_KEY not set"); return null; }
-      // Try multiple Gsubz balance endpoints in order — they use inconsistent auth
-      const attempts = [
-        // 1) GET with api-key header
-        { url:"https://gsubz.com/api/balance/",  method:"GET",  hdrs:{"api-key":GSUBZ_KEY}, body:null },
-        { url:"https://gsubz.com/api/v1/balance", method:"GET",  hdrs:{"api-key":GSUBZ_KEY}, body:null },
-        // 2) GET with Bearer
-        { url:"https://gsubz.com/api/balance/",  method:"GET",  hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`}, body:null },
-        // 3) POST with api-key + empty JSON (matches /pay/ style)
-        { url:"https://gsubz.com/api/balance/",  method:"POST", hdrs:{"api-key":GSUBZ_KEY,"Content-Type":"application/json"}, body:JSON.stringify({}) },
-        { url:"https://gsubz.com/api/v1/balance", method:"POST", hdrs:{"api-key":GSUBZ_KEY,"Content-Type":"application/json"}, body:JSON.stringify({}) },
-        // 4) FormData (legacy)
-        { url:"https://gsubz.com/api/balance/",  method:"POST", hdrs:{}, body:(()=>{const fd=new FormData();fd.append("api-key",GSUBZ_KEY);return fd;})() },
-        // 5) User endpoint
-        { url:"https://gsubz.com/api/v1/user",   method:"GET",  hdrs:{"Authorization":`Bearer ${GSUBZ_KEY}`}, body:null },
-      ];
-      for(const {url,method,hdrs,body} of attempts){
-        try{
-          const r=await fetch(url,{method,headers:{...hdrs,Accept:"application/json"},body:body||undefined,signal:AbortSignal.timeout(8000)});
-          const text=await r.text();
-          console.log(`[gsubz-balance] ${method} ${url} → ${r.status} body=${text.slice(0,300)}`);
-          if(!r.ok) continue;
-          const d=JSON.parse(text);
-          const bal=Number(
-            d?.data?.balance??d?.data?.wallet_balance??d?.data?.available_balance??
-            d?.balance??d?.wallet_balance??d?.available_balance??
-            d?.data?.wallet??d?.wallet??null
-          );
-          if(!isNaN(bal)&&bal>=0) return bal;
-        }catch(e){ console.warn(`[gsubz-balance] ${url} error:`,e); }
-      }
-      console.warn("[gsubz-balance] all endpoints failed — balance unknown");
+      // GSubz real API: POST https://api.gsubz.com/api/balance/ with FormData { api: api_key }
+      // Auth: Authorization: Bearer {api_key}
+      try {
+        const fd = new FormData();
+        fd.append("api", GSUBZ_KEY);
+        const r = await fetch("https://api.gsubz.com/api/balance/", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${GSUBZ_KEY}` },
+          body: fd,
+          signal: AbortSignal.timeout(8000)
+        });
+        const text = await r.text();
+        console.log(`[gsubz-balance] POST https://api.gsubz.com/api/balance/ → ${r.status} body=${text.slice(0,300)}`);
+        if(!r.ok) return null;
+        const d = JSON.parse(text);
+        const bal = Number(
+          d?.data?.balance??d?.data?.wallet_balance??d?.data?.available_balance??
+          d?.balance??d?.wallet_balance??d?.available_balance??
+          d?.data?.wallet??d?.wallet??null
+        );
+        if(!isNaN(bal)&&bal>=0) return bal;
+      } catch(e) { console.warn("[gsubz-balance] error:", e); }
+      console.warn("[gsubz-balance] balance endpoint failed — balance unknown");
       return null;
     }
 
