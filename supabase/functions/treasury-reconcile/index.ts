@@ -38,29 +38,29 @@ async function fetchBalance(code:string):Promise<number|null>{
 
     if(code==="gsubz"){
       if(!GSUBZ_KEY){ console.warn("[reconcile] GSUBZ_API_KEY not set"); return null; }
-      // GSubz real API: POST https://api.gsubz.com/api/balance/ with FormData { api: api_key }
+      // GSubz real API: POST to https://api.gsubz.com/api/balance/ with FormData
       // Auth: Authorization: Bearer {api_key}
-      try {
+      try{
         const fd = new FormData();
         fd.append("api", GSUBZ_KEY);
-        const r = await fetch("https://api.gsubz.com/api/balance/", {
+        const r=await fetch("https://api.gsubz.com/api/balance/",{
           method: "POST",
           headers: { "Authorization": `Bearer ${GSUBZ_KEY}` },
           body: fd,
-          signal: AbortSignal.timeout(8000)
+          signal: AbortSignal.timeout(10000)
         });
-        const text = await r.text();
-        console.log(`[gsubz-balance] POST https://api.gsubz.com/api/balance/ → ${r.status} body=${text.slice(0,300)}`);
+        const text=await r.text();
+        console.log(`[gsubz-balance] api.gsubz.com/api/balance/ → ${r.status} body=${text.slice(0,300)}`);
         if(!r.ok) return null;
-        const d = JSON.parse(text);
-        const bal = Number(
+        const d=JSON.parse(text);
+        const bal=Number(
           d?.data?.balance??d?.data?.wallet_balance??d?.data?.available_balance??
           d?.balance??d?.wallet_balance??d?.available_balance??
           d?.data?.wallet??d?.wallet??null
         );
         if(!isNaN(bal)&&bal>=0) return bal;
-      } catch(e) { console.warn("[gsubz-balance] error:", e); }
-      console.warn("[gsubz-balance] balance endpoint failed — balance unknown");
+      }catch(e){ console.warn(`[gsubz-balance] error:`,e); }
+      console.warn("[gsubz-balance] endpoint failed — balance unknown");
       return null;
     }
 
@@ -139,7 +139,7 @@ serve(async(req)=>{
 
     return new Response(JSON.stringify({status:"ok",...report}),{headers:{...cors,"Content-Type":"application/json"}});
   }catch(e){
-    await tg(`🚘 *Reconcile crashed*\n${e}`);
+    await tg(`🆘 *Reconcile crashed*\n${e}`);
     return new Response(JSON.stringify({error:String(e)}),{status:500,headers:{...cors,"Content-Type":"application/json"}});
   }
 });
