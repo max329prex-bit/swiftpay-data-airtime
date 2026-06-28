@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminToken } from "@/hooks/useAdminRole";
 import { ArrowLeft, Megaphone, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type BroadcastValue = { active: boolean; message: string; type: "info" | "warning" | "error"; title: string; updated_at: string; };
 
@@ -14,6 +18,7 @@ export default function Broadcast() {
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"info" | "warning" | "error">("info");
   const [saving, setSaving] = useState(false);
+  const [reached, setReached] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.from("app_settings").select("value").eq("key", "broadcast_message").maybeSingle()
@@ -29,11 +34,34 @@ export default function Broadcast() {
   async function publish() {
     if (!message.trim()) { toast.error("Enter a message"); return; }
     setSaving(true);
-    const value: BroadcastValue = { active: true, message: message.trim(), title: title.trim(), type, updated_at: new Date().toISOString() };
-    await supabase.from("app_settings").upsert({ key: "broadcast_message", value, updated_at: new Date().toISOString() });
-    setCurrent(value);
-    toast.success("Broadcast published!");
-    setSaving(false);
+    setReached(null);
+    try {
+      const token = getAdminToken();
+
+      // 1. Save to app_settings (keeps existing behavior)
+      const value: BroadcastValue = { active: true, message: message.trim(), title: title.trim(), type, updated_at: new Date().toISOString() };
+      await supabase.from("app_settings").upsert({ key: "broadcast_message", value, updated_at: new Date().toISOString() });
+
+      // 2. Send to all users via notifications table (the REAL fix)
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-broadcast`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": ANON_KEY,
+          "x-admin-token": token || "",
+        },
+        body: JSON.stringify({ title: title.trim(), message: message.trim(), type }),
+      });
+      const data = await res.json();
+      if (data.count) setReached(data.count);
+
+      setCurrent(value);
+      toast.success(`Broadcast published! ${data.count ? `Sent to ${data.count} users.` : ""}`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to publish");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function clear() {
@@ -66,6 +94,12 @@ export default function Broadcast() {
             <p className="text-xs leading-relaxed">{current.message}</p>
           </div>
           <button onClick={clear} disabled={saving} className="flex-shrink-0 opacity-60 hover:opacity-100 transition"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
+      {reached !== null && (
+        <div className="rounded-2xl p-3 bg-green-400/10 border border-green-400/20 text-green-400 text-xs text-center">
+          ✅ Alert sent to {reached} users via their notification inbox
         </div>
       )}
 
