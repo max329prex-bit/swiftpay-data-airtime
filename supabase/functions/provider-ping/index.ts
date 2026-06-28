@@ -34,12 +34,18 @@ function pickBalance(d: any): number | string | null {
 async function pingAidaPay(): Promise<Result> {
   const has = !!AIDAPAY_TOKEN;
   if (!has) return { provider: "aidapay", ok: false, has_credentials: false, error: "AIDAPAY_TOKEN missing" };
-  // Try a few common paths
-  const r = await tryFetch("https://www.aidapay.ng/api/v1/balance", { headers: { Authorization: `Bearer ${AIDAPAY_TOKEN}`, Accept: "application/json" } });
-  if ("error" in r) return { provider: "aidapay", ok: false, has_credentials: has, error: r.error };
-  let d: any = null; try { d = JSON.parse(r.text); } catch {}
-  const ok = r.http >= 200 && r.http < 300 && d?.success !== false;
-  return { provider: "aidapay", ok, http: r.http, balance: d?.data?.balance ?? pickBalance(d), raw: r.text.slice(0, 280), has_credentials: has };
+  const paths = ["/transactions", "/user/balance", "/wallet-balance", "/wallet", "/user", "/services"];
+  const tried: any[] = [];
+  for (const p of paths) {
+    const r = await tryFetch(`https://www.aidapay.ng/api/v1${p}`, { headers: { Authorization: `Bearer ${AIDAPAY_TOKEN}`, Accept: "application/json" } });
+    if ("error" in r) { tried.push({ p, err: r.error }); continue; }
+    tried.push({ p, http: r.http });
+    if (r.http >= 200 && r.http < 300) {
+      let d: any = null; try { d = JSON.parse(r.text); } catch {}
+      return { provider: "aidapay", ok: true, http: r.http, balance: d?.data?.balance ?? pickBalance(d), raw: `${p} → ${r.text.slice(0,260)}`, has_credentials: has };
+    }
+  }
+  return { provider: "aidapay", ok: false, has_credentials: has, error: "no working endpoint", raw: JSON.stringify(tried).slice(0, 400) };
 }
 
 async function pingBSPlug(): Promise<Result> {
@@ -65,10 +71,9 @@ async function pingIACafe(): Promise<Result> {
 async function pingGsubz(): Promise<Result> {
   const has = !!GSUBZ_KEY;
   if (!has) return { provider: "gsubz", ok: false, has_credentials: false, error: "GSUBZ_API_KEY missing" };
-  // Gsubz wants api-key in body or form
-  const fd = new URLSearchParams();
+  const fd = new FormData();
   fd.append("api-key", GSUBZ_KEY);
-  const r = await tryFetch("https://gsubz.com/api/balance/", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" }, body: fd.toString() });
+  const r = await tryFetch("https://gsubz.com/api/balance/", { method: "POST", body: fd });
   if ("error" in r) return { provider: "gsubz", ok: false, has_credentials: has, error: r.error };
   let d: any = null; try { d = JSON.parse(r.text); } catch {}
   const ok = r.http >= 200 && r.http < 300 && (d?.status === "TRANSACTION_SUCCESSFUL" || d?.balance !== undefined || d?.data?.balance !== undefined);
