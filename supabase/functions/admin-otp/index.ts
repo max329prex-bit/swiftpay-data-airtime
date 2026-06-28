@@ -15,6 +15,13 @@ function genOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function genToken(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let s = "";
+  for (let i = 0; i < 48; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+  return s;
+}
+
 async function sendTelegramOtp(code: string): Promise<boolean> {
   if (!TG_BOT || !TG_CHAT) {
     console.warn("[admin-otp] TELEGRAM_BOT_TOKEN or TELEGRAM_ADMIN_CHAT_ID not set");
@@ -52,7 +59,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, password, code } = body as Record<string, string>;
 
-    // ── 1. Verify password ────────────────────────────────────────────────
+    // ── 1. Verify password ──────────────────────────────────────────────────────────
     if (action === "verify-password") {
       if (!password || password !== ADMIN_PASSWORD) {
         return new Response(JSON.stringify({ success: false, error: "Invalid password" }),
@@ -61,7 +68,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true }), { headers: cors });
     }
 
-    // ── 2. Request OTP (generate + send via Telegram) ─────────────────────
+    // ── 2. Request OTP (generate + send via Telegram) ──────────────────────────
     if (action === "request-otp") {
       // Rate-limit: don't allow more than 1 OTP every 60s
       const sb = createClient(SUPA_URL, SUPA_SVC);
@@ -90,7 +97,7 @@ Deno.serve(async (req) => {
         { headers: cors });
     }
 
-    // ── 3. Verify OTP ────────────────────────────────────────────────────
+    // ── 3. Verify OTP + create admin session token ────────────────────────────
     if (action === "verify-otp") {
       if (!code) return new Response(JSON.stringify({ success: false, error: "OTP required" }),
         { status: 400, headers: cors });
@@ -113,7 +120,20 @@ Deno.serve(async (req) => {
       // Mark as used (one-time use)
       await sb.from("admin_otps").update({ used: true }).eq("id", otpRow.id);
 
-      return new Response(JSON.stringify({ success: true, message: "OTP verified" }), { headers: cors });
+      // Create independent admin session (NO link to any user account)
+      const token = genToken();
+      const ip = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "";
+      const ua = req.headers.get("user-agent") || "";
+      const sessionExpiry = new Date(Date.now() + 8 * 60 * 60_000).toISOString(); // 8 hours
+
+      await sb.from("admin_sessions").insert({
+        token,
+        ip_address: ip,
+        user_agent: ua,
+        expires_at: sessionExpiry,
+      });
+
+      return new Response(JSON.stringify({ success: true, token, expires_at: sessionExpiry }), { headers: cors });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: cors });
