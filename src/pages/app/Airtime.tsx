@@ -27,7 +27,8 @@ export default function Airtime() {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "Purchase failed");
       refresh();
-      nav(`/app/success?ref=${data.reference}&type=airtime&amount=${amount}&network=${network}`);
+      const receiptId = data?.id || data?.reference;
+      nav(`/app/receipt/${receiptId}`);
     } catch (e: any) { toast.error(e.message ?? "Failed"); } finally { setBusy(false); }
   }
   return (
