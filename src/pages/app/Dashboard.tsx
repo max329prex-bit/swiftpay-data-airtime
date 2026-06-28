@@ -33,6 +33,17 @@ export default function Dashboard() {
       .then(({ data }) => setRecent(data ?? []));
   }, [user, balance]);
 
+  // Auto-provision permanent deposit account on first login — silent, no UI.
+  // Backend uses operator default KYC so the user never has to enter NIN/BVN.
+  useEffect(() => {
+    if (!user) return;
+    const key = `va_provisioned_${user.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    supabase.functions.invoke("payvessel-topup", { body: { type: "static" } })
+      .catch(() => { /* silent — Wallet page will retry/show errors if any */ });
+  }, [user]);
+
   // Realtime: keep recent activity in sync + close the balance/tx race condition
   useEffect(() => {
     if (!user) return;
