@@ -17,15 +17,15 @@ const GSUBZ_AIRTIME_MAP: Record<string,string> = { MTN:"mtn", AIRTEL:"airtel", G
 
 // Gsubz success-rate threshold: if fewer than 20% of last 100 Gsubz tx succeed, fallback to IACafe
 const GSUBZ_MIN_SUCCESS_RATE = 0.20;
-const GSUBZ_SAMPLE_WINDOW    = 100; // transactions to sample
+const GSUBZ_SAMPLE_WINDOW    = 100;
 const GSUBZ_HOUR_WINDOW_MS   = 60 * 60 * 1000;
 const GSUBZ_MIN_AMOUNT       = 100; // Absolute minimum for any purchase
 
 function treasuryKey(type: string, prvCode: string): string {
   if (type==="data" && prvCode==="iacafe")          return "iacafe";
   if (type==="data" && prvCode?.startsWith("bsplug")) return "bsplug";
-  if (type==="data" && prvCode==="gsubz")           return "iacafe"; // Gsubz shares IACafe float
-  return "gsubz"; // airtime/electricity/cable now go through GSubz
+  if (type==="data" && prvCode==="gsubz")           return "iacafe";
+  return "gsubz";
 }
 function genRef(){ return "SP-"+Date.now().toString(36).toUpperCase()+"-"+Math.random().toString(36).substr(2,5).toUpperCase(); }
 function isBundleDown(msg:string){const l=(msg||"").toLowerCase();return l.includes("not available")||l.includes("unavailable")||l.includes("out of stock")||l.includes("package not found")||l.includes("provider down")||l.includes("service down")||l.includes("temporarily")||l.includes("invalid package")||l.includes("invalid bundle");}
@@ -56,9 +56,6 @@ async function iacafeBuy(planId:number,phone:string,reqId:string):Promise<PR> {
   }catch(e){return{success:false,msg:`IA Cafe unreachable: ${e}`};}
 }
 
-// GSubz real API: POST to https://api.gsubz.com/api/pay/ with FormData
-// Fields: serviceID, plan, api, phone, requestID
-// Auth: Authorization: Bearer {api_key}
 async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
   if (!GSUBZ_KEY) return { success: false, msg: "Gsubz: no API key configured" };
   try {
@@ -84,7 +81,6 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
   }
 }
 
-// Gsubz data: package_code format = "GSZ-{service}-{planId}"  e.g. "GSZ-mtn_awoof-354"
 async function gsubzBuy(pkgCode:string, phone:string, reqId:string): Promise<PR> {
   const parts = pkgCode.replace("GSZ-","").split("-");
   const planId = parts[parts.length - 1];
@@ -99,7 +95,6 @@ async function gsubzBuy(pkgCode:string, phone:string, reqId:string): Promise<PR>
   });
 }
 
-// Check Gsubz success rate in last hour — returns true if Gsubz is healthy
 async function isGsubzHealthy(admin: ReturnType<typeof createClient>): Promise<boolean> {
   try {
     const since = new Date(Date.now() - GSUBZ_HOUR_WINDOW_MS).toISOString();
@@ -111,13 +106,13 @@ async function isGsubzHealthy(admin: ReturnType<typeof createClient>): Promise<b
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(GSUBZ_SAMPLE_WINDOW);
-    if (!rows || rows.length < 5) return true; // not enough data — assume healthy
+    if (!rows || rows.length < 5) return true;
     const successes = rows.filter(r => r.status === "success").length;
     const rate = successes / rows.length;
     console.log(`[vtu] Gsubz health: ${successes}/${rows.length} = ${(rate*100).toFixed(1)}%`);
     return rate >= GSUBZ_MIN_SUCCESS_RATE;
   } catch {
-    return true; // fail open
+    return true;
   }
 }
 
@@ -136,6 +131,7 @@ serve(async (req) => {
 
   const admin = createClient(SUPA_URL, SUPA_SVC);
   let reservationId: string | null = null;
+  let pendingTxId: string | null = null;
 
   async function releaseReservation(outcome: "used" | "failed"): Promise<void> {
     if (!reservationId) return;
@@ -147,6 +143,17 @@ serve(async (req) => {
     } catch(e) {
       console.error(`[vtu] release_reservation failed (${outcome}):`, e);
     }
+  }
+
+  async function cleanupPending(reason: string): Promise<void> {
+    if (!pendingTxId) return;
+    try {
+      const { data: rev } = await admin.rpc("reverse_vtu_transaction", { _tx_id: pendingTxId, _reason: reason });
+      console.log(`[vtu] reversed pending tx ${pendingTxId}: ${reason}`);
+    } catch (e) {
+      console.error(`[vtu] failed to reverse tx ${pendingTxId}:`, e);
+    }
+    pendingTxId = null;
   }
 
   try {
@@ -177,6 +184,25 @@ serve(async (req) => {
     const ref=genRef();
     const txMeta:Record<string,unknown>={...meta,provider_code:prvCode||"",package_code:pkgCode||""};
 
+    // ── STEP 1: Create PENDING transaction (wallet untouched) ────────────
+    const { data: pendingTx, error: pendingErr } = await admin.rpc("create_vtu_transaction_pending", {
+      _user_id: user.id,
+      _type: type,
+      _network: network || prvCode || "",
+      _phone: type === "electricity" ? (meter_number || phone || "") : (phone || ""),
+      _amount: Number(amount || 0),
+      _reference: ref,
+      _meta: txMeta,
+    });
+    if (pendingErr || !pendingTx) {
+      console.error("[vtu] FAILED to create pending transaction:", pendingErr?.message);
+      await tg(`🚨 *Critical: pending tx creation failed*\nUser: ${user.id}\n₦${amount} ${type}\n${pendingErr?.message || ""}`);
+      return json({ error: "Could not initiate purchase. Please try again." }, 500);
+    }
+    pendingTxId = (pendingTx as Record<string,unknown>).id as string;
+    const txReference = (pendingTx as Record<string,unknown>).reference as string || ref;
+    console.log(`[vtu] pending tx ${pendingTxId} created, ref=${txReference}`);
+
     // ── Treasury: Reserve liquidity ───────────────────────────────────────
     const tProv = treasuryKey(type, prvCode||"");
     try {
@@ -186,6 +212,7 @@ serve(async (req) => {
       if(re){
         const m=re.message||"";
         if(m.includes("INSUFFICIENT_LIQUIDITY")||m.includes("paused")){
+          await cleanupPending("Liquidity reservation failed");
           await tg(`🚨 *Low Float — ${tProv}*\nInsufficient liquidity for ₦${amount}\nUser: ${user.id}`);
           return json({error:"Service temporarily unavailable. Please try again shortly.",code:"LOW_FLOAT"},503);
         }
@@ -201,7 +228,6 @@ serve(async (req) => {
 
     // ── Provider routing ───────────────────────────────────────────────────
     if(type==="data" && prvCode==="gsubz") {
-      // Gsubz with per-plan fallback from packages table
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
 
@@ -221,7 +247,6 @@ serve(async (req) => {
         await tg(`⚠️ *Gsubz low success rate — bypassed for this order*`);
       }
 
-      // Fallback per plan from packages table (iacafe, bsplug, or others)
       if (!pr.success) {
         const { data: pkg } = await admin.from("packages")
           .select("fallback_provider_code, fallback_package_code")
@@ -252,7 +277,6 @@ serve(async (req) => {
             }
           }
         } else if (fbPrvCode && fbPkgCode) {
-          // Catch-all fallback for custom provider codes (airtel-sme-cg, etc.)
           const fbReqId = `FB-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
           pr = await gsubzBuyRaw({ serviceID: fbPrvCode, plan: fbPkgCode, api: GSUBZ_KEY, phone, requestID: fbReqId });
           if (pr.success) {
@@ -265,6 +289,7 @@ serve(async (req) => {
     } else if(type==="data" && prvCode==="iacafe"){
       const planId=parseInt((pkgCode||"").replace("IAC-",""),10);
       if(!planId){
+        await cleanupPending("Invalid IA Cafe plan");
         await releaseReservation("failed");
         return json({error:"Invalid IA Cafe plan"},400);
       }
@@ -276,13 +301,13 @@ serve(async (req) => {
       const nId=parseInt(prvCode.split("-")[1]||"1",10);
       const pId=parseInt((pkgCode||"").replace("BSP-",""),10);
       if(!pId||!nId){
+        await cleanupPending("Invalid BSPlug plan");
         await releaseReservation("failed");
         return json({error:"Invalid BSPlug plan"},400);
       }
       pr=await bsplugBuy(nId,pId,phone);
 
     } else if (type === "airtime" || type === "electricity" || type === "cable") {
-      // ── GSubz for airtime/electricity/cable ──────────────────────────────
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
 
@@ -299,7 +324,7 @@ serve(async (req) => {
         plan = String(amount || 0);
         gsubzPhone = meter_number || phone || "";
         extra = { meter: meter_number || phone || "" };
-      } else { // cable
+      } else {
         serviceID = prvCode || "";
         plan = pkgCode || "";
       }
@@ -320,10 +345,12 @@ serve(async (req) => {
       }
 
     } else {
+      await cleanupPending("Service type unavailable");
       await releaseReservation("failed");
       return json({error:"This service type is not currently available."},400);
     }
 
+    // ── STEP 2: Provider result ──────────────────────────────────────────
     await releaseReservation(pr.success ? "used" : "failed");
 
     if(!pr.success){
@@ -332,48 +359,42 @@ serve(async (req) => {
       if(pkgCode&&pr.bundle_down){
         try{ await admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"gsubz",_network:network,_error:errMsg}); }catch{}
       }
+      await cleanupPending(errMsg);
       return json({error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:false},400);
     }
 
-    txMeta.provider_reference=pr.ref||ref;
+    // ── STEP 3: COMMIT transaction — debit wallet now that provider succeeded ──
+    txMeta.provider_reference = pr.ref || ref;
     const{data:pkgRow}=await admin.from("packages").select("bp_value").eq("package_code",pkgCode||"").maybeSingle();
-    const{data:tx,error:te}=await admin.rpc("create_vtu_transaction",{
-      _user_id:user.id,
-      _type:type,
-      _network:network||prvCode||"",
-      _phone:type==="electricity"?(meter_number||phone||""):(phone||""),
-      _amount:Number(amount||0),
-      _aidapay_hash:pr.ref||null,
-      _meta:txMeta,
-      _bp:pkgRow?.bp_value??null
+    const{data:committedTx,error:commitErr}=await admin.rpc("commit_vtu_transaction",{
+      _tx_id: pendingTxId,
+      _user_id: user.id,
+      _amount: Number(amount || 0),
+      _provider_reference: pr.ref || ref,
+      _meta: txMeta,
     });
-    if(te){
-      console.error("create_vtu_transaction error:", te.message);
-      await tg(`⚠️ *CHARGE FAILURE after delivery*\nUser: ${user.id}\n₦${amount} ${type}/${network||prvCode}\nError: ${te.message}`);
-    } else {
-      console.log(`[vtu] tx created: ${(tx as Record<string,unknown>)?.reference}`);
+    if(commitErr){
+      console.error("[vtu] COMMIT failed after provider success:", commitErr.message);
+      await tg(`🚨 *CRITICAL: commit failed after delivery*\nUser: ${user.id}\nTx: ${pendingTxId}\n₦${amount} ${type}/${network||prvCode}\nError: ${commitErr.message}`);
+      // Provider already delivered but wallet debit failed — log for manual review
+      return json({error:"Purchase delivered but wallet update failed. Contact support.",tx_id:pendingTxId,reference:txReference},500);
     }
+    console.log(`[vtu] committed tx ${pendingTxId}: ${(committedTx as Record<string,unknown>)?.reference}`);
 
-    if(tx&&(tx as Record<string,unknown>).id){
-      await admin.from("transactions").update({
-        idempotency_key:`${user.id}-${type}-${pkgCode||""}-${phone||""}-${ref}`,
-        provider_reference:pr.ref||ref,
-        status:"success"
-      }).eq("id",(tx as Record<string,unknown>).id);
-    }
-
+    // Mark bundle available
     if(pkgCode){
       try{ await admin.rpc("mark_bundle_available",{_package_code:pkgCode,_provider_code:usedProvider||prvCode||"gsubz",_network:network}); }catch{}
     }
 
-    const resp:Record<string,unknown>={success:true,reference:(tx as Record<string,unknown>)?.reference||ref,status:"success"};
-    if((tx as Record<string,unknown>)?.id) resp.id = (tx as Record<string,unknown>).id;
-    if(pr.meter_token)resp.meter_token=pr.meter_token;
+    const resp:Record<string,unknown>={success:true,reference:(committedTx as Record<string,unknown>)?.reference||txReference,status:"success"};
+    if(pendingTxId) resp.id = pendingTxId;
+    if(pr.meter_token) resp.meter_token = pr.meter_token;
     console.log(`[vtu] ✅ purchase complete: ${resp.reference} via ${usedProvider}`);
     return json(resp);
 
   }catch(e){
     console.error("vtu-purchase unhandled error:",e);
+    await cleanupPending("Unhandled error");
     await releaseReservation("failed");
     return json({error:e instanceof Error?e.message:"Unknown"},500);
   }
