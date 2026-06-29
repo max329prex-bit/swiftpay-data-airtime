@@ -10,6 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
 
+/** Gift/awoof plans require non-owing lines */
+function isGiftPlan(pkgCode: string): boolean {
+  const c = (pkgCode || '').toLowerCase();
+  return c.includes('awoof') || c.includes('gifting') || c.includes('gift');
+}
+
+
 type Plan = {
   id: string; name: string; size: string; validity: string;
   sell_price: number; provider_code: string; bp_value: number;
@@ -173,6 +180,19 @@ export default function ScheduleNew() {
               ))}
             </div>
           )}
+
+          {/* Gift/Awoof warning */}
+          {plan && isGiftPlan(plan.id) && (
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+              <div className="flex items-start gap-2">
+                <span className="text-amber-400 text-lg leading-none mt-0.5">&#9888;</span>
+                <div className="text-xs text-amber-200 leading-relaxed">
+                  <span className="font-semibold">Non-owing line only.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and your money will be refunded.
+                </div>
+              </div>
+            </div>
+          )}
+
           <Button disabled={!plan} onClick={() => setStep("when")} variant="hero" className="w-full h-12 rounded-2xl">
             Continue
           </Button>
@@ -231,6 +251,14 @@ export default function ScheduleNew() {
               <span className="text-muted-foreground">First run</span>
               <span className="text-right font-medium">{new Date(date).toLocaleString()}</span>
             </div>
+
+            {/* Gift/Awoof warning */}
+            {isGiftPlan(plan.id) && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-200">
+                <span className="font-semibold">&#9888; Non-owing line required.</span> If {phone} is owing data, this will fail and be refunded.
+              </div>
+            )}
+
             {!fundsOk && (
               <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2 text-[12px] text-red-400">
                 Insufficient available balance. You have {naira(available)}, need {naira(plan.sell_price)}.
