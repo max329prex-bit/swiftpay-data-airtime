@@ -56,6 +56,13 @@ function parseDuration(validity: string): Duration {
   return "monthly";
 }
 
+
+/** Gift/awoof plans require non-owing lines (numbers with active data) */
+function isGiftPlan(pkgCode: string): boolean {
+  const c = (pkgCode || '').toLowerCase();
+  return c.includes('awoof') || c.includes('gifting') || c.includes('gift');
+}
+
 function parseGbSize(size: string): number {
   const m = (size || "").match(/(\d+\.?\d*)\s*(MB|GB|TB)/i);
   if (!m) return 1;
@@ -427,6 +434,19 @@ export default function Data() {
                     : "Low availability \u2014 consider choosing another plan"}
                 </p>
               </motion.div>
+            {/* Gift/Awoof warning */}
+            {plan && isGiftPlan(plan.id) && (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-400 text-lg leading-none mt-0.5">&#9888;</span>
+                  <div className="text-xs text-amber-200 leading-relaxed">
+                    <span className="font-semibold">Non-owing line only.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and your money will be refunded.
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
                 <div className="text-xs text-muted-foreground">{plan.size} \u00b7 {plan.validity}</div>
@@ -486,3 +506,4 @@ export default function Data() {
     </div>
   );
 }
+
