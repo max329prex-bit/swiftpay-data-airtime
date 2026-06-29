@@ -360,11 +360,12 @@ serve(async (req) => {
       if (type === "airtime") {
         serviceID = GSUBZ_AIRTIME_MAP[network?.toUpperCase()] || "mtn";
         plan = String(sellPrice || 0);
+        extra = { amount: String(sellPrice || 0) }; // FIX: GSubz airtime requires amount field
       } else if (type === "electricity") {
         serviceID = prvCode || "";
         plan = String(sellPrice || 0);
         gsubzPhone = meter_number || phone || "";
-        extra = { meter: meter_number || phone || "" };
+        extra = { meter: meter_number || phone || "", amount: String(sellPrice || 0) }; // FIX: GSubz requires amount
       } else {
         serviceID = prvCode || "";
         plan = pkgCode || "";
