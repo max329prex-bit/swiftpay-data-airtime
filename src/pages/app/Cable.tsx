@@ -63,9 +63,12 @@ export default function Cable() {
         body: { type: "cable", network: provider.aidapay_code, phone: smartcard, amount: pkg.price, pin, package_code: pkg.aidapay_code, provider_code: provider.aidapay_code },
       });
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Purchase failed");
-      refresh();
       const receiptId = data?.id || data?.reference;
+      if (!data?.success) {
+        nav(`/app/receipt/${receiptId}`);
+        return;
+      }
+      refresh();
       nav(`/app/receipt/${receiptId}`);
     } catch (e: any) { toast.error(e.message ?? "Failed"); }
     finally { setBusy(false); }
