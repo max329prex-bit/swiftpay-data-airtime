@@ -1,0 +1,22 @@
+name: Run Scheduler (Every Minute)
+
+on:
+  schedule:
+    - cron: "*/1 * * * *"  # Every minute
+  workflow_dispatch:
+
+jobs:
+  run-scheduler:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger schedule-runner
+        run: |
+          curl -s -X POST "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/schedule-runner" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            | tee scheduler-response.json
+          echo ""
+          echo "Scheduler response:"
+          cat scheduler-response.json
