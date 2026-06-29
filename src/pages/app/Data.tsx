@@ -28,10 +28,10 @@ interface Plan {
   badge?: "most_bought" | "best_value" | "awuf" | "hot";
   is_prime?: boolean;
   network: NetworkId;
-  pricePerGb: number; // ₦ per GB — lower = better value
-  bp_value: number;     // exact BlitzPoints for this plan
-  tier?: "stable" | "promo";  // stable = can failover, promo = fail-fast only
-  health_score?: number;       // 0-100, from provider intelligence layer
+  pricePerGb: number;
+  bp_value: number;
+  tier?: "stable" | "promo";
+  health_score?: number;
 }
 
 const NC: Record<NetworkId, string> = {
@@ -48,7 +48,6 @@ const BADGE_CFG = {
   hot:         { cls: "bg-red-500/15 border-red-500/30 text-red-400",          label: "🔥 Hot" },
 } as const;
 
-/** Parse "7 Days" → "weekly", "30 Days" → "monthly", "1 Day" → "daily" */
 function parseDuration(validity: string): Duration {
   const n = parseInt(validity);
   if (isNaN(n)) return "daily";
@@ -57,7 +56,6 @@ function parseDuration(validity: string): Duration {
   return "monthly";
 }
 
-/** Parse "500MB" → 0.5, "2GB" → 2, "10GB" → 10 (normalised to GB) */
 function parseGbSize(size: string): number {
   const m = (size || "").match(/(\d+\.?\d*)\s*(MB|GB|TB)/i);
   if (!m) return 1;
@@ -146,14 +144,12 @@ export default function Data() {
   const net = NETWORKS.find(n => n.id === network)!;
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  // Fetch live data plans from Supabase get-packages function
+  // Fetch live data plans
   useEffect(() => {
     setLoadingPlans(true);
     supabase.functions.invoke("get-packages").then(({ data, error }) => {
       if (error || !data?.packages) { setLoadingPlans(false); return; }
       const mapped: Record<string, Plan[]> = {};
-
-      // Step 1 — map all plans, compute price-per-GB, assign display badges
       for (const [netId, pkgs] of Object.entries(data.packages as Record<string, any[]>)) {
         const sorted = [...pkgs].sort((a, b) => a.sell_price - b.sell_price);
         mapped[netId] = sorted.map((p, idx) => {
@@ -166,7 +162,7 @@ export default function Data() {
           else if (p.size?.includes("10") || p.size?.includes("15") || p.size?.includes("20")) badge = "best_value";
           else if ((p.success_rate ?? 92) >= 95) badge = "hot";
           return {
-            id: p.package_code || p.id,   // use package_code (e.g. IAC-177) not UUID
+            id: p.package_code || p.id,
             name: p.name,
             size: p.size,
             validity: p.validity,
@@ -180,13 +176,10 @@ export default function Data() {
             network: netId as NetworkId,
             pricePerGb,
             bp_value: p.bp_value ?? 1,
-            is_prime: false, // assigned below
+            is_prime: false,
           };
         });
       }
-
-      // Step 2 — Blitz Prime: top 5 best price-per-GB WITHIN each network
-      // MTN Blitz Prime = best MTN deals, Glo Blitz Prime = best Glo deals, etc.
       for (const netId of Object.keys(mapped)) {
         const netAvailable = mapped[netId].filter(p => p.available && !p.coming_soon);
         const primeIds = new Set(
@@ -194,13 +187,11 @@ export default function Data() {
         );
         mapped[netId] = mapped[netId].map(p => ({ ...p, is_prime: primeIds.has(p.id) }));
       }
-
       setAllPlans(mapped);
       setLoadingPlans(false);
     }).catch(() => setLoadingPlans(false));
   }, []);
 
-  // Scroll to CTA when plan selected, accounting for bottom nav
   useEffect(() => {
     if (!plan) return;
     const t = setTimeout(() => {
@@ -223,7 +214,6 @@ export default function Data() {
   useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); }, [network]);
 
   const netPlans = allPlans[network] ?? [];
-  // Blitz Prime: best price/GB plans within the current network
   const primePlans = netPlans.filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
   const tabPlans = netPlans.filter(p => p.duration === duration);
 
@@ -244,33 +234,57 @@ export default function Data() {
       if (error) throw error;
       const receiptId = data?.id || data?.reference;
       if (!receiptId) {
-        // No transaction was created (e.g. INIT_FAILED or pre-debit error)
         toast.error(data?.error || "Purchase could not start. Please try again.");
         setStep("form");
         setBusy(false);
         return;
       }
       if (!data?.success) {
-        if (data?.code === "BUNDLE_UNAVAILABLE") { setPlan(null); setStep("form"); throw new Error("Plan temporarily unavailable — pick another."); }
-        // Navigate to receipt even on failure so user sees refund status
+        if (data?.code === "BUNDLE_UNAVAILABLE") {
+          setPlan(null); setStep("form"); throw new Error("Plan temporarily unavailable \u2014 pick another.");
+        }
         nav(`/app/receipt/${receiptId}`);
         return;
       }
       refresh();
       nav(`/app/receipt/${receiptId}`);
     } catch (e: any) {
-      // Extract actual error from Supabase FunctionsHttpError
       let msg = e.message ?? "Failed";
       if (e?.context?.json) {
         try { const body = await e.context.json(); msg = body?.error || msg; } catch {}
       }
       toast.error(msg);
       setStep("form");
-    }
-    finally { setBusy(false); }
+    } finally { setBusy(false); }
   }
 
-  // ── Network selection ────────────────────────────────────────
+  // ── Fullscreen verifying overlay ──
+  if (step === "verifying") {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center gap-5 pt-32 text-center bg-[#0a0c10]">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full border-2 border-primary/30 flex items-center justify-center">
+            <Loader2 className="w-7 h-7 text-primary animate-spin" />
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold text-lg">Confirming with provider...</div>
+          <div className="text-sm text-muted-foreground mt-1 max-w-[260px] leading-relaxed">
+            Do not retry or close this screen.
+          </div>
+        </div>
+        <div className="flex gap-1.5 mt-2">
+          {["Processing", "Confirming", "Completing"].map((label, i) => (
+            <span key={i} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${i === 1 ? "bg-primary/20 text-primary border border-primary/30" : "bg-white/5 text-muted-foreground border border-white/10"}`}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Network selection ──
   if (step === "network") return (
     <div className="space-y-5 pb-10">
       <div>
@@ -284,7 +298,7 @@ export default function Data() {
       {loadingPlans ? (
         <div className="flex items-center justify-center py-16 gap-3">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">Loading plans…</span>
+          <span className="text-sm text-muted-foreground">Loading plans\u2026</span>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
@@ -312,7 +326,7 @@ export default function Data() {
     </div>
   );
 
-  // ── Plan selection ────────────────────────────────────────────
+  // ── Plan selection ──
   return (
     <div className="space-y-4 pb-10">
       <div className="flex items-center gap-3">
@@ -348,7 +362,6 @@ export default function Data() {
 
       {phoneOk && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-          {/* Blitz Prime — best price/GB across all networks globally */}
           {primePlans.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -363,7 +376,6 @@ export default function Data() {
             </div>
           )}
 
-          {/* Duration tabs */}
           <div className="space-y-3">
             <div className="flex gap-2">
               {(["daily", "weekly", "monthly"] as Duration[]).map(d => (
@@ -377,7 +389,7 @@ export default function Data() {
 
             {tabPlans.length === 0 ? (
               <div className="text-xs text-muted-foreground text-center py-8 glass rounded-2xl">
-                {loadingPlans ? "Loading plans…" : "No plans for this duration"}
+                {loadingPlans ? "Loading plans\u2026" : "No plans for this duration"}
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
@@ -395,7 +407,6 @@ export default function Data() {
             )}
           </div>
 
-          {/* Success rate + plan pill */}
           {plan && (
             <>
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -411,14 +422,14 @@ export default function Data() {
                     className={`h-full rounded-full ${plan.success_rate >= 90 ? "bg-gradient-to-r from-green-500 to-emerald-400" : plan.success_rate >= 75 ? "bg-gradient-to-r from-amber-500 to-yellow-400" : "bg-gradient-to-r from-red-500 to-rose-400"}`} />
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  {plan.success_rate >= 90 ? "High reliability — this plan delivers consistently"
-                    : plan.success_rate >= 75 ? "Mostly available — minor occasional delays"
-                    : "Low availability — consider choosing another plan"}
+                  {plan.success_rate >= 90 ? "High reliability \u2014 this plan delivers consistently"
+                    : plan.success_rate >= 75 ? "Mostly available \u2014 minor occasional delays"
+                    : "Low availability \u2014 consider choosing another plan"}
                 </p>
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
-                <div className="text-xs text-muted-foreground">{plan.size} · {plan.validity}</div>
+                <div className="text-xs text-muted-foreground">{plan.size} \u00b7 {plan.validity}</div>
                 <div className="font-display text-base font-bold">{naira(plan.sell_price)}</div>
               </motion.div>
             </>
@@ -426,14 +437,12 @@ export default function Data() {
         </motion.div>
       )}
 
-      {/* CTA */}
       <div ref={ctaRef}>
         <Button variant="hero" size="xl" className="w-full" disabled={!plan || !phoneOk} onClick={() => setStep("pin")}>
           {plan ? `Buy ${plan.size} for ${naira(plan.sell_price)}` : "Select a plan to continue"}
         </Button>
       </div>
 
-      {/* PIN modal */}
       <AnimatePresence>
         {step === "pin" && plan && (
           <>
@@ -448,7 +457,7 @@ export default function Data() {
               </div>
               <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4 mb-5 space-y-2.5">
                 {[
-                  { label: "Product", value: `${net.name} Data — ${plan.size} (${plan.validity})` },
+                  { label: "Product", value: `${net.name} Data \u2014 ${plan.size} (${plan.validity})` },
                   { label: "Recipient", value: phone, accent: true },
                   { label: "Amount", value: naira(plan.sell_price) },
                   { label: "Total Payable", value: naira(plan.sell_price), bold: true },
@@ -467,36 +476,11 @@ export default function Data() {
                   </InputOTP>
                 </div>
                 <Button variant="hero" size="xl" className="w-full" disabled={pin.length < 4 || busy} onClick={pay}>
-                  {busy ? "Processing…" : `Pay ${naira(plan.sell_price)}`}
+                  {busy ? "Processing\u2026" : `Pay ${naira(plan.sell_price)}`}
                 </Button>
               </div>
             </motion.div>
           </>
-        )}
-
-        {/* ── VERIFYING STATE — shown while provider processes ── */}
-        {step === "verifying" && (
-          <motion.div key="verifying" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center gap-5 py-12 text-center">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-full border-2 border-primary/30 flex items-center justify-center">
-                <Loader2 className="w-7 h-7 text-primary animate-spin" />
-              </div>
-            </div>
-            <div>
-              <div className="font-semibold text-lg">Confirming with provider...</div>
-              <div className="text-sm text-muted-foreground mt-1 max-w-[260px] leading-relaxed">
-                Do not retry or close this screen. This usually completes in under 2 minutes.
-              </div>
-            </div>
-            <div className="flex gap-1.5 mt-2">
-              {["Processing", "Confirming", "Completing"].map((label, i) => (
-                <span key={i} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${i === 1 ? "bg-primary/20 text-primary border border-primary/30" : "bg-white/5 text-muted-foreground border border-white/10"}`}>
-                  {label}
-                </span>
-              ))}
-            </div>
-          </motion.div>
         )}
       </AnimatePresence>
     </div>
