@@ -375,7 +375,7 @@ serve(async (req) => {
     } else {
       await failAndRefund("Service type unavailable");
       await releaseReservation("failed");
-      return json({error:"This service type is not currently available."},400);
+      return json({success:false,error:"This service type is not currently available.",code:"SERVICE_UNAVAILABLE",balance_credited:true},200);
     }
 
     // ── STEP 2: Provider result ──────────────────────────────────────────
