@@ -47,8 +47,14 @@ export default function Receipt() {
 
   useEffect(() => {
     if (!id) return;
-    supabase.from("transactions").select("*").eq("id", id).single()
-      .then(async ({ data }) => {
+    // Search by id OR reference — the URL may contain either
+    supabase.from("transactions").select("*").or(`id.eq.${id},reference.eq.${id}`).maybeSingle()
+      .then(async ({ data, error }) => {
+        if (error || !data) {
+          setTx(null);
+          setLoading(false);
+          return;
+        }
         setTx(data);
         // Fetch package details if this is a data purchase
         const meta = (data?.meta && typeof data.meta === "object") ? data.meta as Record<string, unknown> : null;
