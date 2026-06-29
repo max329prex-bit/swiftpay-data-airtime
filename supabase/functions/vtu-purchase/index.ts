@@ -104,18 +104,26 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
   }
 }
 
-async function gsubzBuy(pkgCode:string, phone:string, reqId:string): Promise<PR> {
+// FIX: GSubz data bundles require BOTH plan ID and amount.
+// Without amount, the API returns AMOUNT_BELOW_MIN (code 402).
+async function gsubzBuy(pkgCode:string, phone:string, reqId:string, sellPrice?: number): Promise<PR> {
   const parts = pkgCode.replace("GSZ-","").split("-");
   const planId = parts[parts.length - 1];
   const service = parts.slice(0, parts.length - 1).join("-");
   if (!planId || !service) return { success:false, msg:"Gsubz: invalid plan code" };
-  return gsubzBuyRaw({
+  const params: Record<string, string> = {
     serviceID: service,
     plan: planId,
     api: GSUBZ_KEY,
     phone: phone,
     requestID: reqId
-  });
+  };
+  // GSubz data requires amount field for validation. The actual pricing is by plan ID.
+  // We pass the sell price as amount. GSubz internally maps plan ID to actual cost.
+  if (sellPrice && sellPrice >= GSUBZ_MIN_AMOUNT) {
+    params.amount = String(Math.round(sellPrice));
+  }
+  return gsubzBuyRaw(params);
 }
 
 async function isGsubzHealthy(admin: ReturnType<typeof createClient>): Promise<boolean> {
@@ -193,6 +201,7 @@ serve(async (req) => {
     const{type,network,phone,amount,package_code,provider_code,pin,bundle,provider,meta={},meter_number,meter_type,packageCode}=body;
     const pkgCode=package_code||bundle||packageCode;
     const prvCode=provider_code||provider;
+    const sellPrice = Number(amount || 0);
 
     // ── Electricity / Cable verify ─────────────────────────────────────────
     if(type==="electricity_verify"||type==="cable_verify"){
@@ -218,13 +227,13 @@ serve(async (req) => {
       _type: type,
       _network: network || prvCode || "",
       _phone: type === "electricity" ? (meter_number || phone || "") : (phone || ""),
-      _amount: Number(amount || 0),
+      _amount: sellPrice,
       _reference: ref,
       _meta: txMeta,
     });
     if (pendingErr || !pendingTx) {
       console.error("[vtu] FAILED to debit wallet / create pending transaction:", pendingErr?.message);
-      await tg(`🚨 *Critical: debit+pending creation failed*\nUser: ${user.id}\n₦${amount} ${type}\n${pendingErr?.message || ""}`);
+      await tg(`🚨 *Critical: debit+pending creation failed*\nUser: ${user.id}\n₦${sellPrice} ${type}\n${pendingErr?.message || ""}`);
       return json({ success:false, error: "Could not initiate purchase. Please try again.", code: "INIT_FAILED", balance_credited: false }, 200);
     }
     pendingTxId = (pendingTx as Record<string,unknown>).id as string;
@@ -235,19 +244,19 @@ serve(async (req) => {
     const tProv = treasuryKey(type, prvCode||"");
     try {
       const{data:rid,error:re}=await admin.rpc("reserve_provider_liquidity",{
-        _provider:tProv, _amount:Number(amount||0), _uid:user.id, _tx_ref:ref
+        _provider:tProv, _amount:sellPrice, _uid:user.id, _tx_ref:ref
       });
       if(re){
         const m=re.message||"";
         if(m.includes("INSUFFICIENT_LIQUIDITY")||m.includes("paused")){
           await failAndRefund("Liquidity reservation failed");
-          await tg(`🚨 *Low Float — ${tProv}*\nInsufficient liquidity for ₦${amount}\nUser: ${user.id}`);
+          await tg(`🚨 *Low Float — ${tProv}*\nInsufficient liquidity for ₦${sellPrice}\nUser: ${user.id}`);
           return json({success:false,error:"Service temporarily unavailable. Please try again shortly.",code:"LOW_FLOAT",balance_credited:true},200);
         }
         console.warn("reserve_liquidity (non-blocking):", m);
       } else {
         reservationId = rid as string;
-        console.log(`[vtu] reservation ${reservationId} created for ₦${amount} on ${tProv}`);
+        console.log(`[vtu] reservation ${reservationId} created for ₦${sellPrice} on ${tProv}`);
       }
     } catch(e){ console.warn("reserve_liquidity exception:", e); }
 
@@ -261,7 +270,8 @@ serve(async (req) => {
 
       const gsubzHealthy = await isGsubzHealthy(admin);
       if (gsubzHealthy) {
-        pr = await gsubzBuy(pkgCode||"", phone, reqId);
+        // FIX: Pass sellPrice so GSubz data bundles get the required amount field
+        pr = await gsubzBuy(pkgCode||"", phone, reqId, sellPrice);
         if (pr.success) {
           usedProvider = "gsubz";
           txMeta.provider_used = "gsubz";
@@ -306,7 +316,10 @@ serve(async (req) => {
           }
         } else if (fbPrvCode && fbPkgCode) {
           const fbReqId = `FB-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
-          pr = await gsubzBuyRaw({ serviceID: fbPrvCode, plan: fbPkgCode, api: GSUBZ_KEY, phone, requestID: fbReqId, callback_url: "https://blitz.com.ng/webhook/gsubz" });
+          // FIX: Pass amount for fallback GSubz data attempts too
+          const fbParams: Record<string, string> = { serviceID: fbPrvCode, plan: fbPkgCode, api: GSUBZ_KEY, phone, requestID: fbReqId, callback_url: "https://blitz.com.ng/webhook/gsubz" };
+          if (sellPrice >= GSUBZ_MIN_AMOUNT) fbParams.amount = String(Math.round(sellPrice));
+          pr = await gsubzBuyRaw(fbParams);
           if (pr.success) {
             usedProvider = `${fbPrvCode}-fallback`;
             txMeta.provider_used = `${fbPrvCode}_fallback`;
@@ -346,10 +359,10 @@ serve(async (req) => {
 
       if (type === "airtime") {
         serviceID = GSUBZ_AIRTIME_MAP[network?.toUpperCase()] || "mtn";
-        plan = String(amount || 0);
+        plan = String(sellPrice || 0);
       } else if (type === "electricity") {
         serviceID = prvCode || "";
-        plan = String(amount || 0);
+        plan = String(sellPrice || 0);
         gsubzPhone = meter_number || phone || "";
         extra = { meter: meter_number || phone || "" };
       } else {
@@ -401,7 +414,7 @@ serve(async (req) => {
     });
     if(commitErr){
       console.error("[vtu] COMMIT failed after provider success:", commitErr.message);
-      await tg(`🚨 *CRITICAL: commit failed after delivery*\nUser: ${user.id}\nTx: ${pendingTxId}\n₦${amount} ${type}/${network||prvCode}\nError: ${commitErr.message}`);
+      await tg(`🚨 *CRITICAL: commit failed after delivery*\nUser: ${user.id}\nTx: ${pendingTxId}\n₦${sellPrice} ${type}/${network||prvCode}\nError: ${commitErr.message}`);
       return json({success:true,warning:"Purchase delivered but status update delayed. Contact support if needed.",tx_id:pendingTxId,reference:txReference,status:"pending"},200);
     }
     console.log(`[vtu] committed tx ${pendingTxId}: ${(committedTx as Record<string,unknown>)?.reference}`);
