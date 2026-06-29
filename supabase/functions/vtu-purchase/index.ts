@@ -389,7 +389,7 @@ serve(async (req) => {
     } else {
       await failAndRefund("Service type unavailable");
       await releaseReservation("failed");
-      return json({success:false,error:"This service type is not currently available.",code:"SERVICE_UNAVAILABLE",balance_credited:true},200);
+      return json({success:false,error:"This service type is not currently available.",code:"SERVICE_UNAVAILABLE",balance_credited:true,tx_id:pendingTxId},200);
     }
 
     // ── STEP 2: Provider result ──────────────────────────────────────────
@@ -402,7 +402,7 @@ serve(async (req) => {
         try{ await admin.rpc("mark_bundle_unavailable",{_package_code:pkgCode,_provider_code:prvCode||"gsubz",_network:network,_error:errMsg}); }catch{}
       }
       await failAndRefund(errMsg);
-      return json({success:false,error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:true},200);
+      return json({success:false,error:pr.bundle_down?"This data plan is temporarily unavailable.":errMsg,code:pr.bundle_down?"BUNDLE_UNAVAILABLE":"PURCHASE_FAILED",balance_credited:true,tx_id:pendingTxId},200);
     }
 
     // ── STEP 3: COMMIT transaction to success ────────────────────────────
@@ -434,6 +434,6 @@ serve(async (req) => {
     console.error("vtu-purchase unhandled error:",e);
     await failAndRefund("Unhandled error");
     await releaseReservation("failed");
-    return json({success:false,error:e instanceof Error?e.message:"Unknown",code:"SYSTEM_ERROR",balance_credited:true},200);
+    return json({success:false,error:e instanceof Error?e.message:"Unknown",code:"SYSTEM_ERROR",balance_credited:true,tx_id:pendingTxId},200);
   }
 });
