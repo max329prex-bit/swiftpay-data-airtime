@@ -119,6 +119,11 @@ export default function Electricity() {
         throw new Error(msg);
       }
       const receiptId = data?.id || data?.reference;
+      if (!receiptId) {
+        toast.error(data?.error || "Purchase could not start. Please try again.");
+        setBusy(false);
+        return;
+      }
       if (!data?.success) {
         nav(`/app/receipt/${receiptId}`);
         return;
