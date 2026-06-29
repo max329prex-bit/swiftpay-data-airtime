@@ -20,7 +20,21 @@ const GSUBZ_AIRTIME_MAP: Record<string, string> = {
 const GSUBZ_MIN_SUCCESS_RATE = 0.20;
 const GSUBZ_SAMPLE_WINDOW    = 100;
 const GSUBZ_HOUR_WINDOW_MS   = 60 * 60 * 1000;
-const GSUBZ_MIN_AIRTIME      = 100; // GSubz minimum for airtime
+const GSUBZ_MIN_AIRTIME      = 100;
+
+// GSubz can return HTTP 200 with code:"200" but description says "not eligible".
+// We MUST read the description text to detect these soft failures.
+const GSUBZ_FAILURE_KEYWORDS = [
+  "not eligible", "not qualified", "reversed", "insufficient", "invalid",
+  "failed", "error", "declined", "rejected", "unable", "cannot",
+  "unavailable", "out of stock", "does not exist", "doesn't exist",
+  "not found", "expired", "cancelled", "already purchased"
+];
+
+function isGsubzFailureByText(text: string): boolean {
+  const t = (text || "").toLowerCase();
+  return GSUBZ_FAILURE_KEYWORDS.some(kw => t.includes(kw));
+}
 
 function treasuryKey(type: string, prvCode: string): string {
   if (type === "data" && prvCode === "iacafe")          return "iacafe";
@@ -36,7 +50,8 @@ function isBundleDown(msg: string) {
   return l.includes("not available") || l.includes("unavailable") || l.includes("out of stock") ||
     l.includes("package not found") || l.includes("provider down") || l.includes("service down") ||
     l.includes("temporarily") || l.includes("invalid package") || l.includes("invalid bundle") ||
-    l.includes("invalid plan") || l.includes("plan not found") || l.includes("amount below");
+    l.includes("invalid plan") || l.includes("plan not found") || l.includes("amount below") ||
+    l.includes("not eligible");
 }
 async function tg(msg: string) {
   if (!TG_BOT || !TG_CHAT) return;
@@ -97,16 +112,36 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
       signal: AbortSignal.timeout(30000)
     });
     const d = await r.json();
-    const statusStr = typeof d?.status === "string" ? d.status.toLowerCase() : "";
-    const codeStr   = typeof d?.code === "string" ? d.code : "";
-    const isFailed = !r.ok || d?.success === false || d?.status === false || d?.code === "error" ||
+
+    const statusStr   = typeof d?.status === "string"   ? d.status.toLowerCase() : "";
+    const codeStr     = typeof d?.code === "string"     ? d.code : "";
+    const descStr     = typeof d?.description === "string" ? d.description : "";
+    const msgStr      = typeof d?.message === "string"  ? d.message : "";
+    const respBody    = JSON.stringify(d);
+
+    // 1. Hard failure: HTTP error, explicit error codes, explicit false flags
+    const isHardFailed = !r.ok || d?.success === false || d?.status === false || d?.code === "error" ||
       statusStr.includes("failed") || statusStr.includes("error") ||
       ["401","400","403","500","502","503"].includes(codeStr) ||
       (codeStr && codeStr !== "100" && codeStr !== "200" && codeStr !== "success");
-    if (isFailed) {
-      const m = d?.description || d?.message || d?.error || d?.msg || d?.status || "Gsubz failed";
+
+    if (isHardFailed) {
+      const m = descStr || msgStr || d?.error || d?.msg || d?.status || "Gsubz failed";
+      console.error("[gsubz] HARD FAIL:", JSON.stringify(d));
       return { success: false, msg: m, bundle_down: isBundleDown(m) };
     }
+
+    // 2. SOFT failure: GSubz returns HTTP 200 + code:"200" + status:"success"
+    //    but the description says "not eligible", "reversed", "insufficient", etc.
+    //    Also check any text field in the entire response body.
+    const allText = (descStr + " " + msgStr + " " + respBody).toLowerCase();
+    if (isGsubzFailureByText(allText)) {
+      const m = descStr || msgStr || "GSubz declined: " + respBody.slice(0,200);
+      console.error("[gsubz] SOFT FAIL detected:", JSON.stringify(d));
+      return { success: false, msg: m, bundle_down: isBundleDown(m) };
+    }
+
+    // 3. Success — GSubz confirmed delivery
     return { success: true, ref: String(d?.data?.reference || d?.data?.id || d?.reference || d?.requestId || params.requestID || "") };
   } catch (e) { return { success: false, msg: `Gsubz unreachable: ${e}` }; }
 }
@@ -134,8 +169,7 @@ async function isGsubzHealthy(admin: ReturnType<typeof createClient>): Promise<b
       .contains("meta", { provider_code: "gsubz" }).gte("created_at", since)
       .order("created_at", { ascending: false }).limit(GSUBZ_SAMPLE_WINDOW);
     if (!rows || rows.length < 5) return true;
-    const successes = rows.filter(r => r.status === "success").length;
-    return (successes / rows.length) >= GSUBZ_MIN_SUCCESS_RATE;
+    return (rows.filter(r => r.status === "success").length / rows.length) >= GSUBZ_MIN_SUCCESS_RATE;
   } catch { return true; }
 }
 
@@ -184,7 +218,6 @@ serve(async (req) => {
     const prvCode = provider_code || provider || "";
     const sellPrice = Number(amount || 0);
 
-    // ── FIX: Pre-validate GSubz airtime minimum BEFORE touching wallet ──
     if (type === "airtime" && sellPrice < GSUBZ_MIN_AIRTIME) {
       return json({ success: false, error: `GSubz airtime minimum is ₦${GSUBZ_MIN_AIRTIME}. Please enter ₦${GSUBZ_MIN_AIRTIME} or more.`, code: "AMOUNT_BELOW_MIN", balance_credited: false }, 200);
     }
@@ -204,7 +237,6 @@ serve(async (req) => {
     const ref = genRef();
     const txMeta: Record<string, unknown> = { ...meta, provider_code: prvCode || "", package_code: pkgCode || "" };
 
-    // STEP 1: Debit wallet + create PENDING
     const { data: pendingTx, error: pendingErr } = await admin.rpc("debit_and_create_transaction", {
       _user_id: user.id, _type: type, _network: network || prvCode || "",
       _phone: type === "electricity" ? (meter_number || phone || "") : (phone || ""),
@@ -217,7 +249,6 @@ serve(async (req) => {
     pendingTxId = (pendingTx as Record<string, unknown>).id as string;
     const txReference = (pendingTx as Record<string, unknown>).reference as string || ref;
 
-    // Treasury: Reserve liquidity
     const tProv = treasuryKey(type, prvCode || "");
     try {
       const { data: rid, error: re } = await admin.rpc("reserve_provider_liquidity", {
@@ -235,7 +266,6 @@ serve(async (req) => {
     let pr: PR = { success: false, msg: "No provider matched" };
     let usedProvider = prvCode || "";
 
-    // Provider routing
     if (type === "data" && prvCode === "gsubz") {
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
@@ -288,7 +318,6 @@ serve(async (req) => {
       return json({ success: false, error: pr.bundle_down ? "This data plan is temporarily unavailable." : errMsg, code: pr.bundle_down ? "BUNDLE_UNAVAILABLE" : "PURCHASE_FAILED", balance_credited: true, id: pendingTxId }, 200);
     }
 
-    // STEP 3: COMMIT
     txMeta.provider_reference = pr.ref || ref;
     const { data: committedTx, error: commitErr } = await admin.rpc("commit_transaction", {
       _tx_id: pendingTxId, _provider_reference: pr.ref || ref, _meta: txMeta,
