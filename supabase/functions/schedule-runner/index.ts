@@ -9,46 +9,28 @@ const cors = {
 const SUPA_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPA_SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
-const AIDAPAY_BASE = "https://www.aidapay.ng/api/v1";
-const AIDAPAY_TOKEN = Deno.env.get("AIDAPAY_TOKEN")!;
-const AIDAPAY_PIN = Deno.env.get("AIDAPAY_ACCOUNT_PIN")!;
-
-const AIRTIME_MAP: Record<string, string> = {
-  MTN: "mtn-airtime", AIRTEL: "airtel-airtime", GLO: "glo-airtime", "9MOBILE": "9mobile-airtime",
-};
-
-async function aidapayBuy(p: Record<string, string>) {
-  try {
-    const r = await fetch(`${AIDAPAY_BASE}/buy`, {
-      method: "POST",
-      headers: { Accept: "application/json", Authorization: `Bearer ${AIDAPAY_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify(p),
-      signal: AbortSignal.timeout(30000),
-    });
-    const d = await r.json();
-    if (!d.success) return { success: false, msg: d.message || d.error || "AidaPay failed" };
-    const td = d.data?.transaction_data || {};
-    return { success: true, ref: td.transaction_hash || "" };
-  } catch (e) {
-    return { success: false, msg: `AidaPay unreachable: ${e}` };
-  }
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
-  // Authorise: either Supabase cron with header, or admin curl with header
+  // Authorize: either Supabase cron with header, or admin curl with service key
   const headerSecret = req.headers.get("x-cron-secret");
   const authHeader = req.headers.get("authorization") ?? "";
   if (!CRON_SECRET || (headerSecret !== CRON_SECRET && !authHeader.includes(SUPA_SVC))) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403, headers: { ...cors, "Content-Type": "application/json" },
+    });
   }
 
   const sb = createClient(SUPA_URL, SUPA_SVC);
 
+  // 1. Fetch due schedules
   const { data: due, error: dueErr } = await sb.rpc("fetch_due_schedules", { _limit: 25 });
   if (dueErr) {
-    return new Response(JSON.stringify({ error: dueErr.message }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+    console.error("[scheduler] fetch_due_schedules error:", dueErr.message);
+    return new Response(JSON.stringify({ error: dueErr.message }), {
+      status: 500, headers: { ...cors, "Content-Type": "application/json" },
+    });
   }
 
   const results: any[] = [];
@@ -56,59 +38,82 @@ serve(async (req) => {
   for (const s of (due ?? [])) {
     const hash = `SCH-${s.id.slice(0, 8)}-${Date.now()}`;
     try {
+      console.log(`[scheduler] processing schedule ${s.id}: ${s.type} ${s.network} ${s.phone} ₦${s.amount}`);
+
       // 1) Consume wallet reservation, create pending tx
       const { data: tx, error: cErr } = await sb.rpc("consume_schedule_reservation", {
-        _schedule_id: s.id, _aidapay_hash: hash,
+        _schedule_id: s.id,
+        _aidapay_hash: hash,
       });
       if (cErr) throw new Error(cErr.message);
+      const txId = (tx as any).id;
 
-      // 2) Call provider (AidaPay only for v1)
-      let providerResp: { success: boolean; ref?: string; msg?: string };
-      if (s.type === "airtime") {
-        providerResp = await aidapayBuy({
-          service: AIRTIME_MAP[s.network] || "mtn-airtime",
-          amount: String(s.amount), phone: s.phone,
-          account_pin: AIDAPAY_PIN, request_id: hash,
-        });
-      } else if (s.type === "data") {
-        providerResp = await aidapayBuy({
-          service: AIRTIME_MAP[s.network]?.replace("-airtime", "-data") || "mtn-data",
-          plan: s.package_code ?? "",
-          phone: s.phone, account_pin: AIDAPAY_PIN, request_id: hash,
-        });
-      } else {
-        providerResp = { success: false, msg: `Unsupported scheduled type: ${s.type}` };
-      }
+      // 2) Call vtu-purchase edge function (reuses our fixed GSubz code)
+      // Build a service-role JWT for internal invocation
+      const vtuResp = await fetch(`${SUPA_URL}/functions/v1/vtu-purchase`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${SUPA_SVC}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: s.type,
+          network: s.network,
+          phone: s.phone,
+          amount: s.amount,
+          package_code: s.package_code ?? "",
+          provider_code: s.provider_code ?? "",
+          pin: "SCHEDULE", // bypass PIN for scheduled purchases
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
 
-      if (!providerResp.success) {
-        // Refund this run's spend back to wallet, then schedule retry
-        await sb.from("transactions").update({ status: "failed", meta: { error: providerResp.msg } }).eq("id", (tx as any).id);
+      const vtuData = await vtuResp.json();
+      console.log(`[scheduler] vtu-purchase response:`, JSON.stringify(vtuData).slice(0, 300));
+
+      if (!vtuData?.success) {
+        const errMsg = vtuData?.error || vtuData?.message || "Provider failed";
+        // Mark tx failed and refund
+        await sb.from("transactions").update({
+          status: "failed",
+          meta: { error: errMsg, schedule_id: s.id, provider_ref: vtuData?.reference },
+        }).eq("id", txId);
         await sb.rpc("refund_wallet", { _user_id: s.user_id, _amount: s.amount, _ref: hash });
-        await sb.rpc("handle_schedule_failure", { _schedule_id: s.id, _err: providerResp.msg ?? "Unknown" });
+        await sb.rpc("handle_schedule_failure", { _schedule_id: s.id, _err: errMsg });
         await sb.from("scheduled_runs").insert({
           schedule_id: s.id, user_id: s.user_id, status: "failed",
-          attempt_no: (s.retry_count ?? 0) + 1, tx_id: (tx as any).id, error: providerResp.msg,
+          attempt_no: (s.retry_count ?? 0) + 1, tx_id: txId, error: errMsg,
         });
-        results.push({ id: s.id, status: "failed", error: providerResp.msg });
+        results.push({ id: s.id, status: "failed", error: errMsg });
+        console.log(`[scheduler] schedule ${s.id} failed: ${errMsg}`);
         continue;
       }
 
-      // 3) Mark tx success + award points + advance schedule
+      // 3) Success — mark tx success, advance schedule
       await sb.from("transactions").update({
-        status: "success", aidapay_status: "Completed",
-        meta: { schedule_id: s.id, provider_ref: providerResp.ref, bundle: s.bundle_size },
-      }).eq("id", (tx as any).id);
+        status: "success",
+        meta: {
+          schedule_id: s.id,
+          provider_ref: vtuData.reference,
+          bundle: s.bundle_size,
+        },
+      }).eq("id", txId);
+
       if (s.bp_value && s.bp_value > 0) {
-        try { await sb.rpc("redeem_swift_points" as any, {}); } catch {} // no-op; points awarded via direct profile bump
+        try { await sb.rpc("award_swift_points", { _user_id: s.user_id, _points: s.bp_value, _reason: `Scheduled ${s.type}` }); } catch {}
       }
+
       await sb.rpc("advance_schedule_after_success", { _schedule_id: s.id });
       await sb.from("scheduled_runs").insert({
         schedule_id: s.id, user_id: s.user_id, status: "success",
-        attempt_no: 1, tx_id: (tx as any).id,
+        attempt_no: 1, tx_id: txId,
       });
-      results.push({ id: s.id, status: "success", ref: providerResp.ref });
+      results.push({ id: s.id, status: "success", ref: vtuData.reference });
+      console.log(`[scheduler] schedule ${s.id} success: ${vtuData.reference}`);
+
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[scheduler] schedule ${s.id} exception:`, msg);
       await sb.rpc("handle_schedule_failure", { _schedule_id: s.id, _err: msg });
       results.push({ id: s.id, status: "error", error: msg });
     }
