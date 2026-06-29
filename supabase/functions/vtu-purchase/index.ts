@@ -225,7 +225,7 @@ serve(async (req) => {
     if (pendingErr || !pendingTx) {
       console.error("[vtu] FAILED to debit wallet / create pending transaction:", pendingErr?.message);
       await tg(`🚨 *Critical: debit+pending creation failed*\nUser: ${user.id}\n₦${amount} ${type}\n${pendingErr?.message || ""}`);
-      return json({ error: "Could not initiate purchase. Please try again." }, 500);
+      return json({ success:false, error: "Could not initiate purchase. Please try again.", code: "INIT_FAILED", balance_credited: false }, 200);
     }
     pendingTxId = (pendingTx as Record<string,unknown>).id as string;
     const txReference = (pendingTx as Record<string,unknown>).reference as string || ref;
@@ -242,7 +242,7 @@ serve(async (req) => {
         if(m.includes("INSUFFICIENT_LIQUIDITY")||m.includes("paused")){
           await failAndRefund("Liquidity reservation failed");
           await tg(`🚨 *Low Float — ${tProv}*\nInsufficient liquidity for ₦${amount}\nUser: ${user.id}`);
-          return json({error:"Service temporarily unavailable. Please try again shortly.",code:"LOW_FLOAT"},503);
+          return json({success:false,error:"Service temporarily unavailable. Please try again shortly.",code:"LOW_FLOAT",balance_credited:true},200);
         }
         console.warn("reserve_liquidity (non-blocking):", m);
       } else {
@@ -319,7 +319,7 @@ serve(async (req) => {
       if(!planId){
         await failAndRefund("Invalid IA Cafe plan");
         await releaseReservation("failed");
-        return json({error:"Invalid IA Cafe plan"},400);
+        return json({success:false,error:"Invalid IA Cafe plan",code:"INVALID_PLAN",balance_credited:true},200);
       }
       const reqId=`IAC-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.iacafe_request_id=reqId;
@@ -331,7 +331,7 @@ serve(async (req) => {
       if(!pId||!nId){
         await failAndRefund("Invalid BSPlug plan");
         await releaseReservation("failed");
-        return json({error:"Invalid BSPlug plan"},400);
+        return json({success:false,error:"Invalid BSPlug plan",code:"INVALID_PLAN",balance_credited:true},200);
       }
       pr=await bsplugBuy(nId,pId,phone);
 
@@ -420,6 +420,6 @@ serve(async (req) => {
     console.error("vtu-purchase unhandled error:",e);
     await failAndRefund("Unhandled error");
     await releaseReservation("failed");
-    return json({error:e instanceof Error?e.message:"Unknown"},500);
+    return json({success:false,error:e instanceof Error?e.message:"Unknown",code:"SYSTEM_ERROR",balance_credited:true},200);
   }
 });
