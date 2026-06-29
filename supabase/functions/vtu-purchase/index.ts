@@ -306,7 +306,7 @@ serve(async (req) => {
           }
         } else if (fbPrvCode && fbPkgCode) {
           const fbReqId = `FB-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
-          pr = await gsubzBuyRaw({ serviceID: fbPrvCode, plan: fbPkgCode, api: GSUBZ_KEY, phone, requestID: fbReqId });
+          pr = await gsubzBuyRaw({ serviceID: fbPrvCode, plan: fbPkgCode, api: GSUBZ_KEY, phone, requestID: fbReqId, callback_url: "https://blitz.com.ng/webhook/gsubz" });
           if (pr.success) {
             usedProvider = `${fbPrvCode}-fallback`;
             txMeta.provider_used = `${fbPrvCode}_fallback`;
@@ -363,6 +363,7 @@ serve(async (req) => {
         api: GSUBZ_KEY,
         phone: gsubzPhone,
         requestID: reqId,
+        callback_url: "https://blitz.com.ng/webhook/gsubz",
         ...extra
       });
 
