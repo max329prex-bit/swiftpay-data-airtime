@@ -234,7 +234,7 @@ serve(async (req) => {
     if (pendingErr || !pendingTx) {
       console.error("[vtu] FAILED to debit wallet / create pending transaction:", pendingErr?.message);
       await tg(`🚨 *Critical: debit+pending creation failed*\nUser: ${user.id}\n₦${sellPrice} ${type}\n${pendingErr?.message || ""}`);
-      return json({ success:false, error: "Could not initiate purchase. Please try again.", code: "INIT_FAILED", balance_credited: false }, 200);
+      return json({ success:false, error: "Could not initiate purchase. Please try again.", code: "INIT_FAILED", balance_credited: false, reference: ref }, 200);
     }
     pendingTxId = (pendingTx as Record<string,unknown>).id as string;
     const txReference = (pendingTx as Record<string,unknown>).reference as string || ref;
