@@ -243,6 +243,13 @@ export default function Data() {
       });
       if (error) throw error;
       const receiptId = data?.id || data?.reference;
+      if (!receiptId) {
+        // No transaction was created (e.g. INIT_FAILED or pre-debit error)
+        toast.error(data?.error || "Purchase could not start. Please try again.");
+        setStep("form");
+        setBusy(false);
+        return;
+      }
       if (!data?.success) {
         if (data?.code === "BUNDLE_UNAVAILABLE") { setPlan(null); setStep("form"); throw new Error("Plan temporarily unavailable — pick another."); }
         // Navigate to receipt even on failure so user sees refund status
