@@ -242,12 +242,14 @@ export default function Data() {
         body: { type: "data", network: plan.network, phone, amount: plan.sell_price, pin, bundle: plan.id, provider: plan.provider_code },
       });
       if (error) throw error;
+      const receiptId = data?.id || data?.reference;
       if (!data?.success) {
         if (data?.code === "BUNDLE_UNAVAILABLE") { setPlan(null); setStep("form"); throw new Error("Plan temporarily unavailable — pick another."); }
-        throw new Error(data?.error || "Purchase failed");
+        // Navigate to receipt even on failure so user sees refund status
+        nav(`/app/receipt/${receiptId}`);
+        return;
       }
       refresh();
-      const receiptId = data?.id || data?.reference;
       nav(`/app/receipt/${receiptId}`);
     } catch (e: any) {
       // Extract actual error from Supabase FunctionsHttpError
