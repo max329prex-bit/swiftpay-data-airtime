@@ -118,9 +118,12 @@ export default function Electricity() {
         const msg = await extractError(error, "Payment failed — please try again");
         throw new Error(msg);
       }
-      if (!data?.success) throw new Error(data?.error || data?.message || "Payment failed");
-      refresh();
       const receiptId = data?.id || data?.reference;
+      if (!data?.success) {
+        nav(`/app/receipt/${receiptId}`);
+        return;
+      }
+      refresh();
       nav(`/app/receipt/${receiptId}`);
     } catch (e: any) {
       toast.error(e.message || "Payment failed");
