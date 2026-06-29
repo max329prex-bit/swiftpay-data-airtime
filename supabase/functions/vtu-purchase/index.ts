@@ -47,11 +47,12 @@ function genRef() {
 }
 function isBundleDown(msg: string) {
   const l = (msg || "").toLowerCase();
+  // NOTE: "not eligible" is NOT bundle_down — it's a user-specific issue
+  // (that phone doesn't qualify). The bundle itself works for other users.
   return l.includes("not available") || l.includes("unavailable") || l.includes("out of stock") ||
     l.includes("package not found") || l.includes("provider down") || l.includes("service down") ||
     l.includes("temporarily") || l.includes("invalid package") || l.includes("invalid bundle") ||
-    l.includes("invalid plan") || l.includes("plan not found") || l.includes("amount below") ||
-    l.includes("not eligible");
+    l.includes("invalid plan") || l.includes("plan not found") || l.includes("amount below");
 }
 async function tg(msg: string) {
   if (!TG_BOT || !TG_CHAT) return;
