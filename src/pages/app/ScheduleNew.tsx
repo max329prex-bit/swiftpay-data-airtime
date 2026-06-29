@@ -9,13 +9,11 @@ import { detectNetwork, naira, NETWORKS, NetworkId } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
-
 /** Gift/awoof plans require non-owing lines */
 function isGiftPlan(pkgCode: string): boolean {
   const c = (pkgCode || '').toLowerCase();
   return c.includes('awoof') || c.includes('gifting') || c.includes('gift');
 }
-
 
 type Plan = {
   id: string; name: string; size: string; validity: string;
@@ -251,11 +249,15 @@ export default function ScheduleNew() {
               <span className="text-muted-foreground">First run</span>
               <span className="text-right font-medium">{new Date(date).toLocaleString()}</span>
             </div>
-
-            {/* Gift/Awoof warning */}
+            {/* Gift/Awoof warning in confirmation */}
             {isGiftPlan(plan.id) && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-200">
-                <span className="font-semibold">&#9888; Non-owing line required.</span> If {phone} is owing data, this will fail and be refunded.
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
+                  <div className="text-xs text-amber-200 leading-relaxed">
+                    <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded.
+                  </div>
+                </div>
               </div>
             )}
 
