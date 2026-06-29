@@ -27,6 +27,12 @@ export default function Airtime() {
       });
       if (error) throw error;
       const receiptId = data?.id || data?.reference;
+      if (!receiptId) {
+        toast.error(data?.error || "Purchase could not start. Please try again.");
+        setStep("form");
+        setBusy(false);
+        return;
+      }
       if (!data?.success) {
         nav(`/app/receipt/${receiptId}`);
         return;
