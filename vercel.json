@@ -5,6 +5,10 @@
       "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/payvessel-webhook"
     },
     {
+      "source": "/webhook/gsubz",
+      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/gsubz-webhook"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
