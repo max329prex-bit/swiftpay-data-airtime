@@ -142,6 +142,7 @@ export default function Data() {
   const [busy, setBusy] = useState(false);
   const [duration, setDuration] = useState<Duration>("daily");
   const [showMore, setShowMore] = useState(false);
+  const [hideGiftPlans, setHideGiftPlans] = useState(false);
   const [allPlans, setAllPlans] = useState<Record<string, Plan[]>>({});
   const [loadingPlans, setLoadingPlans] = useState(true);
   const { balance, refresh } = useWallet();
@@ -216,7 +217,7 @@ export default function Data() {
     setPlan(null);
   }, [phone]);
 
-  useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); }, [network]);
+  useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); setHideGiftPlans(false); }, [network]);
 
   const netPlans = allPlans[network] ?? [];
   const primePlans = netPlans.filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
@@ -434,7 +435,7 @@ export default function Data() {
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
-                <div className="text-xs text-muted-foreground">{plan.size} \u00b7 {plan.validity}</div>
+                <div className="text-xs text-muted-foreground">{plan.size} · {plan.validity}</div>
                 <div className="font-display text-base font-bold">{naira(plan.sell_price)}</div>
               </motion.div>
             </>
@@ -450,7 +451,7 @@ export default function Data() {
                 <div className="flex items-start gap-2">
                   <span className="text-amber-400 text-lg leading-none mt-0.5">&#9888;</span>
                   <div className="text-xs text-amber-200 leading-relaxed">
-                    <span className="font-semibold">Non-owing line only.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and be refunded. <button type="button" onClick={() => setPlan(null)} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
+                    <span className="font-semibold">Non-owing line only.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and be refunded. <button type="button" onClick={() => { setPlan(null); setHideGiftPlans(true); }} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
                   </div>
                 </div>
               </motion.div>
@@ -493,7 +494,7 @@ export default function Data() {
                     <div className="flex items-start gap-2">
                       <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
                       <div className="text-xs text-amber-200 leading-relaxed">
-                        <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded. <button type="button" onClick={() => { setStep("form"); setPlan(null); }} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
+                        <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded. <button type="button" onClick={() => { setStep("form"); setPlan(null); setHideGiftPlans(true); }} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
                       </div>
                     </div>
                   </div>
