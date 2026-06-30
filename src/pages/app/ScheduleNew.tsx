@@ -255,7 +255,7 @@ export default function ScheduleNew() {
                 <div className="flex items-start gap-2">
                   <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
                   <div className="text-xs text-amber-200 leading-relaxed">
-                    <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded.
+                    <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded. <button type="button" onClick={() => setPlan(null)} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
                   </div>
                 </div>
               </div>
