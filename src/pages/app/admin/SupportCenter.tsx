@@ -10,7 +10,11 @@ type TRow={id:string;ticket_ref:string;user_id:string;intent:string;status:strin
 const FO=["all","open","in_progress","resolved"] as const;
 export default function SupportCenter(){
   const{user}=useAuth();const nav=useNavigate();const[rows,setRows]=useState<TRow[]>([]);const[filter,setFilter]=useState<typeof FO[number]>("open");const[loading,setLoading]=useState(true);const[isAdmin,setIsAdmin]=useState(false);
-  useEffect(()=>{if(!user)return;supabase.rpc("has_role" as never,{_role:"admin"} as never).then(({data})=>{setIsAdmin(!!data);if(!data){toast.error("Admin access required");nav("/app");}});},[user,nav]);
+  useEffect(()=>{
+    const adminToken = sessionStorage.getItem("blitzpay_admin_session");
+    if (adminToken) { setIsAdmin(true); return; }
+    if(!user)return;supabase.rpc("has_role" as never,{_role:"admin"} as never).then(({data})=>{setIsAdmin(!!data);if(!data){toast.error("Admin access required");nav("/app");}});
+  },[user,nav]);
   const load=()=>{setLoading(true);const q=supabase.from("support_tickets").select("*").order("created_at",{ascending:false}).limit(100);(filter==="all"?q:q.eq("status",filter)).then(({data})=>{setRows((data as TRow[])??[]);setLoading(false);});};
   useEffect(()=>{if(isAdmin)load();},[isAdmin,filter]);
   const counts={open:rows.filter(r=>r.status==="open").length,in_progress:rows.filter(r=>r.status==="in_progress").length,resolved:rows.filter(r=>r.status==="resolved").length};
