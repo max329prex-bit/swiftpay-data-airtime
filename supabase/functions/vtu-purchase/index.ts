@@ -238,11 +238,16 @@ serve(async (req) => {
             signal: AbortSignal.timeout(15000)
           });
           const d = await r.json();
-          const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name || d?.description;
-          if (customerName && typeof customerName === "string" && customerName.length > 1) {
+          const errorText = d?.description || d?.message || "";
+          const isErrorResponse = /ACCESS_NOT_ALLOWED|INVALID|ERROR|FAILED|DENIED|UNAUTHORIZED/i.test(errorText);
+          if (isErrorResponse) {
+            return json({ success: false, error: errorText }, 200);
+          }
+          const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name;
+          if (customerName && typeof customerName === "string" && customerName.length > 1 && !/ACCESS_NOT_ALLOWED|INVALID|ERROR/i.test(customerName)) {
             return json({ success: true, customer_name: customerName, meter_number: meter_number || phone || "" });
           }
-          return json({ success: false, error: d?.description || d?.message || "Could not verify meter. Check number and provider." }, 200);
+          return json({ success: false, error: errorText || "Could not verify meter. Check number and provider." }, 200);
         } catch (e) {
           return json({ success: false, error: "Verification service unavailable. Try again shortly." }, 200);
         }
@@ -260,11 +265,16 @@ serve(async (req) => {
             signal: AbortSignal.timeout(15000)
           });
           const d = await r.json();
+          const errorText = d?.description || d?.message || "";
+          const isErrorResponse = /ACCESS_NOT_ALLOWED|INVALID|ERROR|FAILED|DENIED|UNAUTHORIZED/i.test(errorText);
+          if (isErrorResponse) {
+            return json({ success: false, error: errorText }, 200);
+          }
           const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name;
-          if (customerName && typeof customerName === "string" && customerName.length > 1) {
+          if (customerName && typeof customerName === "string" && customerName.length > 1 && !/ACCESS_NOT_ALLOWED|INVALID|ERROR/i.test(customerName)) {
             return json({ success: true, customer_name: customerName, smartcard: meter_number || phone || "" });
           }
-          return json({ success: false, error: d?.description || d?.message || "Could not verify smartcard." }, 200);
+          return json({ success: false, error: errorText || "Could not verify smartcard." }, 200);
         } catch (e) {
           return json({ success: false, error: "Verification service unavailable." }, 200);
         }
