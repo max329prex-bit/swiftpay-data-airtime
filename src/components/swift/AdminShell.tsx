@@ -1,0 +1,82 @@
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+  import { ArrowLeft, LayoutDashboard, MessageSquare, Shield, Megaphone, TrendingUp, LogOut } from "lucide-react";
+  import { useEffect, useState } from "react";
+  import { supabase } from "@/integrations/supabase/client";
+  import { useAuth } from "@/hooks/useAuth";
+  import { toast } from "sonner";
+  import { Logo } from "./Logo";
+
+  const ADMIN_TABS = [
+    { to: "/app/admin/treasury", icon: LayoutDashboard, label: "Treasury" },
+    { to: "/app/admin/support", icon: MessageSquare, label: "Support" },
+    { to: "/app/admin/fraud", icon: Shield, label: "Fraud" },
+    { to: "/app/admin/broadcast", icon: Megaphone, label: "Broadcast" },
+    { to: "/app/admin/margin", icon: TrendingUp, label: "Margins" },
+  ];
+
+  export function AdminShell() {
+    const { user } = useAuth();
+    const nav = useNavigate();
+    const [isAdmin, setIsAdmin] = useState(false);
+
+    useEffect(() => {
+      const adminToken = sessionStorage.getItem("blitzpay_admin_session");
+      if (adminToken) { setIsAdmin(true); return; }
+      if (!user) return;
+      supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => {
+        setIsAdmin(!!data);
+        if (!data) { toast.error("Admin access required"); nav("/app"); }
+      });
+    }, [user, nav]);
+
+    const logout = () => {
+      sessionStorage.removeItem("blitzpay_admin_session");
+      nav("/admin");
+    };
+
+    if (!isAdmin) return null;
+
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        {/* Admin top nav */}
+        <header className="sticky top-0 z-40 border-b border-white/10 bg-background/80 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Logo size={28} />
+              <span className="text-sm font-bold tracking-tight">Admin Panel</span>
+            </div>
+            <button onClick={logout} className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition">
+              <LogOut className="h-3.5 w-3.5" />
+              Exit Admin
+            </button>
+          </div>
+          {/* Admin tab nav */}
+          <nav className="mx-auto max-w-5xl px-4 pb-2">
+            <div className="flex gap-1 overflow-x-auto">
+              {ADMIN_TABS.map(t => (
+                <NavLink
+                  key={t.to}
+                  to={t.to}
+                  className={({ isActive }) =>
+                    "flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition " +
+                    (isActive
+                      ? "bg-white/10 text-white"
+                      : "text-white/50 hover:text-white/70 hover:bg-white/5")
+                  }
+                >
+                  <t.icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </NavLink>
+              ))}
+            </div>
+          </nav>
+        </header>
+
+        {/* Page content */}
+        <main className="mx-auto max-w-5xl px-4 py-6">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+  
