@@ -73,7 +73,9 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (!loading && !user) nav("/auth", { replace: true });
+    // Don't redirect to /auth on admin routes — admin uses separate sessionStorage auth
+    const isAdminRoute = window.location.pathname.startsWith("/app/admin");
+    if (!loading && !user && !isAdminRoute) nav("/auth", { replace: true });
   }, [user, loading, nav]);
 
   useEffect(() => {
