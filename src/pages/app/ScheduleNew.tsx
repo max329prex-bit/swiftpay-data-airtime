@@ -45,6 +45,7 @@ export default function ScheduleNew() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [hideGiftPlans, setHideGiftPlans] = useState(false);
 
   // When
   const [freq, setFreq] = useState<Frequency>("monthly");
@@ -72,13 +73,14 @@ export default function ScheduleNew() {
     setLoadingPlans(true);
     supabase.functions.invoke("get-packages").then(({ data }) => {
       const pkgs = (data?.packages?.[network] ?? []) as any[];
-      setPlans(pkgs.filter(p => p.available !== false).slice(0, 30).map(p => ({
+      const all = pkgs.filter(p => p.available !== false).slice(0, 30).map(p => ({
         id: p.package_code || p.id, name: p.name, size: p.size, validity: p.validity,
         sell_price: p.sell_price, provider_code: p.provider_code,
         bp_value: p.bp_value ?? 1, available: true,
-      })));
+      }));
+      setPlans(hideGiftPlans ? all.filter(p => !isGiftPlan(p.id)) : all);
     }).finally(() => setLoadingPlans(false));
-  }, [step, network]);
+  }, [step, network, hideGiftPlans]);
 
   const phoneOk = phone.replace(/\D/g, "").length === 11;
   const dateOk = useMemo(() => new Date(date).getTime() > Date.now() + 10 * 60 * 1000, [date]);
@@ -167,7 +169,7 @@ export default function ScheduleNew() {
             <div className="py-10 grid place-items-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {plans.map(p => (
+              {plans.filter(p => !hideGiftPlans || !isGiftPlan(p.id)).map(p => (
                 <button key={p.id} onClick={() => setPlan(p)}
                   className={`rounded-2xl p-3 border text-left transition ${plan?.id === p.id ? "border-primary bg-primary/10" : "border-white/10 bg-white/[0.03] hover:bg-white/5"}`}>
                   <div className="font-display text-lg font-black">{p.size}</div>
@@ -255,7 +257,7 @@ export default function ScheduleNew() {
                 <div className="flex items-start gap-2">
                   <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
                   <div className="text-xs text-amber-200 leading-relaxed">
-                    <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded. <button type="button" onClick={() => setPlan(null)} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
+                    <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded. <button type="button" onClick={() => { setPlan(null); setHideGiftPlans(true); }} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
                   </div>
                 </div>
               </div>
