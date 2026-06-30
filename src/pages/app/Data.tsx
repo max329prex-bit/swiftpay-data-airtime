@@ -221,7 +221,7 @@ export default function Data() {
 
   const netPlans = allPlans[network] ?? [];
   const primePlans = netPlans.filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
-  const tabPlans = netPlans.filter(p => p.duration === duration);
+  const tabPlans = netPlans.filter(p => p.duration === duration && (!hideGiftPlans || !isGiftPlan(p.id)));
 
   const networkCounts = Object.fromEntries(
     NETWORKS.map(n => [n.id, (allPlans[n.id] ?? []).filter(p => p.available).length])
