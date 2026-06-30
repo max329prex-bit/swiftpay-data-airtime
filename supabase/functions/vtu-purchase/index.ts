@@ -223,9 +223,7 @@ serve(async (req) => {
       return json({ success: false, error: `GSubz airtime minimum is ₦${GSUBZ_MIN_AIRTIME}. Please enter ₦${GSUBZ_MIN_AIRTIME} or more.`, code: "AMOUNT_BELOW_MIN", balance_credited: false }, 200);
     }
 
-    if (type === "electricity_verify" || type === "cable_verify") {
-      return json({ error: "Verification temporarily unavailable. Please contact support." }, 503);
-    }
+    // electricity_verify and cable_verify now enabled
 
     const { data: pv, error: pe } = await uc.rpc("verify_transaction_pin", { _pin: pin });
     if (pe || !pv) return json({ error: "Incorrect PIN" }, 403);
