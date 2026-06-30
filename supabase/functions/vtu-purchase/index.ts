@@ -224,11 +224,51 @@ serve(async (req) => {
     }
 
     // Handle verification types BEFORE PIN check (verification doesn't need PIN)
-    if (type === "electricity_verify" || type === "cable_verify") {
-      // TODO: Replace with real GSubz meter verification API call
-      // GSubz electricity verification endpoint needs to be determined
-      return json({ success: true, customer_name: "Meter Verified", meter_number: meter_number || phone || "" });
-    }
+    // Handle verification types BEFORE PIN check (verification doesn't need PIN)
+      if (type === "electricity_verify") {
+        const key = (GSUBZ_KEY || "").trim();
+        if (!key) return json({ success: false, error: "GSubz API key not configured" }, 200);
+        try {
+          const fd = new FormData();
+          fd.append("serviceID", prvCode || "");
+          fd.append("meter", meter_number || phone || "");
+          fd.append("api", key);
+          const r = await fetch(GSUBZ_BASE + "/verify/", {
+            method: "POST", headers: { "Authorization": "Bearer " + key }, body: fd,
+            signal: AbortSignal.timeout(15000)
+          });
+          const d = await r.json();
+          const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name || d?.description;
+          if (customerName && typeof customerName === "string" && customerName.length > 1) {
+            return json({ success: true, customer_name: customerName, meter_number: meter_number || phone || "" });
+          }
+          return json({ success: false, error: d?.description || d?.message || "Could not verify meter. Check number and provider." }, 200);
+        } catch (e) {
+          return json({ success: false, error: "Verification service unavailable. Try again shortly." }, 200);
+        }
+      }
+      if (type === "cable_verify") {
+        const key = (GSUBZ_KEY || "").trim();
+        if (!key) return json({ success: false, error: "GSubz API key not configured" }, 200);
+        try {
+          const fd = new FormData();
+          fd.append("serviceID", prvCode || "");
+          fd.append("smartcard", meter_number || phone || "");
+          fd.append("api", key);
+          const r = await fetch(GSUBZ_BASE + "/verify/", {
+            method: "POST", headers: { "Authorization": "Bearer " + key }, body: fd,
+            signal: AbortSignal.timeout(15000)
+          });
+          const d = await r.json();
+          const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name;
+          if (customerName && typeof customerName === "string" && customerName.length > 1) {
+            return json({ success: true, customer_name: customerName, smartcard: meter_number || phone || "" });
+          }
+          return json({ success: false, error: d?.description || d?.message || "Could not verify smartcard." }, 200);
+        } catch (e) {
+          return json({ success: false, error: "Verification service unavailable." }, 200);
+        }
+      }
 
     const { data: pv, error: pe } = await uc.rpc("verify_transaction_pin", { _pin: pin });
     if (pe || !pv) return json({ error: "Incorrect PIN" }, 403);
