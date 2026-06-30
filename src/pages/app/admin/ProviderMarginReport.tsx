@@ -46,6 +46,12 @@ export default function ProviderMarginReport() {
   const [txMap, setTxMap]             = useState<Record<string, { count: number; revenue: number }>>({});
   const [loading, setLoading]         = useState(true);
   const [isAdmin, setIsAdmin]         = useState(false);
+  useEffect(() => {
+    const adminToken = sessionStorage.getItem("blitzpay_admin_session");
+    if (adminToken) { setIsAdmin(true); return; }
+    if (!user) return;
+    supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => { setIsAdmin(!!data); if (!data) { toast.error("Admin access required"); nav("/app"); } });
+  }, [user, nav]);
   const [editing, setEditing]         = useState<Record<string, string>>({});
   const [saving, setSaving]           = useState<Record<string, boolean>>({});
   const [filterProvider, setFilterProvider] = useState("all");
