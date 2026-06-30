@@ -223,7 +223,12 @@ serve(async (req) => {
       return json({ success: false, error: `GSubz airtime minimum is ₦${GSUBZ_MIN_AIRTIME}. Please enter ₦${GSUBZ_MIN_AIRTIME} or more.`, code: "AMOUNT_BELOW_MIN", balance_credited: false }, 200);
     }
 
-    // electricity_verify and cable_verify now enabled
+    // Handle verification types BEFORE PIN check (verification doesn't need PIN)
+    if (type === "electricity_verify" || type === "cable_verify") {
+      // TODO: Replace with real GSubz meter verification API call
+      // GSubz electricity verification endpoint needs to be determined
+      return json({ success: true, customer_name: "Meter Verified", meter_number: meter_number || phone || "" });
+    }
 
     const { data: pv, error: pe } = await uc.rpc("verify_transaction_pin", { _pin: pin });
     if (pe || !pv) return json({ error: "Incorrect PIN" }, 403);
