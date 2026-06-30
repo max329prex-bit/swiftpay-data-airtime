@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { BoltLoader } from "@/components/swift/BoltLoader";
 import { ArrowLeft, Shield, Flag, AlertTriangle, User } from "lucide-react";
@@ -9,7 +10,15 @@ import { toast } from "sonner";
 type FlagRow = { id: string; user_id: string; event_type: string; count: number; is_flagged: boolean; flagged_at: string | null; window_start: string; notes: string | null; profiles?: { full_name: string | null; phone: string | null } | null; };
 
 export default function FraudMonitor() {
+  const { user } = useAuth();
   const nav = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const adminToken = sessionStorage.getItem("blitzpay_admin_session");
+    if (adminToken) { setIsAdmin(true); return; }
+    if (!user) return;
+    supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => { setIsAdmin(!!data); if (!data) { toast.error("Admin access required"); nav("/app"); } });
+  }, [user, nav]);
   const [rows, setRows] = useState<FlagRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"flagged" | "high">("flagged");
@@ -30,6 +39,8 @@ export default function FraudMonitor() {
     toast.success("Marked as reviewed");
     load();
   }
+
+  if (!isAdmin) return null;
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5 pb-10">
