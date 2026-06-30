@@ -1,10 +1,9 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-  import { LayoutDashboard, MessageSquare, Shield, Megaphone, TrendingUp, LogOut } from "lucide-react";
+  import { LayoutDashboard, MessageSquare, Shield, Megaphone, TrendingUp, LogOut, Zap } from "lucide-react";
   import { useEffect, useState } from "react";
   import { supabase } from "@/integrations/supabase/client";
   import { useAuth } from "@/hooks/useAuth";
   import { toast } from "sonner";
-  import { Logo } from "./Logo";
   import { BoltLoader } from "./BoltLoader";
 
   const ADMIN_TABS = [
@@ -22,19 +21,16 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
     const [checked, setChecked] = useState(false);
 
     useEffect(() => {
-      // 1. Admin-only login (no Supabase user) - sessionStorage token
       const adminToken = sessionStorage.getItem("blitzpay_admin_session");
       if (adminToken) {
         setIsAdmin(true);
         setChecked(true);
         return;
       }
-      // 2. Wait for auth to load before checking has_role
       if (authLoading) return;
-      // 3. Regular user who is also admin
       if (!user) {
         setChecked(true);
-        return; // Will redirect below
+        return;
       }
       supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => {
         setIsAdmin(!!data);
@@ -46,7 +42,6 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
       });
     }, [user, authLoading, nav]);
 
-    // Redirect to admin login if not admin and check complete
     if (checked && !isAdmin) {
       return (
         <div className="min-h-screen grid place-items-center bg-background">
@@ -60,7 +55,6 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
       );
     }
 
-    // Show loader while checking
     if (!checked) {
       return (
         <div className="min-h-screen grid place-items-center bg-background">
@@ -80,7 +74,9 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
         <header className="sticky top-0 z-40 border-b border-white/10 bg-background/80 backdrop-blur-xl">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              <Logo size={28} />
+              <span className="relative grid h-7 w-7 place-items-center rounded-lg bg-gradient-primary shadow-glow">
+                <Zap className="h-4 w-4 text-white" strokeWidth={2.5} fill="white" />
+              </span>
               <span className="text-sm font-bold tracking-tight">Admin Panel</span>
             </div>
             <button onClick={logout} className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition">
