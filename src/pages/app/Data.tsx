@@ -435,7 +435,7 @@ export default function Data() {
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                 className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
-                <div className="text-xs text-muted-foreground">{plan.size} · {plan.validity}</div>
+                <div className="text-xs text-muted-foreground">{plan.size}  ·  {plan.validity}</div>
                 <div className="font-display text-base font-bold">{naira(plan.sell_price)}</div>
               </motion.div>
             </>
