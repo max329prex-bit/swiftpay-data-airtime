@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
 import { AppShell } from "./components/swift/AppShell.tsx";
+import { AdminShell } from "./components/swift/AdminShell.tsx";
 import Dashboard from "./pages/app/Dashboard.tsx";
 import Airtime from "./pages/app/Airtime.tsx";
 import Data from "./pages/app/Data.tsx";
@@ -85,12 +86,15 @@ const App = () => (
               <Route path="provider-status" element={<ProviderStatus />} />
               <Route path="ledger" element={<Ledger />} />
               <Route path="deposit-status" element={<DepositStatus />} />
-              {/* Admin-only routes — non-admins redirect to /admin login */}
-              <Route path="admin/treasury" element={<RequireAdmin><TreasuryDashboard /></RequireAdmin>} />
-              <Route path="admin/support" element={<RequireAdmin><SupportCenter /></RequireAdmin>} />
-              <Route path="admin/fraud" element={<RequireAdmin><FraudMonitor /></RequireAdmin>} />
-              <Route path="admin/broadcast" element={<RequireAdmin><Broadcast /></RequireAdmin>} />
-              <Route path="admin/margin" element={<RequireAdmin><ProviderMarginReport /></RequireAdmin>} />
+              {/* Admin routes moved to separate /app/admin shell */}
+            </Route>
+            {/* Admin panel — standalone shell with its own nav */}
+            <Route path="/app/admin" element={<AdminShell />}>
+              <Route path="treasury" element={<TreasuryDashboard />} />
+              <Route path="support" element={<SupportCenter />} />
+              <Route path="fraud" element={<FraudMonitor />} />
+              <Route path="broadcast" element={<Broadcast />} />
+              <Route path="margin" element={<ProviderMarginReport />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
