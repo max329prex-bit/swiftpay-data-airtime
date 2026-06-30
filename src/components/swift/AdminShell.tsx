@@ -1,10 +1,11 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-  import { ArrowLeft, LayoutDashboard, MessageSquare, Shield, Megaphone, TrendingUp, LogOut } from "lucide-react";
+  import { LayoutDashboard, MessageSquare, Shield, Megaphone, TrendingUp, LogOut } from "lucide-react";
   import { useEffect, useState } from "react";
   import { supabase } from "@/integrations/supabase/client";
   import { useAuth } from "@/hooks/useAuth";
   import { toast } from "sonner";
   import { Logo } from "./Logo";
+  import { BoltLoader } from "./BoltLoader";
 
   const ADMIN_TABS = [
     { to: "/app/admin/treasury", icon: LayoutDashboard, label: "Treasury" },
@@ -15,26 +16,63 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
   ];
 
   export function AdminShell() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const nav = useNavigate();
     const [isAdmin, setIsAdmin] = useState(false);
+    const [checked, setChecked] = useState(false);
 
     useEffect(() => {
+      // 1. Admin-only login (no Supabase user) - sessionStorage token
       const adminToken = sessionStorage.getItem("blitzpay_admin_session");
-      if (adminToken) { setIsAdmin(true); return; }
-      if (!user) return;
+      if (adminToken) {
+        setIsAdmin(true);
+        setChecked(true);
+        return;
+      }
+      // 2. Wait for auth to load before checking has_role
+      if (authLoading) return;
+      // 3. Regular user who is also admin
+      if (!user) {
+        setChecked(true);
+        return; // Will redirect below
+      }
       supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => {
         setIsAdmin(!!data);
-        if (!data) { toast.error("Admin access required"); nav("/app"); }
+        setChecked(true);
+        if (!data) {
+          toast.error("Admin access required");
+          nav("/app");
+        }
       });
-    }, [user, nav]);
+    }, [user, authLoading, nav]);
+
+    // Redirect to admin login if not admin and check complete
+    if (checked && !isAdmin) {
+      return (
+        <div className="min-h-screen grid place-items-center bg-background">
+          <div className="text-center space-y-3">
+            <div className="text-sm text-muted-foreground">Admin access required</div>
+            <button onClick={() => nav("/admin")} className="text-xs text-primary hover:underline">
+              Go to admin login
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Show loader while checking
+    if (!checked) {
+      return (
+        <div className="min-h-screen grid place-items-center bg-background">
+          <BoltLoader size={40} label="Checking admin access..." />
+        </div>
+      );
+    }
 
     const logout = () => {
       sessionStorage.removeItem("blitzpay_admin_session");
       nav("/admin");
     };
-
-    if (!isAdmin) return null;
 
     return (
       <div className="min-h-screen bg-background text-foreground">
