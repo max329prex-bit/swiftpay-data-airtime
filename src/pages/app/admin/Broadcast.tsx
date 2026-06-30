@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getAdminToken } from "@/hooks/useAdminRole";
 import { ArrowLeft, Megaphone, Send, X } from "lucide-react";
@@ -12,7 +13,15 @@ const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 type BroadcastValue = { active: boolean; message: string; type: "info" | "warning" | "error"; title: string; updated_at: string; };
 
 export default function Broadcast() {
+  const { user } = useAuth();
   const nav = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    const adminToken = sessionStorage.getItem("blitzpay_admin_session");
+    if (adminToken) { setIsAdmin(true); return; }
+    if (!user) return;
+    supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => { setIsAdmin(!!data); if (!data) { toast.error("Admin access required"); nav("/app"); } });
+  }, [user, nav]);
   const [current, setCurrent] = useState<BroadcastValue | null>(null);
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("");
@@ -75,6 +84,8 @@ export default function Broadcast() {
   }
 
   const typeBg = { info: "bg-blue-400/10 border-blue-400/20 text-blue-400", warning: "bg-warning/10 border-warning/20 text-warning", error: "bg-destructive/10 border-destructive/20 text-destructive" };
+
+  if (!isAdmin) return null;
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5 pb-10">
