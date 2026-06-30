@@ -12,10 +12,10 @@ const NETWORKS = [
 ];
 
 const SERVICES = [
-  { icon: Phone, title: "Airtime", desc: "Instant top-up on MTN, Glo, Airtel and 9mobile." },
-  { icon: Wifi, title: "Data bundles", desc: "From daily plans to monthly mega-bundles, all networks." },
-  { icon: Lightbulb, title: "Electricity", desc: "Pay any DISCO and get your token in seconds." },
-  { icon: Tv, title: "Cable TV", desc: "DStv, GOtv and Startimes — no queues, no stress." },
+  { icon: Phone, title: "Airtime", desc: "Instant top-up on MTN, Glo, Airtel and 9mobile.", to: "/auth?mode=signup" },
+  { icon: Wifi, title: "Data bundles", desc: "From daily plans to monthly mega-bundles, all networks.", to: "/auth?mode=signup" },
+  { icon: Lightbulb, title: "Electricity", desc: "Pay any DISCO and get your token in seconds.", to: "/auth?mode=signup" },
+  { icon: Tv, title: "Cable TV", desc: "DStv, GOtv and Startimes — no queues, no stress.", to: "/auth?mode=signup" },
 ];
 
 const FEATURES = [
@@ -189,13 +189,13 @@ export default function Index() {
           </div>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {SERVICES.map((s) => (
-              <div key={s.title} className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-white">
+              <Link key={s.title} to={s.to} className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group block">
+                <div className="grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-white group-hover:scale-110 transition-transform">
                   <s.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-4 text-lg font-semibold text-slate-900">{s.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{s.desc}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
