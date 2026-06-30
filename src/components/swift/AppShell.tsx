@@ -66,6 +66,7 @@ export function AppShell() {
   usePushNotifications();
 
   // Listen for open-blitzi-chat event dispatched from Support page
+  const isAdminRoute = window.location.pathname.startsWith("/app/admin");
   useEffect(() => {
     function handleOpenChat() { setShowChat(true); }
     window.addEventListener("open-blitzi-chat", handleOpenChat);
@@ -142,7 +143,6 @@ export function AppShell() {
   }
 
   // Admin routes bypass user auth — they use independent sessionStorage token
-  const isAdminRoute = window.location.pathname.startsWith("/app/admin");
 
   if (showSplash || loading) return (
     <AnimatePresence>
