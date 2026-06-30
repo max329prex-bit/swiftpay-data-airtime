@@ -73,23 +73,22 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    // Don't redirect to /auth on admin routes — admin uses separate sessionStorage auth
-    const isAdminRoute = window.location.pathname.startsWith("/app/admin");
     if (!loading && !user && !isAdminRoute) nav("/auth", { replace: true });
-  }, [user, loading, nav]);
+  }, [user, loading, nav, isAdminRoute]);
 
   useEffect(() => {
     if (!user) return;
+    if (isAdminRoute) { setPinChecked(true); return; }
     supabase.rpc("has_transaction_pin").then(({ data }) => {
       if (data === false && window.location.pathname !== "/app/setup-pin") {
         nav("/app/setup-pin", { replace: true });
       }
       setPinChecked(true);
     });
-  }, [user, nav]);
+  }, [user, nav, isAdminRoute]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isAdminRoute) return;
     const items: Notif[] = [];
     const welcomedKey = `bp_welcomed_${user.id}`;
     if (!localStorage.getItem(welcomedKey)) {
@@ -142,12 +141,15 @@ export function AppShell() {
     }
   }
 
+  // Admin routes bypass user auth — they use independent sessionStorage token
+  const isAdminRoute = window.location.pathname.startsWith("/app/admin");
+
   if (showSplash || loading) return (
     <AnimatePresence>
       <SplashScreen key="splash" onDone={() => setShowSplash(false)} />
     </AnimatePresence>
   );
-  if (!user) return null;
+  if (!user && !isAdminRoute) return null;
 
   const broadcastColors: Record<string, string> = {
     info: "bg-blue-500/10 border-blue-500/20 text-blue-300",
