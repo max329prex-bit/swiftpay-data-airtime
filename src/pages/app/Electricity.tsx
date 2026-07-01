@@ -7,7 +7,7 @@ import { naira } from "@/lib/networks";
 import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, X, ChevronDown, Zap, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, X, ChevronDown, Zap, Clock, Loader2, AlertTriangle } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const QUICK_AMOUNTS = [1000, 2000, 3000, 5000, 10000, 20000];
@@ -176,7 +176,7 @@ export default function Electricity() {
         {showProviders && (
           <div className="glass rounded-2xl overflow-hidden">
             {providers.map(p => (
-              <button key={p.code} onClick={() => { setProvider(p); setShowProviders(false); setVerified(false); setCustomerName(""); }}
+              <button key={p.code} onClick={() => { setProvider(p); setShowProviders(false); setVerified(false); setCustomerName(""); setVerifySkipped(false); }}
                 className="flex w-full items-center gap-3 p-4 hover:bg-white/5 text-left">
                 <span className="font-medium text-sm">{p.name}</span>
               </button>
@@ -201,8 +201,14 @@ export default function Electricity() {
           </motion.div>
         )}
       </div>
-      {verified && (
+      {(verified || verifySkipped) && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+            {verifySkipped && (
+              <div className="flex items-center gap-2 rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-3 text-xs text-yellow-300">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>Meter could not be verified. Payment will proceed but the token may not deliver if the meter number is wrong.</span>
+              </div>
+            )}
           <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Amount</div>
           <div className="grid grid-cols-3 gap-2">
             {QUICK_AMOUNTS.map(a => (
