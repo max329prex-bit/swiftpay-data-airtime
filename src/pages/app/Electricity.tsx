@@ -187,7 +187,7 @@ export default function Electricity() {
       <div className="space-y-2">
         <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Meter Number</div>
         <div className="flex gap-2">
-          <Input value={meter} onChange={e => setMeter(e.target.value)} placeholder="Enter meter number" inputMode="numeric"
+          <Input value={meter} onChange={e => { setMeter(e.target.value); setVerifySkipped(false); setVerified(false); setCustomerName(""); }} placeholder="Enter meter number" inputMode="numeric"
             className="h-14 rounded-2xl bg-secondary/40 text-base flex-1" />
           <Button onClick={verifyMeter} disabled={verifying || meter.length < 10} variant="hero"
             className="h-14 rounded-2xl px-5">
