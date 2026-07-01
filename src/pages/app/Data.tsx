@@ -445,17 +445,33 @@ export default function Data() {
 
 
             {/* Gift/Awoof warning in plan detail */}
-            {plan && isGiftPlan(plan.id) && (
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
-                <div className="flex items-start gap-2">
-                  <span className="text-amber-400 text-lg leading-none mt-0.5">&#9888;</span>
-                  <div className="text-xs text-amber-200 leading-relaxed">
-                    <span className="font-semibold">Non-owing line only.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and be refunded. <button type="button" onClick={() => { setPlan(null); setHideGiftPlans(true); }} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
+              {plan && isGiftPlan(plan) && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-400 text-lg leading-none mt-0.5">&#9888;</span>
+                    <div className="text-xs text-amber-200 leading-relaxed">
+                      <span className="font-semibold">Non-owing line only.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and be refunded.
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
+                  <button type="button" onClick={() => { setPlan(null); setHideGiftPlans(true); }}
+                    className="mt-2 w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition">
+                    See regular plans for owing users
+                  </button>
+                </motion.div>
+              )}
+              {/* Regular plan - owing users CAN buy */}
+              {plan && !isGiftPlan(plan) && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-emerald-400 text-lg leading-none">&#10003;</span>
+                    <div className="text-xs text-emerald-200 leading-relaxed">
+                      <span className="font-semibold">Owing users can buy.</span> This regular plan works for all lines, including numbers that are <span className="font-semibold">currently owing data</span>.
+                    </div>
+                  </div>
+                </motion.div>
+              )}}
 
       <div ref={ctaRef}>
         <Button variant="hero" size="xl" className="w-full" disabled={!plan || !phoneOk} onClick={() => setStep("pin")}>
@@ -489,16 +505,31 @@ export default function Data() {
                 ))}
               </div>
                 {/* Gift/Awoof warning in confirmation */}
-                {isGiftPlan(plan.id) && (
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 mt-2">
-                    <div className="flex items-start gap-2">
-                      <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
-                      <div className="text-xs text-amber-200 leading-relaxed">
-                        <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded. <button type="button" onClick={() => { setStep("form"); setPlan(null); setHideGiftPlans(true); }} className="text-amber-300 underline font-semibold cursor-pointer hover:text-amber-100 transition">Click here to see plans owing users can get</button>.
+                  {isGiftPlan(plan) && (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 mt-2">
+                      <div className="flex items-start gap-2">
+                        <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
+                        <div className="text-xs text-amber-200 leading-relaxed">
+                          <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded.
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => { setStep("form"); setPlan(null); setHideGiftPlans(true); }}
+                        className="mt-2 w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20 transition">
+                        See regular plans for owing users
+                      </button>
+                    </div>
+                  )}
+                  {/* Regular plan confirmation - owing users CAN buy */}
+                  {!isGiftPlan(plan) && (
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 mt-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-400 text-sm leading-none">&#10003;</span>
+                        <div className="text-xs text-emerald-200 leading-relaxed">
+                          <span className="font-semibold">Owing users can buy.</span> This regular plan works for all lines, including numbers currently owing data.
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}}
 
               <div className="space-y-4 text-center">
                 <div className="text-sm font-semibold">Enter your 4-digit PIN</div>
