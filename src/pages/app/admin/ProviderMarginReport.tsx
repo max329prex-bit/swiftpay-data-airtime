@@ -84,13 +84,7 @@ export default function ProviderMarginReport() {
     }
   };
 
-  useEffect(() => {
-    if (!user) return;
-    supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => {
-      setIsAdmin(!!data);
-      if (!data) { toast.error("Admin access required"); nav("/app"); }
-    });
-  }, [user, nav]);
+  // Admin check already handled by first useEffect — removed duplicate
 
   const load = () => {
     setLoading(true);

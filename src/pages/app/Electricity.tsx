@@ -100,6 +100,8 @@ export default function Electricity() {
       }
     } catch (e: any) {
       toast.error(e.message || "Verification failed");
+      // Allow user to skip verification and proceed at their own risk
+      setVerifySkipped(true);
     } finally {
       setVerifying(false);
     }
