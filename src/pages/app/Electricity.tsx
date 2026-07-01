@@ -50,6 +50,7 @@ export default function Electricity() {
   const [customerName, setCustomerName] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [verifySkipped, setVerifySkipped] = useState(false);
   const [amount, setAmount] = useState(0);
   const [pin, setPin] = useState("");
   const [step, setStep] = useState<Step>("form");
