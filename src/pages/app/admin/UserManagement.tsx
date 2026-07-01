@@ -10,6 +10,9 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { naira } from "@/lib/networks";
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
 type UserRow = {
   id: string;
   email: string | null;
@@ -32,9 +35,13 @@ export default function UserManagement() {
   const [search, setSearch] = useState("");
   const [stats, setStats] = useState({ total: 0, admins: 0, withWallet: 0, today: 0 });
 
+  // Check admin access: either via OTP session token or Supabase auth role
   useEffect(() => {
     const adminToken = sessionStorage.getItem("blitzpay_admin_session");
-    if (adminToken) { setIsAdmin(true); return; }
+    if (adminToken) {
+      setIsAdmin(true);
+      return;
+    }
     if (!user) return;
     supabase.rpc("has_role" as never, { _role: "admin" } as never).then(({ data }) => {
       setIsAdmin(!!data);
@@ -42,47 +49,86 @@ export default function UserManagement() {
     });
   }, [user, nav]);
 
+  /** Load users — edge function for OTP admins, RPC for Supabase-authenticated admins */
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      let rpcResult = await supabase.rpc("admin_list_users" as any).catch(() => null);
-      let userData: any[] = [];
+      let userData: UserRow[] = [];
+      const adminToken = sessionStorage.getItem("blitzpay_admin_session");
 
-      if (rpcResult?.data && Array.isArray(rpcResult.data)) {
-        userData = rpcResult.data;
-      } else {
-        const [profilesRes, walletsRes, rolesRes, txCounts] = await Promise.all([
-          supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200),
-          supabase.from("wallets").select("user_id, balance"),
-          supabase.from("user_roles").select("user_id, role"),
-          supabase.from("transactions").select("user_id, id").limit(1000),
-        ]);
-
-        const profiles = (profilesRes.data || []) as any[];
-        const wallets = (walletsRes.data || []) as any[];
-        const roles = (rolesRes.data || []) as any[];
-        const txs = (txCounts.data || []) as any[];
-
-        const txCountMap: Record<string, number> = {};
-        for (const t of txs) {
-          txCountMap[t.user_id] = (txCountMap[t.user_id] || 0) + 1;
-        }
-
-        userData = profiles.map((p: any) => {
-          const w = wallets.find((w: any) => w.user_id === p.user_id);
-          const r = roles.find((r: any) => r.user_id === p.user_id);
-          return {
-            id: p.user_id,
-            email: p.email || "\u2014",
-            full_name: p.full_name || "\u2014",
-            phone: p.phone || "\u2014",
-            role: r?.role || "user",
-            balance: Number(w?.balance || 0),
-            created_at: p.created_at,
-            wallet_funded: Number(w?.balance || 0) > 0,
-            tx_count: txCountMap[p.user_id] || 0,
-          };
+      if (adminToken) {
+        // Admin logged in via OTP flow — no Supabase JWT. Use edge function.
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-list-users`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${adminToken}`,
+            "apikey": ANON_KEY,
+          },
         });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Failed to load users via admin service");
+        }
+        userData = (data.users || []).map((u: any) => ({
+          id: u.id,
+          email: u.email ?? null,
+          full_name: u.full_name ?? null,
+          phone: u.phone ?? null,
+          role: u.role ?? "user",
+          balance: Number(u.balance || 0),
+          created_at: u.created_at,
+          wallet_funded: !!u.wallet_funded,
+          tx_count: Number(u.tx_count || 0),
+        }));
+      } else {
+        // Supabase-authenticated admin — can use RPC (has JWT)
+        let rpcResult = await supabase.rpc("admin_list_users" as any).catch(() => null);
+
+        if (rpcResult?.data && Array.isArray(rpcResult.data)) {
+          userData = (rpcResult.data as any[]).map((p: any) => ({
+            id: p.user_id ?? p.id,
+            email: p.email || null,
+            full_name: p.full_name || null,
+            phone: p.phone || null,
+            role: p.role || "user",
+            balance: Number(p.balance || 0),
+            created_at: p.created_at,
+            wallet_funded: Number(p.balance || 0) > 0,
+            tx_count: Number(p.tx_count || 0),
+          }));
+        } else {
+          // Fallback to client-side joins (requires RLS to allow admin reads)
+          const [profilesRes, walletsRes, rolesRes, txCounts] = await Promise.all([
+            supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200),
+            supabase.from("wallets").select("user_id, balance"),
+            supabase.from("user_roles").select("user_id, role"),
+            supabase.from("transactions").select("user_id, id").limit(1000),
+          ]);
+
+          const profiles = (profilesRes.data || []) as any[];
+          const wallets = (walletsRes.data || []) as any[];
+          const roles = (rolesRes.data || []) as any[];
+          const txs = (txCounts.data || []) as any[];
+
+          const txCountMap: Record<string, number> = {};
+          for (const t of txs) txCountMap[t.user_id] = (txCountMap[t.user_id] || 0) + 1;
+
+          userData = profiles.map((p: any) => {
+            const w = wallets.find((w: any) => w.user_id === p.user_id);
+            const r = roles.find((r: any) => r.user_id === p.user_id);
+            return {
+              id: p.user_id,
+              email: p.email || null,
+              full_name: p.full_name || null,
+              phone: p.phone || null,
+              role: r?.role || "user",
+              balance: Number(w?.balance || 0),
+              created_at: p.created_at,
+              wallet_funded: Number(w?.balance || 0) > 0,
+              tx_count: txCountMap[p.user_id] || 0,
+            };
+          });
+        }
       }
 
       setRows(userData);
