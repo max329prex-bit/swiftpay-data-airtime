@@ -440,8 +440,6 @@ export default function Data() {
               </motion.div>
             </>
           )}
-        </motion.div>
-      )}
 
 
             {/* Gift/Awoof warning in plan detail */}
@@ -471,7 +469,9 @@ export default function Data() {
                     </div>
                   </div>
                 </motion.div>
-              )}}
+              )}
+        </motion.div>
+      )}
 
       <div ref={ctaRef}>
         <Button variant="hero" size="xl" className="w-full" disabled={!plan || !phoneOk} onClick={() => setStep("pin")}>
