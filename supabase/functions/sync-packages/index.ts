@@ -6,6 +6,8 @@ const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SYNC_SECRET = Deno.env.get("SYNC_ADMIN_SECRET") ?? "";
 const AIDAPAY_BASE  = "https://www.aidapay.ng/api/v1";
 const AIDAPAY_TOKEN = Deno.env.get("AIDAPAY_TOKEN")!;
+const IACAFE_BASE   = "https://iacafe.com.ng/devapi/v1";
+const IACAFE_TOKEN  = Deno.env.get("IACAFE_TOKEN") ?? "";
 const TG_BOT      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TG_CHAT     = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
 
@@ -108,6 +110,62 @@ serve(async (req) => {
     } catch (e) {
       errors[code] = e instanceof Error ? e.message : String(e);
       console.error(`sync [${code}]:`, errors[code]);
+    }
+  }
+
+  // ── Sync IA Cafe plans (budget-data) ────────────────────────────────────
+  if (IACAFE_TOKEN) {
+    try {
+      const r = await fetch(`${IACAFE_BASE}/budget-data/plans`, {
+        headers: { Accept: "application/json", Authorization: `Bearer ${IACAFE_TOKEN}` },
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!r.ok) {
+        errors["iacafe"] = `HTTP ${r.status}`;
+      } else {
+        const res = await r.json();
+        const plans: Record<string, unknown>[] = Array.isArray(res?.data) ? res.data : [];
+        const seenIacafe: string[] = [];
+
+        const netMap: Record<number, string> = { 1: "MTN", 2: "AIRTEL", 3: "GLO", 4: "9MOBILE", 6: "MTN" };
+
+        for (const p of plans) {
+          const pc    = String(p.data_plan || "");
+          const netId = Number(p.network_id || 0);
+          const net   = netMap[netId] || (p.network_name as string)?.toUpperCase() || "MTN";
+          if (!pc || seen.has(`iacafe-${pc}`)) continue;
+          seen.add(`iacafe-${pc}`);
+          seenIacafe.push(pc);
+
+          const name   = (p.name as string) || `${p.data_type} ${p.plan || ""}`;
+          const price  = Number(p.api_user_price || 0);
+          const size   = parseSize(name);
+          const validity = (p.validity as string) || parseValidity(name);
+          const dataType = (p.data_type as string)?.toLowerCase() || "";
+          const tier   = dataType.includes("sme") || dataType.includes("sme2") ? "stable" : "promo";
+
+          const { error: ue } = await db.from("packages").upsert({
+            network: net, name: `${name} (IA Cafe)`,
+            size, validity,
+            price, provider_code: "iacafe", package_code: `IAC-${pc}`,
+            sort_order: price, is_active: true, coming_soon: false,
+            bp_value: calcBpValue(price),
+            tier
+          }, { onConflict: "package_code" });
+          if (!ue) { results[`${net}/iacafe`] = (results[`${net}/iacafe`] || 0) + 1; totalUpserted++; }
+        }
+
+        if (seenIacafe.length > 0) {
+          const codeList = seenIacafe.map(c => `"IAC-${c}"`).join(",");
+          const { count } = await db.from("packages").update({ is_active: false })
+            .eq("provider_code", "iacafe").eq("is_active", true)
+            .not("package_code", "in", `(${codeList})`);
+          if (count) totalDeactivated += count;
+        }
+      }
+    } catch (e) {
+      errors["iacafe"] = e instanceof Error ? e.message : String(e);
+      console.error("sync [iacafe]:", errors["iacafe"]);
     }
   }
 
