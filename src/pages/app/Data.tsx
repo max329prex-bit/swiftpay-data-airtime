@@ -61,6 +61,10 @@ function isGiftPlan(pkgCode: string): boolean {
   const c = (pkgCode || '').toLowerCase();
   return c.includes('awoof') || c.includes('gifting') || c.includes('gift');
 }
+function isGiftPlanObj(p: { id?: string; provider_code?: string | null } | null | undefined): boolean {
+  if (!p) return false;
+  return isGiftPlan(p.id || '') || (p.provider_code || '').toLowerCase().includes('awuf');
+}
 function parseGbSize(size: string): number {
   const m = (size || "").match(/(\d+\.?\d*)\s*(MB|GB|TB)/i);
   if (!m) return 1;
@@ -529,7 +533,7 @@ export default function Data() {
                         </div>
                       </div>
                     </div>
-                  )}}
+                  )}
 
               <div className="space-y-4 text-center">
                 <div className="text-sm font-semibold">Enter your 4-digit PIN</div>
