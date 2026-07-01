@@ -109,6 +109,36 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          revoked: boolean
+          token: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          revoked?: boolean
+          token: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          revoked?: boolean
+          token?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -282,6 +312,42 @@ export type Database = {
           provider_code?: string
           status?: string
           tx_reference?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          meta: Json | null
+          source: string | null
+          title: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          meta?: Json | null
+          source?: string | null
+          title?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          meta?: Json | null
+          source?: string | null
+          title?: string | null
+          type?: string
           user_id?: string
         }
         Relationships: []
@@ -708,6 +774,29 @@ export type Database = {
           },
         ]
       }
+      support_ticket_notified: {
+        Row: {
+          emailed_at: string
+          ticket_id: string
+        }
+        Insert: {
+          emailed_at?: string
+          ticket_id: string
+        }
+        Update: {
+          emailed_at?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_notified_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: true
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           admin_notes: string | null
@@ -770,11 +859,13 @@ export type Database = {
           failure_reason: string | null
           id: string
           idempotency_key: string | null
+          last_recovery_at: string | null
           last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
           provider_reference: string | null
+          recovery_attempts: number | null
           reference: string
           retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
@@ -790,11 +881,13 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           idempotency_key?: string | null
+          last_recovery_at?: string | null
           last_verification_at?: string | null
           meta?: Json | null
           network?: string | null
           phone?: string | null
           provider_reference?: string | null
+          recovery_attempts?: number | null
           reference: string
           retry_count?: number
           status?: Database["public"]["Enums"]["tx_status"]
@@ -810,11 +903,13 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           idempotency_key?: string | null
+          last_recovery_at?: string | null
           last_verification_at?: string | null
           meta?: Json | null
           network?: string | null
           phone?: string | null
           provider_reference?: string | null
+          recovery_attempts?: number | null
           reference?: string
           retry_count?: number
           status?: Database["public"]["Enums"]["tx_status"]
@@ -1113,11 +1208,109 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_commit_transaction: {
+        Args: {
+          _admin_id: string
+          _notes?: string
+          _provider_reference?: string
+          _tx_id: string
+        }
+        Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
+          amount: number
+          created_at: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_recovery_at: string | null
+          last_verification_at: string | null
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          provider_reference: string | null
+          recovery_attempts: number | null
+          reference: string
+          retry_count: number
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_fail_and_refund_transaction: {
+        Args: { _admin_id: string; _reason?: string; _tx_id: string }
+        Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
+          amount: number
+          created_at: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_recovery_at: string | null
+          last_verification_at: string | null
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          provider_reference: string | null
+          recovery_attempts: number | null
+          reference: string
+          retry_count: number
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       advance_schedule_after_success: {
         Args: { _schedule_id: string }
         Returns: undefined
       }
       cancel_schedule: { Args: { _id: string }; Returns: undefined }
+      commit_transaction: {
+        Args: { _meta?: Json; _provider_reference?: string; _tx_id: string }
+        Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
+          amount: number
+          created_at: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_recovery_at: string | null
+          last_verification_at: string | null
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          provider_reference: string | null
+          recovery_attempts: number | null
+          reference: string
+          retry_count: number
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       complete_vtu_transaction: {
         Args: { _aidapay_hash: string; _meta?: Json; _status: string }
         Returns: undefined
@@ -1144,11 +1337,13 @@ export type Database = {
           failure_reason: string | null
           id: string
           idempotency_key: string | null
+          last_recovery_at: string | null
           last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
           provider_reference: string | null
+          recovery_attempts: number | null
           reference: string
           retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
@@ -1231,11 +1426,13 @@ export type Database = {
               failure_reason: string | null
               id: string
               idempotency_key: string | null
+              last_recovery_at: string | null
               last_verification_at: string | null
               meta: Json | null
               network: string | null
               phone: string | null
               provider_reference: string | null
+              recovery_attempts: number | null
               reference: string
               retry_count: number
               status: Database["public"]["Enums"]["tx_status"]
@@ -1269,11 +1466,13 @@ export type Database = {
               failure_reason: string | null
               id: string
               idempotency_key: string | null
+              last_recovery_at: string | null
               last_verification_at: string | null
               meta: Json | null
               network: string | null
               phone: string | null
               provider_reference: string | null
+              recovery_attempts: number | null
               reference: string
               retry_count: number
               status: Database["public"]["Enums"]["tx_status"]
@@ -1295,6 +1494,76 @@ export type Database = {
       credit_wallet_from_payvessel: {
         Args: { _amount: number; _pv_ref: string; _user_id: string }
         Returns: undefined
+      }
+      debit_and_create_transaction: {
+        Args: {
+          _amount: number
+          _meta?: Json
+          _network: string
+          _phone: string
+          _reference?: string
+          _type: Database["public"]["Enums"]["tx_type"]
+          _user_id: string
+        }
+        Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
+          amount: number
+          created_at: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_recovery_at: string | null
+          last_verification_at: string | null
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          provider_reference: string | null
+          recovery_attempts: number | null
+          reference: string
+          retry_count: number
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fail_and_refund_transaction: {
+        Args: { _reason?: string; _tx_id: string }
+        Returns: {
+          aidapay_hash: string | null
+          aidapay_status: string | null
+          amount: number
+          created_at: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_recovery_at: string | null
+          last_verification_at: string | null
+          meta: Json | null
+          network: string | null
+          phone: string | null
+          provider_reference: string | null
+          recovery_attempts: number | null
+          reference: string
+          retry_count: number
+          status: Database["public"]["Enums"]["tx_status"]
+          type: Database["public"]["Enums"]["tx_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fetch_due_schedules: {
         Args: { _limit?: number }
@@ -1330,6 +1599,52 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_package_with_min_price: {
+        Args: { _pkg_code: string }
+        Returns: {
+          bp_value: number
+          coming_soon: boolean
+          cost_price: number
+          created_at: string
+          fallback_package_code: string | null
+          fallback_provider_code: string | null
+          health_score: number
+          id: string
+          is_active: boolean
+          is_blitz_prime: boolean
+          name: string
+          network: string
+          package_code: string
+          price: number
+          provider_code: string
+          size: string
+          sort_order: number
+          tier: string
+          validity: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "packages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_pending_transactions: {
+        Args: { _hours_back?: number }
+        Returns: {
+          age_minutes: number
+          amount: number
+          created_at: string
+          id: string
+          meta: Json
+          network: string
+          phone: string
+          reference: string
+          status: string
+          type: Database["public"]["Enums"]["tx_type"]
+          user_id: string
+        }[]
+      }
       handle_schedule_failure: {
         Args: { _err: string; _schedule_id: string }
         Returns: undefined
@@ -1348,6 +1663,8 @@ export type Database = {
           }
       has_transaction_pin: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      is_admin_session: { Args: { _token: string }; Returns: boolean }
+      is_tx_pending: { Args: { _tx_id: string }; Returns: boolean }
       mark_bundle_available: {
         Args: {
           _network: string
@@ -1365,6 +1682,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      mark_notification_read: { Args: { _id: string }; Returns: undefined }
       pause_schedule: { Args: { _id: string }; Returns: undefined }
       purchase_vtu: {
         Args: {
@@ -1382,11 +1700,13 @@ export type Database = {
           failure_reason: string | null
           id: string
           idempotency_key: string | null
+          last_recovery_at: string | null
           last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
           provider_reference: string | null
+          recovery_attempts: number | null
           reference: string
           retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
@@ -1421,11 +1741,13 @@ export type Database = {
           failure_reason: string | null
           id: string
           idempotency_key: string | null
+          last_recovery_at: string | null
           last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
           provider_reference: string | null
+          recovery_attempts: number | null
           reference: string
           retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
@@ -1458,6 +1780,26 @@ export type Database = {
         Returns: string
       }
       resume_schedule: { Args: { _id: string }; Returns: undefined }
+      search_transaction_by_reference: {
+        Args: { _ref: string }
+        Returns: {
+          amount: number
+          created_at: string
+          meta: Json
+          network: string
+          phone: string
+          reference: string
+          status: string
+          tx_id: string
+          tx_type: string
+          user_email: string
+          user_name: string
+        }[]
+      }
+      send_broadcast: {
+        Args: { _message: string; _title: string; _type?: string }
+        Returns: number
+      }
       set_transaction_pin: { Args: { _pin: string }; Returns: boolean }
       topup_wallet: {
         Args: { _amount: number; _method: string }
@@ -1469,11 +1811,13 @@ export type Database = {
           failure_reason: string | null
           id: string
           idempotency_key: string | null
+          last_recovery_at: string | null
           last_verification_at: string | null
           meta: Json | null
           network: string | null
           phone: string | null
           provider_reference: string | null
+          recovery_attempts: number | null
           reference: string
           retry_count: number
           status: Database["public"]["Enums"]["tx_status"]
