@@ -40,6 +40,7 @@ function treasuryKey(type: string, prvCode: string): string {
   if (type === "data" && prvCode === "iacafe")          return "iacafe";
   if (type === "data" && prvCode?.startsWith("bsplug")) return "bsplug";
   if (type === "data" && prvCode === "gsubz")           return "iacafe";
+  if (type === "electricity")                           return "iacafe";
   return "gsubz";
 }
 function genRef() {
@@ -100,6 +101,49 @@ async function iacafeBuy(planId: number, phone: string, reqId: string): Promise<
   } catch (e) { return { success: false, msg: `IA Cafe unreachable: ${e}` }; }
 }
 
+// ── IA Cafe Electricity ─────────────────────────────────────────
+async function iacafeVerifyMeter(serviceID: string, customerId: string, type: string): Promise<{ ok: boolean; name?: string; error?: string }> {
+  if (!IACAFE_TOKEN) return { ok: false, error: "IA Cafe API key not configured" };
+  try {
+    const r = await fetch(`${IACAFE_BASE}/verify`, {
+      method: "POST",
+      headers: { Accept: "application/json", Authorization: `Bearer ${IACAFE_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ service_id: serviceID, customer_id: customerId, variation_id: type }),
+      signal: AbortSignal.timeout(15000)
+    });
+    const d = await r.json();
+    if (!r.ok || d?.success === false) {
+      const msg = d?.error?.message || d?.message || d?.error || "Verification failed";
+      return { ok: false, error: msg };
+    }
+    const name = d?.data?.name || d?.data?.customer_name || d?.data?.Customer_Name || d?.name || d?.customer_name;
+    if (name && typeof name === "string" && name.length > 1) return { ok: true, name };
+    return { ok: false, error: d?.message || "Could not verify meter." };
+  } catch (e) {
+    return { ok: false, error: "Verification service unavailable." };
+  }
+}
+async function iacafeElectricity(serviceID: string, customerId: string, amount: number, phone: string, reqId: string): Promise<PR> {
+  if (!IACAFE_TOKEN) return { success: false, msg: "IA Cafe API key not configured" };
+  try {
+    const r = await fetch(`${IACAFE_BASE}/electricity`, {
+      method: "POST",
+      headers: { Accept: "application/json", Authorization: `Bearer ${IACAFE_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ request_id: reqId, service_id: serviceID, customer_id: customerId, variation_id: "prepaid", amount: String(amount), phone }),
+      signal: AbortSignal.timeout(30000)
+    });
+    const d = await r.json();
+    if (!r.ok || d?.success === false || d?.code === "error") {
+      const m = d?.error?.message || d?.message || d?.error || "IA Cafe electricity failed";
+      return { success: false, msg: m, bundle_down: isBundleDown(m) };
+    }
+    const ok = d?.success === true || d?.status === "success" || d?.code === "success";
+    if (!ok) return { success: false, msg: d?.message || "Unexpected response from IA Cafe", bundle_down: isBundleDown(d?.message || "") };
+    return { success: true, ref: String(d?.data?.request_id || d?.data?.order_id || d?.data?.id || reqId) };
+  } catch (e) {
+    return { success: false, msg: `IA Cafe unreachable: ${e}` };
+  }
+}
 // ── Provider: GSubz (raw) ─────────────────────────────────
 async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
   const key = (GSUBZ_KEY || "").trim();
@@ -226,31 +270,11 @@ serve(async (req) => {
     // Handle verification types BEFORE PIN check (verification doesn't need PIN)
     // Handle verification types BEFORE PIN check (verification doesn't need PIN)
       if (type === "electricity_verify") {
-        const key = (GSUBZ_KEY || "").trim();
-        if (!key) return json({ success: false, error: "GSubz API key not configured" }, 200);
-        try {
-          const fd = new FormData();
-          fd.append("serviceID", prvCode || "");
-          fd.append("meter", meter_number || phone || "");
-          fd.append("api", key);
-          const r = await fetch(GSUBZ_BASE + "/verify/", {
-            method: "POST", headers: { "Authorization": "Bearer " + key }, body: fd,
-            signal: AbortSignal.timeout(15000)
-          });
-          const d = await r.json();
-          const errorText = d?.description || d?.message || "";
-          const isErrorResponse = /ACCESS_NOT_ALLOWED|INVALID|ERROR|FAILED|DENIED|UNAUTHORIZED/i.test(errorText);
-          if (isErrorResponse) {
-            return json({ success: false, error: errorText }, 200);
-          }
-          const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name;
-          if (customerName && typeof customerName === "string" && customerName.length > 1 && !/ACCESS_NOT_ALLOWED|INVALID|ERROR/i.test(customerName)) {
-            return json({ success: true, customer_name: customerName, meter_number: meter_number || phone || "" });
-          }
-          return json({ success: false, error: errorText || "Could not verify meter. Check number and provider." }, 200);
-        } catch (e) {
-          return json({ success: false, error: "Verification service unavailable. Try again shortly." }, 200);
+        const v = await iacafeVerifyMeter(prvCode || "", meter_number || phone || "", "prepaid");
+        if (v.ok && v.name) {
+          return json({ success: true, customer_name: v.name, meter_number: meter_number || phone || "" });
         }
+        return json({ success: false, error: v.error || "Could not verify meter. Check number and provider." }, 200);
       }
       if (type === "cable_verify") {
         const key = (GSUBZ_KEY || "").trim();
@@ -352,11 +376,13 @@ serve(async (req) => {
     } else if (type === "airtime") {
       pr = await gsubzAirtime(network || "", phone || "", sellPrice);
       if (pr.success) { usedProvider = "gsubz"; txMeta.provider_used = "gsubz"; txMeta.gsubz_ref = pr.ref; }
-    } else if (type === "electricity" || type === "cable") {
+    } else if (type === "electricity") {
+      const reqId = `IAC-EL-${Date.now()}`; txMeta.iacafe_request_id = reqId;
+      pr = await iacafeElectricity(prvCode || "", meter_number || phone || "", sellPrice, phone || meter_number || "", reqId);
+      if (pr.success) { usedProvider = "iacafe"; txMeta.provider_used = "iacafe"; txMeta.iacafe_ref = pr.ref; }
+    } else if (type === "cable") {
       const reqId = `GSZ-${Date.now()}`; txMeta.gsubz_request_id = reqId;
-      let extra: Record<string, string> = {};
-      if (type === "electricity") extra = { meter: meter_number || phone || "", amount: String(sellPrice || 0) };
-      pr = await gsubzBuyRaw({ serviceID: prvCode || "", plan: pkgCode || String(sellPrice || 0), api: GSUBZ_KEY, phone: meter_number || phone || "", requestID: reqId, callback_url: "https://blitz.com.ng/webhook/gsubz", ...extra });
+      pr = await gsubzBuyRaw({ serviceID: prvCode || "", plan: pkgCode || String(sellPrice || 0), api: GSUBZ_KEY, phone: meter_number || phone || "", requestID: reqId, callback_url: "https://blitz.com.ng/webhook/gsubz" });
       if (pr.success) { usedProvider = "gsubz"; txMeta.provider_used = "gsubz"; txMeta.gsubz_ref = pr.ref; }
     } else {
       await failAndRefund("Service type unavailable"); await releaseReservation("failed");
