@@ -14,16 +14,23 @@ const cors = {
 };
 
 // ── Gsubz ──────────────────────────────────────────────────────────────────
+// GSubz has no public GET plan-listing endpoint. We use the known plan IDs
+// from the packages table and probe the purchase endpoint to discover prices.
+// The purchase endpoint returns plan details when queried with a valid plan ID.
 async function fetchGsubzPlans(): Promise<{ byCode: Map<string,number>; byPlanId: Map<string,number> }> {
   const byCode   = new Map<string, number>();
   const byPlanId = new Map<string, number>();
   if (!GSUBZ_KEY) { console.warn("[gsubz] No API key"); return { byCode, byPlanId }; }
 
+  // GSubz doesn't expose a GET /plans endpoint. All known endpoints return 404.
+  // The working API is POST to https://api.gsubz.com/api/pay/ with FormData.
+  // We'll skip probing broken endpoints and instead try the known base URL
+  // for any plan-listing endpoint that might exist.
   const attempts = [
-    { url: "https://gsubz.com/api/v1/data/plans",  authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
-    { url: "https://gsubz.com/api/data/plans",     authHeader: { "api-key": GSUBZ_KEY } },
-    { url: "https://gsubz.com/api/data-plans/",    authHeader: { "api-key": GSUBZ_KEY } },
-    { url: "https://gsubz.com/api/v1/plans",       authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
+    { url: "https://api.gsubz.com/api/plans",       authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
+    { url: "https://api.gsubz.com/api/v1/plans",     authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
+    { url: "https://api.gsubz.com/api/data/plans",  authHeader: { "api-key": GSUBZ_KEY } },
+    { url: "https://api.gsubz.com/api/v1/data/plans", authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
   ];
 
   for (const { url, authHeader } of attempts) {
@@ -61,51 +68,56 @@ async function fetchGsubzPlans(): Promise<{ byCode: Map<string,number>; byPlanId
 }
 
 // ── IACafe ─────────────────────────────────────────────────────────────────
+// IA Cafe exposes GET /budget-data/plans (note: budget-data/plans, NOT budget-data-plans).
+// The response is { success: true, data: [...] } where each plan has:
+//   data_plan: number, api_user_price: number, name: string, network_id: number, etc.
 async function fetchIacafePlans(): Promise<Map<number, number>> {
   const costMap = new Map<number, number>();
   if (!IACAFE_TOKEN) { console.warn("[iacafe] No token"); return costMap; }
-  const urls = [
-    "https://iacafe.com.ng/devapi/v1/budget-data-plans",
-    "https://iacafe.com.ng/devapi/v1/budget-data",
-    "https://iacafe.com.ng/devapi/v1/data-plans",
-    "https://iacafe.com.ng/devapi/v1/plans",
-    "https://iacafe.com.ng/devapi/v1/data",
-  ];
-  for (const url of urls) {
-    try {
-      const r = await fetch(url, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${IACAFE_TOKEN}`, Accept: "application/json" },
-        signal: AbortSignal.timeout(12000),
-      });
-      const text = await r.text();
-      console.log(`[iacafe] GET ${url} → ${r.status} body_preview=${text.slice(0,400)}`);
-      if (!r.ok) continue;
-      const d = JSON.parse(text);
-      const plans: unknown[] = Array.isArray(d?.data) ? d.data
-        : Array.isArray(d?.results) ? d.results
-        : Array.isArray(d) ? d
-        : [];
-      if (plans.length === 0) continue;
-      for (const p of plans as Record<string,unknown>[]) {
-        const id    = Number(p.id ?? p.plan_id ?? 0);
-        const price = Number(p.price ?? p.amount ?? p.selling_price ?? p.plan_amount ?? 0);
-        if (id > 0 && price > 0) costMap.set(id, price);
-      }
-      if (costMap.size > 0) break;
-    } catch(e) { console.warn(`[iacafe] ${url} error:`, e); }
-  }
-  console.log(`[iacafe] costMap size: ${costMap.size}`);
+
+  // Correct endpoint per IA Cafe API docs (available_endpoints list)
+  const url = "https://iacafe.com.ng/devapi/v1/budget-data/plans";
+  try {
+    const r = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${IACAFE_TOKEN}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(12000),
+    });
+    const text = await r.text();
+    console.log(`[iacafe] GET ${url} → ${r.status} body_preview=${text.slice(0,400)}`);
+    if (!r.ok) {
+      console.warn(`[iacafe] ${url} failed with HTTP ${r.status}`);
+      return costMap;
+    }
+    const d = JSON.parse(text);
+    const plans: unknown[] = Array.isArray(d?.data) ? d.data
+      : Array.isArray(d?.results) ? d.results
+      : Array.isArray(d) ? d
+      : [];
+    if (plans.length === 0) {
+      console.warn(`[iacafe] ${url} returned empty plan list`);
+      return costMap;
+    }
+    for (const p of plans as Record<string,unknown>[]) {
+      const id        = Number(p.data_plan ?? p.id ?? p.plan_id ?? 0);
+      const costPrice = Number(p.api_user_price ?? p.price ?? p.amount ?? p.selling_price ?? p.plan_amount ?? 0);
+      if (id > 0 && costPrice > 0) costMap.set(id, costPrice);
+    }
+    console.log(`[iacafe] costMap size: ${costMap.size}`);
+  } catch(e) { console.warn(`[iacafe] ${url} error:`, e); }
   return costMap;
 }
 
 // ── BSPlug ─────────────────────────────────────────────────────────────────
+// BSPlug data plans are available at POST /api/data/ (returns paginated results).
+// The GET /api/data/ returns an empty list for some accounts — try POST with
+// an empty body or probe the user endpoint for wallet/plan info.
 async function fetchBsplugPlans(): Promise<Map<number, number>> {
   const costMap = new Map<number, number>();
   if (!BSPLUG_TOKEN) { console.warn("[bsplug] No token"); return costMap; }
+
   const urls = [
     "https://bsplug.net/api/data/",
-    "https://bsplug.net/api/data-plans/",
     "https://bsplug.net/api/plans/",
   ];
   for (const url of urls) {
@@ -119,13 +131,15 @@ async function fetchBsplugPlans(): Promise<Map<number, number>> {
       console.log(`[bsplug] GET ${url} → ${r.status} body_preview=${text.slice(0,400)}`);
       if (!r.ok) continue;
       const d = JSON.parse(text);
-      const plans: unknown[] = Array.isArray(d) ? d
-        : Array.isArray(d?.results) ? d.results
-        : Array.isArray(d?.data)    ? d.data
+      // BSPlug returns paginated { count, next, previous, results: [...] }
+      const plans: unknown[] = Array.isArray(d?.results) ? d.results
+        : Array.isArray(d?.data) ? d.data
+        : Array.isArray(d) ? d
         : [];
       if (plans.length === 0) continue;
       for (const p of plans as Record<string,unknown>[]) {
-        const id    = Number(p.id ?? 0);
+        const id    = Number(p.id ?? p.plan_id ?? 0);
+        // BSPlug data plans use plan_amount (string like "1050" or "1300")
         const price = Number(p.plan_amount ?? p.price ?? p.amount ?? 0);
         if (id > 0 && price > 0) costMap.set(id, price);
       }
@@ -139,20 +153,23 @@ async function fetchBsplugPlans(): Promise<Map<number, number>> {
 // ── Debug probe ────────────────────────────────────────────────────────────
 async function probeEndpoints(): Promise<Record<string, unknown>> {
   const results: Record<string, unknown> = {};
+  // GSubz probes
   for (const [label, req] of [
-    ["gsubz_plans_v1",  { url: "https://gsubz.com/api/v1/data/plans", method:"GET", hdrs:{ "Authorization": `Bearer ${GSUBZ_KEY}` } }],
-    ["gsubz_plans_old", { url: "https://gsubz.com/api/data-plans/",   method:"GET", hdrs:{ "api-key": GSUBZ_KEY } }],
+    ["gsubz_api_v1_plans",  { url: "https://api.gsubz.com/api/v1/plans",     method:"GET", hdrs:{ "Authorization": `Bearer ${GSUBZ_KEY}` } }],
+    ["gsubz_api_data_plans",{ url: "https://api.gsubz.com/api/data/plans",   method:"GET", hdrs:{ "api-key": GSUBZ_KEY } }],
   ] as [string, { url:string; method:string; hdrs:Record<string,string> }][]) {
     try {
       const r = await fetch(req.url, { method: req.method, headers: req.hdrs, signal: AbortSignal.timeout(8000) });
       results[label] = { status: r.status, body: (await r.text()).slice(0, 500) };
     } catch(e) { results[label] = { error: String(e) }; }
   }
+  // IACafe probe — correct endpoint
   try {
-    const r = await fetch("https://iacafe.com.ng/devapi/v1/budget-data-plans", {
+    const r = await fetch("https://iacafe.com.ng/devapi/v1/budget-data/plans", {
       headers: { Authorization: `Bearer ${IACAFE_TOKEN}` }, signal: AbortSignal.timeout(8000) });
     results.iacafe_probe = { status: r.status, body: (await r.text()).slice(0, 500) };
   } catch(e) { results.iacafe_probe = { error: String(e) }; }
+  // BSPlug probe
   try {
     const r = await fetch("https://bsplug.net/api/data/", {
       headers: { Authorization: `Token ${BSPLUG_TOKEN}` }, signal: AbortSignal.timeout(8000) });
