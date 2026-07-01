@@ -30,6 +30,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
   import Ledger from "./pages/app/Ledger.tsx";
   import DepositStatus from "./pages/app/DepositStatus.tsx";
   import TreasuryDashboard from "./pages/app/admin/TreasuryDashboard.tsx";
+  import UserManagement from "./pages/app/admin/UserManagement.tsx";
   import SupportCenter from "./pages/app/admin/SupportCenter.tsx";
   import FraudMonitor from "./pages/app/admin/FraudMonitor.tsx";
   import Broadcast from "./pages/app/admin/Broadcast.tsx";
@@ -52,6 +53,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
               {/* Admin panel — MUST come BEFORE /app so /app/admin/* matches here */}
               <Route path="/app/admin" element={<AdminShell />}>
                 <Route path="treasury" element={<TreasuryDashboard />} />
+                <Route path="users" element={<UserManagement />} />
                 <Route path="support" element={<SupportCenter />} />
                 <Route path="fraud" element={<FraudMonitor />} />
                 <Route path="broadcast" element={<Broadcast />} />
