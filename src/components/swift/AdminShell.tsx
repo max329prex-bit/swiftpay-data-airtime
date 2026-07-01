@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-  import { LayoutDashboard, MessageSquare, Shield, Megaphone, TrendingUp, LogOut, Zap } from "lucide-react";
+  import { LayoutDashboard, MessageSquare, Shield, Megaphone, TrendingUp, LogOut, Zap, Users } from "lucide-react";
   import { useEffect, useState } from "react";
   import { supabase } from "@/integrations/supabase/client";
   import { useAuth } from "@/hooks/useAuth";
@@ -8,6 +8,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
   const ADMIN_TABS = [
     { to: "/app/admin/treasury", icon: LayoutDashboard, label: "Treasury" },
+    { to: "/app/admin/users", icon: Users, label: "Users" },
     { to: "/app/admin/support", icon: MessageSquare, label: "Support" },
     { to: "/app/admin/fraud", icon: Shield, label: "Fraud" },
     { to: "/app/admin/broadcast", icon: Megaphone, label: "Broadcast" },
