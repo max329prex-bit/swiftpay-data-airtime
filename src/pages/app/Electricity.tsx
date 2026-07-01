@@ -224,9 +224,15 @@ export default function Electricity() {
           <Input value={amount || ""} onChange={e => setAmount(Number(e.target.value))}
             placeholder="Or enter custom amount" inputMode="numeric" type="number"
             className="h-12 rounded-2xl bg-secondary/40 text-base" />
+          {amount > 0 && amount > balance && (
+            <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Insufficient balance. You need {naira(amount)} but have {naira(balance)}. Deposit to continue.</span>
+            </div>
+          )}
           <Button variant="hero" size="xl" className="w-full" disabled={amount < 1000 || amount > balance}
             onClick={() => setStep("pin")}>
-            Proceed to Pay {amount >= 1000 ? naira(amount) : ""}
+            {amount > balance ? "Insufficient Balance" : `Proceed to Pay ${amount >= 1000 ? naira(amount) : ""}`}
           </Button>
         </motion.div>
       )}
