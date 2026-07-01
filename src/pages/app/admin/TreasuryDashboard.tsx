@@ -17,7 +17,43 @@ import { useEffect, useState } from "react";
       if (adminToken) { setIsAdmin(true); return; }
       if(!user)return;supabase.rpc("has_role" as never,{_role:"admin"} as never).then(({data})=>{setIsAdmin(!!data);if(!data){toast.error("Admin access required");nav("/app");}});
     },[user,nav]);
-    const load=()=>{setLoading(true);Promise.all([supabase.from("provider_treasury").select("*").order("provider_code"),supabase.from("treasury_transfers").select("*").order("initiated_at",{ascending:false}).limit(15)]).then(([t,x])=>{setRows((t.data as TRow[])??[]);setTransfers((x.data as XRow[])??[]);setLoading(false);});};
+    type PingResult={provider:string;ok:boolean;http?:number;balance?:number|string|null;raw?:string;error?:string;has_credentials:boolean};
+  const load=()=>{setLoading(true);
+  Promise.all([
+    supabase.functions.invoke("provider-ping").then(({data})=>data?.results as PingResult[]|undefined).catch(()=>undefined),
+    supabase.from("provider_treasury").select("*").order("provider_code"),
+    supabase.from("treasury_transfers").select("*").order("initiated_at",{ascending:false}).limit(15)
+  ]).then(([pings,t,x])=>{
+    const dbRows=(t.data as TRow[])??[];
+    const transfers=(x.data as XRow[])??[];
+    // Build rows from live pings, falling back to DB
+    const liveRows:TRow[]=(pings??[]).map(p=>{
+      const db=dbRows.find(r=>r.provider_code===p.provider);
+      const bal=typeof p.balance==="number"?p.balance:typeof p.balance==="string"?parseFloat(p.balance)||0:0;
+      return{
+        id:db?.id||p.provider,
+        provider_code:p.provider,
+        actual_balance:bal,
+        reserved_balance:db?.reserved_balance||0,
+        refill_threshold:db?.refill_threshold||50000,
+        refill_target:db?.refill_target||200000,
+        critical_stop_threshold:db?.critical_stop_threshold||10000,
+        transfer_health:p.ok?"healthy":(p.has_credentials?"degraded":"paused"),
+        cb_failures:db?.cb_failures||0,
+        last_refill_at:db?.last_refill_at||null,
+        daily_refilled_today:db?.daily_refilled_today||0,
+        bank_name:db?.bank_name||null,
+        bank_account_number:db?.bank_account_number||null,
+        avg_spend_1hr:db?.avg_spend_1hr||0,
+      };
+    });
+    // Add any DB-only providers not in pings
+    const seen=new Set(liveRows.map(r=>r.provider_code));
+    for(const d of dbRows){if(!seen.has(d.provider_code))liveRows.push(d);}
+    setRows(liveRows);
+    setTransfers(transfers);
+    setLoading(false);
+  });};
     useEffect(()=>{if(isAdmin)load();},[isAdmin]);
     if(!isAdmin)return null;
     return(<div className="space-y-5 pb-10">
@@ -30,7 +66,7 @@ import { useEffect, useState } from "react";
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">No treasury data yet</div>
-              <div className="text-xs text-muted-foreground mt-1 max-w-[240px]">Provider treasury table is empty. Data will appear once your first provider records are created in the database.</div>
+              <div className="text-xs text-muted-foreground mt-1 max-w-[240px]">Could not fetch live provider balances. Check that your provider API keys are configured in Supabase secrets.</div>
             </div>
             <Button variant="outline" size="sm" onClick={load} className="text-xs">
               <RefreshCw className="h-3 w-3 mr-1" /> Refresh
