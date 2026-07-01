@@ -445,7 +445,7 @@ export default function Data() {
 
 
             {/* Gift/Awoof warning in plan detail */}
-              {plan && isGiftPlan(plan) && (
+              {plan && isGiftPlan(plan.id) && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                   <div className="flex items-start gap-2">
@@ -461,7 +461,7 @@ export default function Data() {
                 </motion.div>
               )}
               {/* Regular plan - owing users CAN buy */}
-              {plan && !isGiftPlan(plan) && (
+              {plan && !isGiftPlan(plan.id) && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
                   <div className="flex items-center gap-2">
@@ -505,7 +505,7 @@ export default function Data() {
                 ))}
               </div>
                 {/* Gift/Awoof warning in confirmation */}
-                  {isGiftPlan(plan) && (
+                  {isGiftPlan(plan.id) && (
                     <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 mt-2">
                       <div className="flex items-start gap-2">
                         <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
@@ -520,7 +520,7 @@ export default function Data() {
                     </div>
                   )}
                   {/* Regular plan confirmation - owing users CAN buy */}
-                  {!isGiftPlan(plan) && (
+                  {!isGiftPlan(plan.id) && (
                     <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 mt-2">
                       <div className="flex items-center gap-2">
                         <span className="text-emerald-400 text-sm leading-none">&#10003;</span>
