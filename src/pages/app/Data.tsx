@@ -529,7 +529,7 @@ export default function Data() {
                         </div>
                       </div>
                     </div>
-                  )}}
+                  )}
 
               <div className="space-y-4 text-center">
                 <div className="text-sm font-semibold">Enter your 4-digit PIN</div>
