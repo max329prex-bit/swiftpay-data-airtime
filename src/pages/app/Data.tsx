@@ -154,53 +154,109 @@ export default function Data() {
   const net = NETWORKS.find(n => n.id === network)!;
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  // Fetch live data plans
-  useEffect(() => {
-    setLoadingPlans(true);
-    supabase.functions.invoke("get-packages").then(({ data, error }) => {
-      if (error || !data?.packages) { setLoadingPlans(false); return; }
-      const mapped: Record<string, Plan[]> = {};
-      for (const [netId, pkgs] of Object.entries(data.packages as Record<string, any[]>)) {
-        const sorted = [...pkgs].sort((a, b) => a.sell_price - b.sell_price);
-        mapped[netId] = sorted.map((p, idx) => {
-          const dur = parseDuration(p.validity);
-          const gbSize = parseGbSize(p.size || "");
-          const pricePerGb = gbSize > 0 ? p.sell_price / gbSize : Infinity;
-          let badge: Plan["badge"] = undefined;
-          if (idx === 0) badge = "awuf";
-          else if (idx === 1) badge = "most_bought";
-          else if (p.size?.includes("10") || p.size?.includes("15") || p.size?.includes("20")) badge = "best_value";
-          else if ((p.success_rate ?? 92) >= 95) badge = "hot";
-          return {
-            id: p.package_code || p.id,
-            name: p.name,
-            size: p.size,
-            validity: p.validity,
-            sell_price: p.sell_price,
-            provider_code: p.provider_code,
-            available: p.available !== false,
-            coming_soon: p.coming_soon || false,
-            success_rate: p.success_rate ?? 92,
-            duration: dur,
-            badge,
-            network: netId as NetworkId,
-            pricePerGb,
-            bp_value: p.bp_value ?? 1,
-            is_prime: false,
-          };
-        });
-      }
-      for (const netId of Object.keys(mapped)) {
-        const netAvailable = mapped[netId].filter(p => p.available && !p.coming_soon);
-        const primeIds = new Set(
-          [...netAvailable].sort((a, b) => a.pricePerGb - b.pricePerGb).slice(0, 5).map(p => p.id)
-        );
-        mapped[netId] = mapped[netId].map(p => ({ ...p, is_prime: primeIds.has(p.id) }));
-      }
-      setAllPlans(mapped);
-      setLoadingPlans(false);
-    }).catch(() => setLoadingPlans(false));
-  }, []);
+  // Fetch live data plans (DB + IA Cafe fallback)
+    useEffect(() => {
+      setLoadingPlans(true);
+      Promise.all([
+        supabase.functions.invoke("get-packages"),
+        // Fallback: fetch IA Cafe plans directly if not in DB yet
+        fetch("https://iacafe.com.ng/devapi/v1/budget-data/plans", {
+          headers: { "Authorization": "Bearer ak_live_95e38e20302c14902f2db5518d818d873813fc80a36861d4", "Accept": "application/json" }
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+      ]).then(([dbResult, iacafeResult]) => {
+        const dbData = dbResult.data;
+        const iacafeData = iacafeResult?.data;
+
+        if (!dbData?.packages && !iacafeData) { setLoadingPlans(false); return; }
+
+        const mapped: Record<string, any[]> = {};
+
+        // Add DB plans first
+        if (dbData?.packages) {
+          for (const [netId, pkgs] of Object.entries(dbData.packages as Record<string, any[]>)) {
+            mapped[netId] = [...(mapped[netId] || []), ...pkgs];
+          }
+        }
+
+        // Merge IA Cafe plans (avoid duplicates by package_code)
+        const dbCodes = new Set((mapped.MTN || []).concat(mapped.AIRTEL || [], mapped.GLO || [], mapped["9MOBILE"] || []).map(p => p.package_code || p.id));
+        const netMap: Record<number, string> = { 1: "MTN", 2: "AIRTEL", 3: "GLO", 4: "9MOBILE", 6: "MTN" };
+
+        for (const p of (iacafeData || [])) {
+          const netId = Number(p.network_id || 0);
+          const net = netMap[netId] || (p.network_name as string)?.toUpperCase() || "MTN";
+          const pc = `IAC-${p.data_plan}`;
+          if (dbCodes.has(pc)) continue;
+
+          const name = (p.name as string) || `${p.data_type} ${p.plan || ""}`;
+          const price = Number(p.api_user_price || 0);
+          const sizeMatch = name.match(/(\d+\.?\d*\s*(?:GB|MB|TB))/i);
+          const size = sizeMatch ? sizeMatch[1].replace(/\s+/g, "") : "500MB";
+          const validity = (p.validity as string) || "30 Days";
+          const dataType = (p.data_type as string)?.toLowerCase() || "";
+
+          mapped[net] = mapped[net] || [];
+          mapped[net].push({
+            id: pc,
+            name: `${name} (IA Cafe)`,
+            size,
+            validity,
+            sell_price: price,
+            provider_code: "iacafe",
+            package_code: pc,
+            available: true,
+            coming_soon: false,
+            success_rate: 92,
+            bp_value: Math.max(1, Math.floor(price / 250) * 5),
+            tier: dataType.includes("sme") || dataType.includes("sme2") ? "stable" : "promo",
+          });
+        }
+
+        const final: Record<string, Plan[]> = {};
+        for (const [netId, pkgs] of Object.entries(mapped)) {
+          const sorted = [...pkgs].sort((a, b) => a.sell_price - b.sell_price);
+          final[netId] = sorted.map((p, idx) => {
+            const dur = parseDuration(p.validity);
+            const gbSize = parseGbSize(p.size || "");
+            const pricePerGb = gbSize > 0 ? p.sell_price / gbSize : Infinity;
+            let badge: Plan["badge"] = undefined;
+            if (idx === 0) badge = "awuf";
+            else if (idx === 1) badge = "most_bought";
+            else if (p.size?.includes("10") || p.size?.includes("15") || p.size?.includes("20")) badge = "best_value";
+            else if ((p.success_rate ?? 92) >= 95) badge = "hot";
+            return {
+              id: p.package_code || p.id,
+              name: p.name,
+              size: p.size,
+              validity: p.validity,
+              sell_price: p.sell_price,
+              provider_code: p.provider_code,
+              available: p.available !== false,
+              coming_soon: p.coming_soon || false,
+              success_rate: p.success_rate ?? 92,
+              duration: dur,
+              badge,
+              network: netId as NetworkId,
+              pricePerGb,
+              bp_value: p.bp_value ?? 1,
+              is_prime: false,
+              tier: p.tier ?? "promo",
+            };
+          });
+        }
+
+        for (const netId of Object.keys(final)) {
+          const netAvailable = final[netId].filter(p => p.available && !p.coming_soon);
+          const primeIds = new Set(
+            [...netAvailable].sort((a, b) => a.pricePerGb - b.pricePerGb).slice(0, 5).map(p => p.id)
+          );
+          final[netId] = final[netId].map(p => ({ ...p, is_prime: primeIds.has(p.id) }));
+        }
+
+        setAllPlans(final);
+        setLoadingPlans(false);
+      }).catch(() => setLoadingPlans(false));
+    }, []);
 
   useEffect(() => {
     if (!plan) return;
