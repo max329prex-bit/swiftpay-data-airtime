@@ -7,7 +7,7 @@ import { detectNetwork, naira, NETWORKS, NetworkId } from "@/lib/networks";
 import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, X, Zap, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, X, Zap, Loader2, ShieldAlert } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type Step = "network" | "form" | "pin" | "verifying";
