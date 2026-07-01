@@ -113,7 +113,7 @@ export default function Electricity() {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
-        body: { type: "electricity", provider_code: provider.code, meter: meter, amount, pin }
+        body: { type: "electricity", provider_code: provider.code, meter_number: meter, amount, pin }
       });
       if (error) {
         const msg = await extractError(error, "Payment failed — please try again");

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@/hooks/useWallet";
+import { useAuth } from "@/hooks/useAuth";
 import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ async function callTopup(
 
 export default function Wallet() {
   const { balance, reserved, available, refresh } = useWallet();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"static" | "dynamic">("static");
 
@@ -61,7 +63,9 @@ export default function Wallet() {
   // KYC form state
   const [showKYC, setShowKYC]           = useState(false);
   const [kycName, setKycName]           = useState("");
+  const [kycEmail, setKycEmail]         = useState("");
   const [kycPhone, setKycPhone]         = useState("");
+  const [kycLoaded, setKycLoaded]       = useState(false);
   const [kycNIN, setKycNIN]             = useState("");
   const [kycBVN, setKycBVN]             = useState("");
   const [kycSubmitting, setKycSubmit]   = useState(false);
@@ -92,6 +96,24 @@ export default function Wallet() {
 
   // Load static VA on mount
   useEffect(() => { fetchStatic(); }, []);
+
+  // Auto-fill KYC form with user data when KYC is shown
+  useEffect(() => {
+    if (!showKYC || kycLoaded || !user) return;
+    async function loadProfile() {
+      try {
+        const { data } = await supabase.from("profiles").select("full_name, phone").eq("user_id", user.id).maybeSingle();
+        if (data?.full_name) setKycName(data.full_name);
+        if (data?.phone) setKycPhone(data.phone);
+        if (user.email) setKycEmail(user.email);
+        setKycLoaded(true);
+      } catch {
+        if (user.email) setKycEmail(user.email);
+        setKycLoaded(true);
+      }
+    }
+    loadProfile();
+  }, [showKYC, user, kycLoaded]);
 
   function clearCountdown() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -381,6 +403,19 @@ export default function Wallet() {
                       value={kycName}
                       onChange={e => { setKycName(e.target.value); setKycError(null); }}
                       className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition"
+                    />
+                  </div>
+
+                  {/* Email (read-only) */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5" /> Email
+                    </label>
+                    <input
+                      type="email"
+                      readOnly
+                      value={kycEmail}
+                      className="w-full rounded-xl bg-white/[0.02] border border-white/5 px-4 py-3 text-sm text-muted-foreground cursor-default"
                     />
                   </div>
 
