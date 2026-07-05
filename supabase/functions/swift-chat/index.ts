@@ -23,6 +23,7 @@ CRITICAL RULES:
 - If the user has account context (balance, recent transactions), reference it naturally.
 - If a transaction failed or is pending, acknowledge it and explain next steps clearly.
 - If you cannot solve a user's issue (especially a failed transaction), you MUST create a support ticket by including this exact marker in your response: [CREATE_TICKET: {"intent":"failed_transaction","message":"<summary>"}]
+- When asked about DATA PLANS, you MUST say "Let me check our current plans..." and ONLY use the plans provided in the context. NEVER guess or make up prices.
 
 What you know about BlitzPay:
 - Wallet: funded via PayVessel virtual bank account (bank transfer). User deposits directly to their assigned account number. A 1.5% processing fee is deducted. Balance reflects within minutes after transfer.
@@ -36,27 +37,48 @@ What you know about BlitzPay:
 - Support: blitzpaysup@gmail.com or use Send Ticket in the Support page.
 - Providers: GSubz (primary for airtime, data, cable), IACafe (primary for electricity, data fallback), BSPlug (data fallback).`;
 
-async function fetchPackages(admin: ReturnType<typeof createClient>): Promise<string> {
+// Detect if user is asking about data plans
+const PLAN_QUERY_PATTERNS = [
+  /data\s*plan/i, /plans?\s*(?:do\s*you\s*have|available|can\s*i\s*get|for)/i,
+  /(?:mtn|airtel|glo|9mobile)\s*(?:data|bundle)/i,
+  /how\s*much\s+(?:is|for|does)/i, /(?:price|cost)\s+(?:of|for)/i,
+  /what\s+(?:data|bundle|plan)/i, /available\s+(?:data|bundle|plan)/i,
+  /(?:buy|get)\s+(?:data|bundle)/i, /(?:1gb|2gb|3gb|5gb|10gb)/i,
+  /(?:daily|weekly|monthly)\s+(?:data|plan|bundle)/i,
+];
+
+function isPlanQuery(text: string): boolean {
+  return PLAN_QUERY_PATTERNS.some(p => p.test(text));
+}
+
+async function fetchPackagesFormatted(admin: ReturnType<typeof createClient>): Promise<string> {
   try {
     const { data } = await admin.from("packages")
       .select("name, size, validity, price, network, package_code, provider_code")
       .eq("active", true)
-      .order("price", { ascending: true })
-      .limit(60);
-    if (!data || data.length === 0) return "";
-    const byNetwork: Record<string, string[]> = {};
+      .order("price", { ascending: true });
+    if (!data || data.length === 0) return "I don't have the current plan list. Please check the Data page in the app for live prices.";
+
+    const byNetwork: Record<string, Array<{name:string;size:string;validity:string;price:number;code:string;provider:string}>> = {};
     for (const p of data) {
       const net = (p.network || "OTHER").toUpperCase();
       if (!byNetwork[net]) byNetwork[net] = [];
-      const line = `  ${p.name} (${p.size}, ${p.validity}) — ₦${p.price} — code: ${p.package_code} — provider: ${p.provider_code}`;
-      byNetwork[net].push(line);
+      byNetwork[net].push({ name: p.name, size: p.size, validity: p.validity, price: p.price, code: p.package_code, provider: p.provider_code });
     }
-    let out = "\n\nACTIVE DATA PLANS:";
-    for (const [net, lines] of Object.entries(byNetwork)) {
-      out += `\n${net}:\n${lines.slice(0, 12).join("\n")}`;
+
+    let out = "Here are our current data plans (accurate as of now):\n";
+    const networks = ["MTN", "AIRTEL", "GLO", "9MOBILE"].filter(n => byNetwork[n]);
+    for (const net of networks) {
+      out += `\n${net}:\n`;
+      for (const p of byNetwork[net]) {
+        out += `  • ${p.name} (${p.size}) — ₦${p.price} — ${p.validity} — code: ${p.code}\n`;
+      }
     }
+    out += "\nTo buy any plan, go to the Data page and enter your phone number. Prices are updated live from our providers.";
     return out;
-  } catch { return ""; }
+  } catch (e) {
+    return "I can't fetch the plan list right now. Please check the Data page in the app for current prices.";
+  }
 }
 
 async function createTicket(admin: ReturnType<typeof createClient>, userId: string, intent: string, message: string) {
@@ -91,6 +113,17 @@ serve(async (req) => {
     }
 
     const admin = createClient(SUPA_URL, SUPA_SVC);
+    const lastUserMsg = messages[messages.length - 1]?.content || "";
+
+    // ── SPECIAL HANDLING: Data plan queries ─────────────────────────────────────────
+    // If user asks about data plans, fetch from DB directly — bypass LLM to prevent hallucination
+    if (isPlanQuery(lastUserMsg)) {
+      const plansReply = await fetchPackagesFormatted(admin);
+      return new Response(JSON.stringify({ reply: plansReply }), {
+        headers: { ...cors, "Content-Type": "application/json" }
+      });
+    }
+
     let sysPrompt = BASE_SYS;
     let userId: string | null = null;
     let ticketRef: string | null = null;
@@ -102,15 +135,12 @@ serve(async (req) => {
         const { data: { user } } = await uc.auth.getUser();
         if (user) {
           userId = user.id;
-          // Get wallet balance
           const { data: wallet } = await uc.from("wallets").select("balance, refund_balance").eq("user_id", user.id).maybeSingle();
-          // Get recent transactions
           const { data: txs } = await uc.from("transactions")
             .select("type, network, amount, status, reference, created_at")
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
             .limit(5);
-          // Get swift points
           const { data: profile } = await uc.from("profiles").select("full_name, swift_points").eq("user_id", user.id).maybeSingle();
 
           const balance = wallet?.balance ?? 0;
@@ -121,7 +151,7 @@ serve(async (req) => {
           let accountCtx = `\n\nUSER ACCOUNT CONTEXT (${name}):`;
           accountCtx += `\n- Wallet balance: ₦${Number(balance).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
           if (refund > 0) accountCtx += `\n- Refund balance: ₦${Number(refund).toLocaleString("en-NG", { minimumFractionDigits: 2 })} (pending credit)`;
-          accountCtx += `\n- BlitzPoints: ${pts} pts (earn 2 pts per ₦250 on data)`;
+          accountCtx += `\n- BlitzPoints: ${pts} pts (earn 2 pts per ₦250 spent on DATA only. Airtime does NOT earn points.)`;
           if (txs && txs.length > 0) {
             accountCtx += `\n- Recent transactions:`;
             for (const tx of txs.slice(0, 3)) {
@@ -135,10 +165,6 @@ serve(async (req) => {
         // auth context optional
       }
     }
-
-    // Add active data plans to system prompt
-    const packagesCtx = await fetchPackages(admin);
-    if (packagesCtx) sysPrompt += packagesCtx;
 
     if (!CEREBRAS_KEY) {
       return new Response(JSON.stringify({ reply: "Blitzi AI is temporarily unavailable. Email blitzpaysup@gmail.com for support." }), {
