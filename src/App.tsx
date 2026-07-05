@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
   import { Toaster as Sonner } from "@/components/ui/sonner";
   import { Toaster } from "@/components/ui/toaster";
   import { TooltipProvider } from "@/components/ui/tooltip";
-  import Index from "./pages/Index.tsx";
+  import HomeRedirect from "./pages/HomeRedirect.tsx";
   import NotFound from "./pages/NotFound.tsx";
   import Auth from "./pages/Auth.tsx";
   import AdminLogin from "./pages/AdminLogin.tsx";
@@ -46,7 +46,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
           <Sonner theme="dark" />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              {/* Root route: logged-in → /app, guest → landing page */}
+              <Route path="/" element={<HomeRedirect />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin" element={<AdminLogin />} />
               <Route path="/app/setup-pin" element={<PinSetup />} />
@@ -89,4 +90,3 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
   );
 
   export default App;
-  
