@@ -22,17 +22,53 @@ CRITICAL RULES:
 - For numbered steps, put each step on its own line (use actual line breaks, not all in one paragraph).
 - If the user has account context (balance, recent transactions), reference it naturally.
 - If a transaction failed or is pending, acknowledge it and explain next steps clearly.
+- If you cannot solve a user's issue (especially a failed transaction), you MUST create a support ticket by including this exact marker in your response: [CREATE_TICKET: {"intent":"failed_transaction","message":"<summary>"}]
 
 What you know about BlitzPay:
 - Wallet: funded via PayVessel virtual bank account (bank transfer). User deposits directly to their assigned account number. A 1.5% processing fee is deducted. Balance reflects within minutes after transfer.
-- Airtime: MTN, Airtel, Glo, 9Mobile. Min ₦50. Network auto-detected from phone prefix.
+- Airtime: MTN, Airtel, Glo, 9Mobile. Min ₦50. Network auto-detected from phone prefix. Primary provider: GSubz.
 - Data bundles: daily, weekly, monthly plans. Blitz Prime shows best value (₦/GB) per network.
-- BlitzPoints: earn 5 pts per ₦250 on airtime/data. 100 pts = 1GB free data.
-- Electricity: select DISCO → Prepaid/Postpaid → enter meter number → verify → pay.
-- Cable TV: DStv, GOtv, StarTimes → smartcard/IUC number → verify → pick package.
+- BlitzPoints: earn 2 pts per ₦250 on DATA purchases only. 100 pts = 1GB free data reward. Airtime does NOT earn BlitzPoints.
+- Electricity: select DISCO (Ikeja, Eko, Abuja, etc.) → Prepaid/Postpaid → enter meter number → verify → pay. Primary provider: IACafe.
+- Cable TV: DStv, GOtv, StarTimes → smartcard/IUC number → verify → pick package → pay. Primary provider: GSubz.
 - Transaction PIN: 4-digit PIN required for every purchase. Set/change in Settings.
 - Failed/refunded: wallet auto-refunded within 5-10 min. If not after 30 min, email blitzpaysup@gmail.com.
-- Support: blitzpaysup@gmail.com`;
+- Support: blitzpaysup@gmail.com or use Send Ticket in the Support page.
+- Providers: GSubz (primary for airtime, data, cable), IACafe (primary for electricity, data fallback), BSPlug (data fallback).`;
+
+async function fetchPackages(admin: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data } = await admin.from("packages")
+      .select("name, size, validity, price, network, package_code, provider_code")
+      .eq("active", true)
+      .order("price", { ascending: true })
+      .limit(60);
+    if (!data || data.length === 0) return "";
+    const byNetwork: Record<string, string[]> = {};
+    for (const p of data) {
+      const net = (p.network || "OTHER").toUpperCase();
+      if (!byNetwork[net]) byNetwork[net] = [];
+      const line = `  ${p.name} (${p.size}, ${p.validity}) — ₦${p.price} — code: ${p.package_code} — provider: ${p.provider_code}`;
+      byNetwork[net].push(line);
+    }
+    let out = "\n\nACTIVE DATA PLANS:";
+    for (const [net, lines] of Object.entries(byNetwork)) {
+      out += `\n${net}:\n${lines.slice(0, 12).join("\n")}`;
+    }
+    return out;
+  } catch { return ""; }
+}
+
+async function createTicket(admin: ReturnType<typeof createClient>, userId: string, intent: string, message: string) {
+  try {
+    const { data, error } = await admin.from("support_tickets")
+      .insert({ user_id: userId, intent, message: message.trim(), status: "open" })
+      .select("ticket_ref")
+      .single();
+    if (error) return null;
+    return (data as Record<string, string>)?.ticket_ref ?? null;
+  } catch { return null; }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -41,7 +77,6 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-
     let messages: Array<{ role: string; content: string }> = [];
     if (Array.isArray(body.messages) && body.messages.length > 0) {
       messages = body.messages;
@@ -55,20 +90,21 @@ serve(async (req) => {
       });
     }
 
-    // Build personalized system prompt with user account context
+    const admin = createClient(SUPA_URL, SUPA_SVC);
     let sysPrompt = BASE_SYS;
-    const authHeader = req.headers.get("Authorization");
-    let currentUserId: string | null = null;
+    let userId: string | null = null;
+    let ticketRef: string | null = null;
 
+    const authHeader = req.headers.get("Authorization");
     if (authHeader) {
       try {
         const uc = createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: authHeader } } });
         const { data: { user } } = await uc.auth.getUser();
         if (user) {
-          currentUserId = user.id;
+          userId = user.id;
           // Get wallet balance
           const { data: wallet } = await uc.from("wallets").select("balance, refund_balance").eq("user_id", user.id).maybeSingle();
-          // Get recent transactions (user's own)
+          // Get recent transactions
           const { data: txs } = await uc.from("transactions")
             .select("type, network, amount, status, reference, created_at")
             .eq("user_id", user.id)
@@ -85,7 +121,7 @@ serve(async (req) => {
           let accountCtx = `\n\nUSER ACCOUNT CONTEXT (${name}):`;
           accountCtx += `\n- Wallet balance: ₦${Number(balance).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
           if (refund > 0) accountCtx += `\n- Refund balance: ₦${Number(refund).toLocaleString("en-NG", { minimumFractionDigits: 2 })} (pending credit)`;
-          accountCtx += `\n- BlitzPoints: ${pts} pts`;
+          accountCtx += `\n- BlitzPoints: ${pts} pts (earn 2 pts per ₦250 on data)`;
           if (txs && txs.length > 0) {
             accountCtx += `\n- Recent transactions:`;
             for (const tx of txs.slice(0, 3)) {
@@ -96,39 +132,13 @@ serve(async (req) => {
           sysPrompt = BASE_SYS + accountCtx;
         }
       } catch {
-        // auth context optional — proceed without it
+        // auth context optional
       }
     }
 
-    // ── AI SUPPORT: Search ALL receipts by reference if user asks ────────────────────
-    // If the last user message contains a transaction reference, look it up across ALL users
-    const lastUserMsg = messages.filter(m => m.role === "user").pop()?.content || "";
-    const refMatch = lastUserMsg.match(/(?:ref|reference)[\s:#=]*(SP-[A-Z0-9-]+)/i) ||
-                     lastUserMsg.match(/(SP-[A-Z0-9-]+)/i) ||
-                     lastUserMsg.match(/(TP-[A-Z0-9-]+)/i) ||
-                     lastUserMsg.match(/(SCH-[A-Z0-9-]+)/i);
-
-    if (refMatch) {
-      const searchRef = refMatch[1];
-      try {
-        const svc = createClient(SUPA_URL, SUPA_SVC);
-        const { data: foundTxs } = await svc.rpc("search_transaction_by_reference", { _ref: searchRef });
-        if (foundTxs && foundTxs.length > 0) {
-          let txCtx = "\n\nTRANSACTION LOOKUP RESULTS:";
-          for (const tx of foundTxs.slice(0, 3)) {
-            txCtx += `\n- Ref: ${tx.reference}`;
-            txCtx += `\n  Type: ${tx.tx_type}, Network: ${tx.network || "N/A"}, Amount: ₦${tx.amount}`;
-            txCtx += `\n  Status: ${tx.status}, Phone: ${tx.phone || "N/A"}`;
-            txCtx += `\n  User: ${tx.user_name || tx.user_email || "Unknown"}, Date: ${new Date(tx.created_at).toLocaleDateString("en-NG")}`;
-            if (tx.meta?.provider_used) txCtx += `\n  Provider: ${tx.meta.provider_used}`;
-            if (tx.meta?.provider_reference) txCtx += `\n  Provider Ref: ${tx.meta.provider_reference}`;
-          }
-          sysPrompt += txCtx;
-        }
-      } catch (e) {
-        console.error("[swift-chat] ref search error:", e);
-      }
-    }
+    // Add active data plans to system prompt
+    const packagesCtx = await fetchPackages(admin);
+    if (packagesCtx) sysPrompt += packagesCtx;
 
     if (!CEREBRAS_KEY) {
       return new Response(JSON.stringify({ reply: "Blitzi AI is temporarily unavailable. Email blitzpaysup@gmail.com for support." }), {
@@ -149,19 +159,34 @@ serve(async (req) => {
       signal: AbortSignal.timeout(15000),
     });
 
+    let reply = "";
     if (r.ok) {
       const data = await r.json();
-      const reply = data.choices?.[0]?.message?.content?.trim();
-      if (reply) {
-        return new Response(JSON.stringify({ reply }), {
-          headers: { ...cors, "Content-Type": "application/json" }
-        });
+      reply = data.choices?.[0]?.message?.content?.trim() || "";
+    }
+
+    if (!reply) {
+      const errText = await r.text().catch(() => "");
+      console.error("Cerebras error:", r.status, errText.slice(0, 200));
+      reply = "I'm having trouble connecting right now. Please email blitzpaysup@gmail.com if it's urgent.";
+    }
+
+    // Check if AI wants to create a ticket
+    const ticketMatch = reply.match(/\[CREATE_TICKET:\s*({[^}]+})\s*\]/);
+    if (ticketMatch && userId) {
+      try {
+        const ticketData = JSON.parse(ticketMatch[1]);
+        const tRef = await createTicket(admin, userId, ticketData.intent || "other", ticketData.message || "User needs support");
+        if (tRef) {
+          ticketRef = tRef;
+          reply = reply.replace(ticketMatch[0], `\n\nSupport ticket created: ${tRef}. Our team will review it within 24h.`).trim();
+        }
+      } catch (e) {
+        console.error("Ticket parse error:", e);
       }
     }
 
-    const errText = await r.text().catch(() => "");
-    console.error("Cerebras error:", r.status, errText.slice(0, 200));
-    return new Response(JSON.stringify({ reply: "I'm having trouble connecting right now. Please email blitzpaysup@gmail.com if it's urgent." }), {
+    return new Response(JSON.stringify({ reply, ticket_ref: ticketRef }), {
       headers: { ...cors, "Content-Type": "application/json" }
     });
 
