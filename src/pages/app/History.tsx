@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { naira } from "@/lib/networks";
 import { Receipt, ChevronRight } from "lucide-react";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 export default function History() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);

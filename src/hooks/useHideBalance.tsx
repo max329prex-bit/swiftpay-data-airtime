@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-const KEY = "swiftly:hideBalance";
-const EVT = "swiftly:hideBalance:changed";
+const KEY = "blitzpay:hideBalance";
+const EVT = "blitzpay:hideBalance:changed";
 
 export function useHideBalance() {
   const [hide, setHide] = useState<boolean>(() => {

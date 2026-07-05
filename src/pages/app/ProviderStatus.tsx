@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 import { ArrowLeft, CheckCircle2, AlertCircle, Activity } from "lucide-react";
 import { motion } from "framer-motion";
 

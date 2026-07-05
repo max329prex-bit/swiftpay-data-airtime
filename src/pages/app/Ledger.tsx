@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { naira } from "@/lib/networks";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 import { ArrowLeft, ArrowUpRight, ArrowDownLeft, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 

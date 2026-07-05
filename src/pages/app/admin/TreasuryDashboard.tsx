@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
   import { useAuth } from "@/hooks/useAuth";
   import { naira } from "@/lib/networks";
   import { Button } from "@/components/ui/button";
-  import { BoltLoader } from "@/components/swift/BoltLoader";
+  import { BoltLoader } from "@/components/blitz/BoltLoader";
   import { toast } from "sonner";
   type TRow={id:string;provider_code:string;actual_balance:number;reserved_balance:number;refill_threshold:number;refill_target:number;critical_stop_threshold:number;transfer_health:string;cb_failures:number;last_refill_at:string|null;daily_refilled_today:number;bank_name:string|null;bank_account_number:string|null;avg_spend_1hr:number;};
   type XRow={id:string;provider_code:string;amount:number;status:string;initiated_at:string;};

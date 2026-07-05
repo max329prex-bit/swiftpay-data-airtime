@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 import { ArrowLeft, RefreshCw, Users, Search, Mail, Phone, Wallet, Shield, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

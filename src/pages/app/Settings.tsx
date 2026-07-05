@@ -27,7 +27,15 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [notif, setNotif] = useState(() => localStorage.getItem("swiftly:notif") !== "0");
+  const [notif, setNotif] = useState(() => {
+    // Migrate old key if present
+    const old = localStorage.getItem("swiftly:notif");
+    if (old !== null) {
+      localStorage.setItem("blitzpay:notif", old);
+      localStorage.removeItem("swiftly:notif");
+    }
+    return localStorage.getItem("blitzpay:notif") !== "0";
+  });
   const nav = useNavigate();
   const isAdmin = useIsAdmin();
 
@@ -74,7 +82,7 @@ export default function Settings() {
         <Row icon={Bell} label="Push notifications" desc="Deals & transaction alerts">
           <Switch checked={notif} onCheckedChange={(v) => {
             setNotif(v);
-            localStorage.setItem("swiftly:notif", v ? "1" : "0");
+            localStorage.setItem("blitzpay:notif", v ? "1" : "0");
             toast.success(v ? "Notifications on" : "Notifications off");
           }} />
         </Row>

@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira } from "@/lib/networks";
 import { Button } from "@/components/ui/button";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 import { toast } from "sonner";
 
 type Pkg = {

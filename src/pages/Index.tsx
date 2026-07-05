@@ -20,8 +20,8 @@ const SERVICES = [
 
 const FEATURES = [
   { icon: Zap, title: "Instant delivery", desc: "Most transactions complete in under 5 seconds, 24/7." },
-  { icon: Gift, title: "Earn SwiftPoints", desc: "Get 5 SwiftPoints for every ₦250 you spend on airtime or data." },
-  { icon: Sparkles, title: "Redeem 1GB free", desc: "Swap 100 SwiftPoints for a free 1GB data bundle, any network." },
+  { icon: Gift, title: "Earn BlitzPoints", desc: "Get 5 BlitzPoints for every ₦250 you spend on airtime or data." },
+  { icon: Sparkles, title: "Redeem 1GB free", desc: "Swap 100 BlitzPoints for a free 1GB data bundle, any network." },
   { icon: ShieldCheck, title: "PIN-protected", desc: "Every transaction is locked behind a 4-digit transaction PIN." },
   { icon: Wallet, title: "One secure wallet", desc: "Fund once, pay anything. No re-entering card details." },
   { icon: Lock, title: "Encrypted end-to-end", desc: "Built on Supabase auth with row-level security on every record." },
@@ -30,12 +30,12 @@ const FEATURES = [
 const STEPS = [
   { n: "01", t: "Sign up free", d: "Create your BlitzPay account with email in 30 seconds." },
   { n: "02", t: "Fund your wallet", d: "Top up securely. Your balance is ready instantly." },
-  { n: "03", t: "Pay & earn points", d: "Buy airtime, data or pay a bill — and earn SwiftPoints as you go." },
+  { n: "03", t: "Pay & earn points", d: "Buy airtime, data or pay a bill — and earn BlitzPoints as you go." },
 ];
 
 const FAQS = [
   { q: "Is BlitzPay free to use?", a: "Yes. Creating an account, funding your wallet, and buying airtime or data costs nothing extra. You only pay the face value of what you're buying." },
-  { q: "What are SwiftPoints?", a: "Our built-in rewards. You earn 5 SwiftPoints for every ₦250 you spend on airtime or data. When you hit 100 points, you can redeem a free 1GB data bundle on any network." },
+  { q: "What are BlitzPoints?", a: "Our built-in rewards. You earn 5 BlitzPoints for every ₦250 you spend on airtime or data. When you hit 100 points, you can redeem a free 1GB data bundle on any network." },
   { q: "Which networks and services are supported?", a: "All four major Nigerian networks — MTN, Glo, Airtel and 9mobile — for airtime and data, plus electricity (all major DISCOs) and cable TV (DStv, GOtv, Startimes)." },
   { q: "How long does delivery take?", a: "Airtime and data are typically delivered in under 5 seconds. Electricity tokens arrive within 30 seconds." },
   { q: "Is my money safe?", a: "Every transaction is locked behind a 4-digit PIN, your session is encrypted, and your data is protected with row-level security. We never store your card details." },
@@ -106,7 +106,7 @@ function HeroVisual() {
               </span>
               <div>
                 <div className="text-xs font-semibold text-slate-900">MTN Airtime · ₦1,000</div>
-                <div className="text-[10px] text-slate-500">Delivered in 3s · +20 SwiftPoints</div>
+                <div className="text-[10px] text-slate-500">Delivered in 3s · +20 BlitzPoints</div>
               </div>
             </div>
             <Check className="h-5 w-5 rounded-full bg-emerald-500 p-1 text-white" />
@@ -117,7 +117,7 @@ function HeroVisual() {
         <div className="flex items-center gap-2">
           <span className="grid h-7 w-7 place-items-center rounded-lg bg-blue-600"><Gift className="h-3.5 w-3.5 text-white" /></span>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">SwiftPoints</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">BlitzPoints</div>
             <div className="text-sm font-bold text-slate-900">100 = 1GB free</div>
           </div>
         </div>
@@ -151,7 +151,7 @@ export default function Index() {
               <span className="text-blue-600">paid in a swipe.</span>
             </h1>
             <p className="mt-6 max-w-lg text-lg text-slate-500">
-              One wallet for MTN, Glo, Airtel, 9mobile, your DISCO bill and your cable TV subscription. Earn SwiftPoints on every purchase and redeem them for free data.
+              One wallet for MTN, Glo, Airtel, 9mobile, your DISCO bill and your cable TV subscription. Earn BlitzPoints on every purchase and redeem them for free data.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/auth?mode=signup"><Button size="lg" className="bg-slate-900 hover:bg-slate-800 text-white rounded-full px-6">Start free <ArrowRight className="ml-1 h-4 w-4" /></Button></Link>
@@ -244,16 +244,16 @@ export default function Index() {
         </div>
       </section>
 
-      {/* REWARDS — real SwiftPoints program */}
+      {/* REWARDS — real BlitzPoints program */}
       <section id="rewards" className="px-4 py-24">
         <div className="mx-auto max-w-6xl">
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 border border-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700">
-                <Gift className="h-3.5 w-3.5" /> SwiftPoints rewards
+                <Gift className="h-3.5 w-3.5" /> BlitzPoints rewards
               </div>
               <h2 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Spend airtime.<br />Earn free data.</h2>
-              <p className="mt-4 max-w-md text-slate-500">Every ₦250 you spend on airtime or data earns you 5 SwiftPoints — automatically. Stack 100 points and redeem them for a free 1GB data bundle on any network. No fine print.</p>
+              <p className="mt-4 max-w-md text-slate-500">Every ₦250 you spend on airtime or data earns you 5 BlitzPoints — automatically. Stack 100 points and redeem them for a free 1GB data bundle on any network. No fine print.</p>
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 {[
                   { v: "₦250", l: "= 5 points" },
@@ -274,7 +274,7 @@ export default function Index() {
               <div className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-blue-100/60 blur-2xl" />
               <div className="rounded-3xl bg-gradient-to-br from-slate-900 to-blue-900 p-8 text-white shadow-2xl">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs uppercase tracking-widest text-blue-200">Your SwiftPoints</div>
+                  <div className="text-xs uppercase tracking-widest text-blue-200">Your BlitzPoints</div>
                   <Gift className="h-5 w-5 text-blue-300" />
                 </div>
                 <div className="mt-3 text-6xl font-bold">87<span className="text-2xl text-blue-300"> / 100</span></div>

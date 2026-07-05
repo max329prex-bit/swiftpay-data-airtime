@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 import { ArrowLeft, Shield, Flag, AlertTriangle, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";

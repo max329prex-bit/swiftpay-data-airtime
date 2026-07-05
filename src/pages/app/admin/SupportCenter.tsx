@@ -4,7 +4,7 @@ import { ArrowLeft, RefreshCw, CheckCircle, AlertCircle, Clock } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 import { toast } from "sonner";
 type TRow={id:string;ticket_ref:string;user_id:string;intent:string;status:string;message:string|null;related_transaction_id:string|null;created_at:string;};
 const FO=["all","open","in_progress","resolved"] as const;

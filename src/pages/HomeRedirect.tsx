@@ -1,21 +1,23 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import Index from "./Index.tsx";
 import { Loader2 } from "lucide-react";
 
 /**
  * Root route handler:
  * - Logged in user → redirect to /app dashboard
- * - Not logged in → show the marketing landing page (Index)
+ * - Not logged in → redirect to /auth (login/register page)
  */
 export default function HomeRedirect() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && session) {
+    if (loading) return;
+    if (session) {
       navigate("/app", { replace: true });
+    } else {
+      navigate("/auth", { replace: true });
     }
   }, [loading, session, navigate]);
 
@@ -27,11 +29,5 @@ export default function HomeRedirect() {
     );
   }
 
-  // Not logged in — show the landing / advertisement page
-  if (!session) {
-    return <Index />;
-  }
-
-  // Logged in — already redirected above, but return empty while navigating
   return null;
 }

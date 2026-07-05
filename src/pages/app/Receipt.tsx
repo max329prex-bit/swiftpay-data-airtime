@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { naira } from "@/lib/networks";
-import { BoltLoader } from "@/components/swift/BoltLoader";
+import { BoltLoader } from "@/components/blitz/BoltLoader";
 import { ArrowLeft, Share2, CheckCircle2, XCircle, Clock, Copy, CheckCheck, Zap, Wifi, Phone, Tv, Bolt } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
