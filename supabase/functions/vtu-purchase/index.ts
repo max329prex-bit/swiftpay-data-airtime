@@ -22,8 +22,6 @@ const GSUBZ_SAMPLE_WINDOW    = 100;
 const GSUBZ_HOUR_WINDOW_MS   = 60 * 60 * 1000;
 const GSUBZ_MIN_AIRTIME      = 100;
 
-// GSubz can return HTTP 200 with code:"200" but description says "not eligible".
-// We MUST read the description text to detect these soft failures.
 const GSUBZ_FAILURE_KEYWORDS = [
   "not eligible", "not qualified", "reversed", "insufficient", "invalid",
   "failed", "error", "declined", "rejected", "unable", "cannot",
@@ -48,8 +46,6 @@ function genRef() {
 }
 function isBundleDown(msg: string) {
   const l = (msg || "").toLowerCase();
-  // NOTE: "not eligible" is NOT bundle_down — it's a user-specific issue
-  // (that phone doesn't qualify). The bundle itself works for other users.
   return l.includes("not available") || l.includes("unavailable") || l.includes("out of stock") ||
     l.includes("package not found") || l.includes("provider down") || l.includes("service down") ||
     l.includes("temporarily") || l.includes("invalid package") || l.includes("invalid bundle") ||
@@ -65,9 +61,9 @@ async function tg(msg: string) {
   } catch {}
 }
 
-interface PR { success: boolean; ref?: string; msg?: string; bundle_down?: boolean; }
+interface PR { success: boolean; ref?: string; msg?: string; bundle_down?: boolean; converted_to_airtime?: boolean; }
 
-// ── Provider: BSPlug ──────────────────────────────────────
+// ── Provider: BSPlug ────────────────────────────────────────────────
 async function bsplugBuy(netId: number, planId: number, phone: string): Promise<PR> {
   try {
     const r = await fetch(`${BSPLUG_BASE}/data/`, {
@@ -83,7 +79,7 @@ async function bsplugBuy(netId: number, planId: number, phone: string): Promise<
   } catch (e) { return { success: false, msg: `BSPlug unreachable: ${e}` }; }
 }
 
-// ── Provider: IA Cafe ─────────────────────────────────────
+// ── Provider: IA Cafe ────────────────────────────────────────────────
 async function iacafeBuy(planId: number, phone: string, reqId: string): Promise<PR> {
   try {
     const r = await fetch(`${IACAFE_BASE}/budget-data`, {
@@ -95,13 +91,29 @@ async function iacafeBuy(planId: number, phone: string, reqId: string): Promise<
     const d = await r.json();
     if (!r.ok || d?.code === "error" || d?.success === false)
       return { success: false, msg: d?.error?.message || d?.message || d?.error || "IA Cafe failed" };
+
+    // ── Owing check: detect if data was converted to airtime ──────────────────
+    // IACafe may deliver "success" but the carrier converts data to airtime if customer is owing
+    const respText = JSON.stringify(d).toLowerCase();
+    const isOwingConversion = respText.includes("airtime") || respText.includes("owing") || respText.includes("borrowed") ||
+                               respText.includes("converted") || respText.includes("not data") ||
+                               (d?.data?.type && String(d.data.type).toLowerCase() === "airtime");
+    if (isOwingConversion) {
+      return {
+        success: false,
+        msg: "This line has an outstanding data loan. The purchase was converted to airtime instead of data. Please clear your outstanding balance with your network provider first, then retry.",
+        converted_to_airtime: true,
+        bundle_down: false,
+      };
+    }
+
     const isSuccess = d?.success === true || d?.status === "success" || d?.code === "success" || (r.ok && d?.data != null);
     if (!isSuccess) return { success: false, msg: d?.message || d?.error || "IA Cafe: unexpected response format" };
     return { success: true, ref: String(d?.data?.order_id || d?.data?.id || reqId) };
   } catch (e) { return { success: false, msg: `IA Cafe unreachable: ${e}` }; }
 }
 
-// ── IA Cafe Electricity ─────────────────────────────────────────
+// ── IA Cafe Electricity ──────────────────────────────────────────────────────
 async function iacafeVerifyMeter(serviceID: string, customerId: string, type: string): Promise<{ ok: boolean; name?: string; error?: string }> {
   if (!IACAFE_TOKEN) return { ok: false, error: "IA Cafe API key not configured" };
   try {
@@ -144,7 +156,8 @@ async function iacafeElectricity(serviceID: string, customerId: string, amount: 
     return { success: false, msg: `IA Cafe unreachable: ${e}` };
   }
 }
-// ── Provider: GSubz (raw) ─────────────────────────────────
+
+// ── Provider: GSubz (raw) ─────────────────────────────────────────────────────
 async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
   const key = (GSUBZ_KEY || "").trim();
   if (!key) return { success: false, msg: "Gsubz API key not configured. Contact support." };
@@ -164,7 +177,6 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
     const msgStr      = typeof d?.message === "string"  ? d.message : "";
     const respBody    = JSON.stringify(d);
 
-    // 1. Hard failure: HTTP error, explicit error codes, explicit false flags
     const isHardFailed = !r.ok || d?.success === false || d?.status === false || d?.code === "error" ||
       statusStr.includes("failed") || statusStr.includes("error") ||
       ["401","400","403","500","502","503"].includes(codeStr) ||
@@ -176,9 +188,6 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
       return { success: false, msg: m, bundle_down: isBundleDown(m) };
     }
 
-    // 2. SOFT failure: GSubz returns HTTP 200 + code:"200" + status:"success"
-    //    but the description says "not eligible", "reversed", "insufficient", etc.
-    //    Also check any text field in the entire response body.
     const allText = (descStr + " " + msgStr + " " + respBody).toLowerCase();
     if (isGsubzFailureByText(allText)) {
       const m = descStr || msgStr || "GSubz declined: " + respBody.slice(0,200);
@@ -186,12 +195,11 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
       return { success: false, msg: m, bundle_down: isBundleDown(m) };
     }
 
-    // 3. Success — GSubz confirmed delivery
     return { success: true, ref: String(d?.data?.reference || d?.data?.id || d?.reference || d?.requestId || params.requestID || "") };
   } catch (e) { return { success: false, msg: `Gsubz unreachable: ${e}` }; }
 }
 
-// ── Provider: GSubz (data bundle) ─────────────────────────
+// ── Provider: GSubz (data bundle) ────────────────────────────────────────
 async function gsubzData(pkgCode: string, phone: string, reqId: string): Promise<PR> {
   const cleanCode = pkgCode.replace(/^GSZ-/, "");
   const parts = cleanCode.split("-");
@@ -201,7 +209,7 @@ async function gsubzData(pkgCode: string, phone: string, reqId: string): Promise
   return gsubzBuyRaw({ serviceID: service, plan: planId, api: GSUBZ_KEY, phone, requestID: reqId, amount: "" });
 }
 
-// ── Provider: GSubz (airtime) ─────────────────────────────
+// ── Provider: GSubz (airtime) ───────────────────────────────────────────────────
 async function gsubzAirtime(network: string, phone: string, amount: number): Promise<PR> {
   const serviceID = GSUBZ_AIRTIME_MAP[network?.toUpperCase()] || "mtn";
   return gsubzBuyRaw({ serviceID, api: GSUBZ_KEY, amount: String(amount), phone });
@@ -225,7 +233,7 @@ async function fraudCheck(sb: ReturnType<typeof createClient>, uid: string): Pro
   return (count || 0) >= 5;
 }
 
-// ── Main handler ──────────────────────────────────────────
+// ── Main handler ─────────────────────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (d: unknown, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -267,42 +275,40 @@ serve(async (req) => {
       return json({ success: false, error: `GSubz airtime minimum is ₦${GSUBZ_MIN_AIRTIME}. Please enter ₦${GSUBZ_MIN_AIRTIME} or more.`, code: "AMOUNT_BELOW_MIN", balance_credited: false }, 200);
     }
 
-    // Handle verification types BEFORE PIN check (verification doesn't need PIN)
-    // Handle verification types BEFORE PIN check (verification doesn't need PIN)
-      if (type === "electricity_verify") {
-        const v = await iacafeVerifyMeter(prvCode || "", meter_number || phone || "", "prepaid");
-        if (v.ok && v.name) {
-          return json({ success: true, customer_name: v.name, meter_number: meter_number || phone || "" });
-        }
-        return json({ success: false, error: v.error || "Could not verify meter. Check number and provider." }, 200);
+    if (type === "electricity_verify") {
+      const v = await iacafeVerifyMeter(prvCode || "", meter_number || phone || "", "prepaid");
+      if (v.ok && v.name) {
+        return json({ success: true, customer_name: v.name, meter_number: meter_number || phone || "" });
       }
-      if (type === "cable_verify") {
-        const key = (GSUBZ_KEY || "").trim();
-        if (!key) return json({ success: false, error: "GSubz API key not configured" }, 200);
-        try {
-          const fd = new FormData();
-          fd.append("serviceID", prvCode || "");
-          fd.append("smartcard", meter_number || phone || "");
-          fd.append("api", key);
-          const r = await fetch(GSUBZ_BASE + "/verify/", {
-            method: "POST", headers: { "Authorization": "Bearer " + key }, body: fd,
-            signal: AbortSignal.timeout(15000)
-          });
-          const d = await r.json();
-          const errorText = d?.description || d?.message || "";
-          const isErrorResponse = /ACCESS_NOT_ALLOWED|INVALID|ERROR|FAILED|DENIED|UNAUTHORIZED/i.test(errorText);
-          if (isErrorResponse) {
-            return json({ success: false, error: errorText }, 200);
-          }
-          const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name;
-          if (customerName && typeof customerName === "string" && customerName.length > 1 && !/ACCESS_NOT_ALLOWED|INVALID|ERROR/i.test(customerName)) {
-            return json({ success: true, customer_name: customerName, smartcard: meter_number || phone || "" });
-          }
-          return json({ success: false, error: errorText || "Could not verify smartcard." }, 200);
-        } catch (e) {
-          return json({ success: false, error: "Verification service unavailable." }, 200);
+      return json({ success: false, error: v.error || "Could not verify meter. Check number and provider." }, 200);
+    }
+    if (type === "cable_verify") {
+      const key = (GSUBZ_KEY || "").trim();
+      if (!key) return json({ success: false, error: "GSubz API key not configured" }, 200);
+      try {
+        const fd = new FormData();
+        fd.append("serviceID", prvCode || "");
+        fd.append("smartcard", meter_number || phone || "");
+        fd.append("api", key);
+        const r = await fetch(GSUBZ_BASE + "/verify/", {
+          method: "POST", headers: { "Authorization": "Bearer " + key }, body: fd,
+          signal: AbortSignal.timeout(15000)
+        });
+        const d = await r.json();
+        const errorText = d?.description || d?.message || "";
+        const isErrorResponse = /ACCESS_NOT_ALLOWED|INVALID|ERROR|FAILED|DENIED|UNAUTHORIZED/i.test(errorText);
+        if (isErrorResponse) {
+          return json({ success: false, error: errorText }, 200);
         }
+        const customerName = d?.content?.Customer_Name || d?.content?.customer_name || d?.customer_name || d?.Customer_Name || d?.data?.customer_name || d?.name;
+        if (customerName && typeof customerName === "string" && customerName.length > 1 && !/ACCESS_NOT_ALLOWED|INVALID|ERROR/i.test(customerName)) {
+          return json({ success: true, customer_name: customerName, smartcard: meter_number || phone || "" });
+        }
+        return json({ success: false, error: errorText || "Could not verify smartcard." }, 200);
+      } catch (e) {
+        return json({ success: false, error: "Verification service unavailable." }, 200);
       }
+    }
 
     const { data: pv, error: pe } = await uc.rpc("verify_transaction_pin", { _pin: pin });
     if (pe || !pv) return json({ error: "Incorrect PIN" }, 403);
@@ -359,7 +365,18 @@ serve(async (req) => {
         const fbPkgCode = (pkg as Record<string, string> | null)?.fallback_package_code || "";
         if (fbPrvCode === "iacafe" && fbPkgCode) {
           const planId = parseInt(fbPkgCode.replace("IAC-", ""), 10);
-          if (planId) { const fbReqId = `IAC-${Date.now()}`; pr = await iacafeBuy(planId, phone, fbReqId); if (pr.success) { usedProvider = "iacafe-fallback"; txMeta.provider_used = "iacafe_fallback"; } }
+          if (planId) {
+            const fbReqId = `IAC-${Date.now()}`;
+            pr = await iacafeBuy(planId, phone, fbReqId);
+            if (pr.success) { usedProvider = "iacafe-fallback"; txMeta.provider_used = "iacafe_fallback"; }
+            else if (pr.converted_to_airtime) {
+              // Owing line: data became airtime. Refund and notify.
+              await failAndRefund(pr.msg || "Customer has outstanding data loan");
+              await releaseReservation("failed");
+              await tg(`⚠️ *IACafe Owing Line*\nUser: ${user.id}\nPhone: ${phone}\nPlan: ${pkgCode}\n₦${sellPrice} converted to airtime. Refunded.`);
+              return json({ success: false, error: pr.msg || "This line has an outstanding data loan. Please clear it with your network provider first.", code: "OWING_LINE", balance_credited: true, id: pendingTxId }, 200);
+            }
+          }
         } else if (fbPrvCode?.startsWith("bsplug") && fbPkgCode) {
           const nId = parseInt(fbPrvCode.split("-")[1] || "1", 10); const pId = parseInt(fbPkgCode.replace("BSP-", ""), 10);
           if (pId && nId) { pr = await bsplugBuy(nId, pId, phone); if (pr.success) { usedProvider = "bsplug-fallback"; txMeta.provider_used = "bsplug_fallback"; } }
@@ -369,6 +386,11 @@ serve(async (req) => {
       const planId = parseInt((pkgCode || "").replace("IAC-", ""), 10);
       if (!planId) { await failAndRefund("Invalid IA Cafe plan"); await releaseReservation("failed"); return json({ success: false, error: "Invalid IA Cafe plan", code: "INVALID_PLAN", balance_credited: true }, 200); }
       const reqId = `IAC-${Date.now()}`; txMeta.iacafe_request_id = reqId; pr = await iacafeBuy(planId, phone, reqId);
+      if (!pr.success && pr.converted_to_airtime) {
+        await failAndRefund(pr.msg || "Customer has outstanding data loan");
+        await releaseReservation("failed");
+        return json({ success: false, error: pr.msg || "This line has an outstanding data loan.", code: "OWING_LINE", balance_credited: true, id: pendingTxId }, 200);
+      }
     } else if (type === "data" && prvCode?.startsWith("bsplug")) {
       const nId = parseInt(prvCode.split("-")[1] || "1", 10); const pId = parseInt((pkgCode || "").replace("BSP-", ""), 10);
       if (!pId || !nId) { await failAndRefund("Invalid BSPlug plan"); await releaseReservation("failed"); return json({ success: false, error: "Invalid BSPlug plan", code: "INVALID_PLAN", balance_credited: true }, 200); }
