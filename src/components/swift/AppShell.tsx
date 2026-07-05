@@ -10,13 +10,11 @@ import { useBroadcast } from "@/hooks/useBroadcast";
 import { naira } from "@/lib/networks";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Renders Blitzi chat text: converts **bold** markers + newlines to styled JSX
 function BlitziText({ text }: { text: string }) {
   const lines = text.split("\n").filter(l => l.trim() !== "" || true);
   return (
     <span>
       {lines.map((line, li) => {
-        // Split by **bold** markers
         const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
         return (
           <span key={li}>
@@ -44,7 +42,7 @@ const TABS = [
   { to: "/app/settings", icon: SettingsIcon, label: "Settings" },
 ];
 
-type Notif = { id: string; title: string; body: string; read: boolean };
+type Notif = { id: string; title: string; body: string; read: boolean; isBroadcast?: boolean };
 type ChatMsg = { role: "user" | "blitzi"; text: string };
 
 export function AppShell() {
@@ -58,15 +56,13 @@ export function AppShell() {
   const [showChat, setShowChat] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([
-    { role: "blitzi", text: "Hi! I\'m Blitzi, your BlitzPay assistant. Ask me anything about your account, data plans, or transactions." }
+    { role: "blitzi", text: "Hi! I'm Blitzi, your BlitzPay assistant. Ask me anything about your account, data plans, or transactions." }
   ]);
   const [chatBusy, setChatBusy] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const broadcast = useBroadcast();
   usePushNotifications();
 
-  // Listen for open-blitzi-chat event dispatched from Support page
-  const isAdminRoute = window.location.pathname.startsWith("/app/admin");
   useEffect(() => {
     function handleOpenChat() { setShowChat(true); }
     window.addEventListener("open-blitzi-chat", handleOpenChat);
@@ -74,22 +70,22 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (!loading && !user && !isAdminRoute) nav("/auth", { replace: true });
-  }, [user, loading, nav, isAdminRoute]);
+    if (!loading && !user) nav("/auth", { replace: true });
+  }, [user, loading, nav]);
 
   useEffect(() => {
     if (!user) return;
-    if (isAdminRoute) { setPinChecked(true); return; }
     supabase.rpc("has_transaction_pin").then(({ data }) => {
       if (data === false && window.location.pathname !== "/app/setup-pin") {
         nav("/app/setup-pin", { replace: true });
       }
       setPinChecked(true);
     });
-  }, [user, nav, isAdminRoute]);
+  }, [user, nav]);
 
+  // Build notifications: welcome + deposits + ACTIVE broadcast
   useEffect(() => {
-    if (!user || isAdminRoute) return;
+    if (!user) return;
     const items: Notif[] = [];
     const welcomedKey = `bp_welcomed_${user.id}`;
     if (!localStorage.getItem(welcomedKey)) {
@@ -104,9 +100,33 @@ export function AppShell() {
           body: `${naira(Number(t.amount))} added to your wallet.`,
           read: !!localStorage.getItem(`bp_nr_${t.id}`),
         }));
-        setNotifs([...items, ...txNotifs]);
+        setNotifs(prev => {
+          // Keep any existing broadcast notif, merge with new
+          const existing = prev.filter(n => n.isBroadcast);
+          return [...items, ...txNotifs, ...existing];
+        });
       });
   }, [user]);
+
+  // When a broadcast is active, add it as a notification
+  useEffect(() => {
+    if (!broadcast?.active || broadcastDismissed) {
+      setNotifs(prev => prev.filter(n => !n.isBroadcast));
+      return;
+    }
+    const bId = `broadcast-${broadcast.type}-${broadcast.message?.slice(0, 20)}`;
+    const bNotif: Notif = {
+      id: bId,
+      title: broadcast.title || (broadcast.type === "error" ? "Alert" : "Announcement"),
+      body: broadcast.message,
+      read: false,
+      isBroadcast: true,
+    };
+    setNotifs(prev => {
+      const filtered = prev.filter(n => !n.isBroadcast);
+      return [...filtered, bNotif];
+    });
+  }, [broadcast, broadcastDismissed]);
 
   const unread = notifs.filter(n => !n.read).length;
 
@@ -126,14 +146,13 @@ export function AppShell() {
     setChatMsgs(prev => [...prev, { role: "user", text: msg }]);
     setChatBusy(true);
     try {
-      // Build full conversation history (fixes: was sending {message} instead of {messages})
       const history = [...chatMsgs, { role: "user", text: msg }].map(m => ({
         role: m.role === "blitzi" ? "assistant" : "user",
         content: m.text,
       }));
       const { data, error } = await supabase.functions.invoke("swift-chat", { body: { messages: history } });
       if (error) throw error;
-      const reply = data?.reply || data?.message || "Sorry, I couldn\'t get a response. Try again!";
+      const reply = data?.reply || data?.message || "Sorry, I couldn't get a response. Try again!";
       setChatMsgs(prev => [...prev, { role: "blitzi", text: reply }]);
     } catch {
       setChatMsgs(prev => [...prev, { role: "blitzi", text: "Something went wrong. Please try again in a moment." }]);
@@ -142,14 +161,12 @@ export function AppShell() {
     }
   }
 
-  // Admin routes bypass user auth — they use independent sessionStorage token
-
   if (showSplash || loading) return (
     <AnimatePresence>
       <SplashScreen key="splash" onDone={() => setShowSplash(false)} />
     </AnimatePresence>
   );
-  if (!user && !isAdminRoute) return null;
+  if (!user) return null;
 
   const broadcastColors: Record<string, string> = {
     info: "bg-blue-500/10 border-blue-500/20 text-blue-300",
@@ -190,7 +207,6 @@ export function AppShell() {
 
       <main className="px-5 pt-5"><Outlet /></main>
 
-      {/* Blitzi floating chat button */}
       <motion.button
         onClick={() => setShowChat(true)}
         whileTap={{ scale: 0.9 }}
@@ -217,7 +233,6 @@ export function AppShell() {
         </div>
       </nav>
 
-      {/* Blitzi Chat Drawer */}
       <AnimatePresence>
         {showChat && (
           <>
@@ -227,7 +242,6 @@ export function AppShell() {
               transition={{ type: "spring", damping: 26, stiffness: 300 }}
               className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-white/10 flex flex-col"
               style={{ height: "70vh" }}>
-              {/* Chat header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/5 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-gradient-primary grid place-items-center shadow-glow">
@@ -243,7 +257,6 @@ export function AppShell() {
                 </button>
               </div>
 
-              {/* Chat messages */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-hide">
                 {chatMsgs.map((m, i) => (
                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -267,7 +280,6 @@ export function AppShell() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Chat input */}
               <div className="px-4 pb-5 pt-2 border-t border-white/5 flex-shrink-0">
                 <div className="flex items-center gap-2 glass rounded-2xl px-4 py-2">
                   <input
@@ -288,7 +300,6 @@ export function AppShell() {
         )}
       </AnimatePresence>
 
-      {/* Notification panel */}
       <AnimatePresence>
         {showNotifs && (
           <>
