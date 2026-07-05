@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import Index from "./Index";
+import Index from "./Index.tsx";
 import { Loader2 } from "lucide-react";
 
 /**
