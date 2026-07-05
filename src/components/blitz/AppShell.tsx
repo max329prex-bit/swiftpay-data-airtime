@@ -9,6 +9,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useBroadcast } from "@/hooks/useBroadcast";
 import { naira } from "@/lib/networks";
 import { motion, AnimatePresence } from "framer-motion";
+import Index from "../pages/Index.tsx";
 
 function BlitziText({ text }: { text: string }) {
   const lines = text.split("\n").filter(l => l.trim() !== "" || true);
@@ -69,9 +70,8 @@ export function AppShell() {
     return () => window.removeEventListener("open-blitzi-chat", handleOpenChat);
   }, []);
 
-  useEffect(() => {
-    if (!loading && !user) nav("/auth", { replace: true });
-  }, [user, loading, nav]);
+  // Guest users stay on /app and see the landing page (Index)
+  // No redirect to /auth — the landing page serves as the guest experience
 
   useEffect(() => {
     if (!user) return;
@@ -166,7 +166,7 @@ export function AppShell() {
       <SplashScreen key="splash" onDone={() => setShowSplash(false)} />
     </AnimatePresence>
   );
-  if (!user) return null;
+  if (!user) return <Index />;
 
   const broadcastColors: Record<string, string> = {
     info: "bg-blue-500/10 border-blue-500/20 text-blue-300",
@@ -352,3 +352,5 @@ export function AppShell() {
     </div>
   );
 }
+
+
