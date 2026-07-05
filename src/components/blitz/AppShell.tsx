@@ -9,7 +9,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useBroadcast } from "@/hooks/useBroadcast";
 import { naira } from "@/lib/networks";
 import { motion, AnimatePresence } from "framer-motion";
-import Index from "../pages/Index.tsx";
+import Index from "../../pages/Index.tsx";
 
 function BlitziText({ text }: { text: string }) {
   const lines = text.split("\n").filter(l => l.trim() !== "" || true);
