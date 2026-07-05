@@ -6,9 +6,6 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCircle, Mail, CheckCircle2, AlertTriangle, Loader2, Send } from "lucide-react";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
 export default function Support() {
   const { user } = useAuth();
   const [showTicket, setShowTicket] = useState(false);
@@ -44,19 +41,17 @@ export default function Support() {
         .select("ticket_ref")
         .single();
       if (error) throw error;
-      const ref = (data as Record<string, string>).ticket_ref;
-      setTicketRef(ref);
+      setTicketRef((data as Record<string, string>).ticket_ref);
 
-      // Trigger email to blitzpaysup@gmail.com immediately
-      try {
-        await fetch(`${SUPABASE_URL}/functions/v1/support-email`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "apikey": ANON_KEY },
-          body: JSON.stringify({ ticket_ref: ref }),
-        });
-      } catch (e) {
-        console.warn("[support] email trigger failed (will retry via cron):", e);
-      }
+      // Also email blitzpaysup@gmail.com via edge function
+      await supabase.functions.invoke("send-support-email", {
+        body: {
+          from: user.email || "support@blitzpay.ng",
+          subject: `BlitzPay Support Ticket - ${(data as Record<string, string>).ticket_ref}`,
+          body: `New support ticket from ${user.email || "user"}:\n\n${message.trim()}\n\nTicket Ref: ${(data as Record<string, string>).ticket_ref}\nUser ID: ${user.id}`,
+        },
+      }).catch(() => { /* email is best-effort */ });
+
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to submit ticket");
     } finally {
@@ -91,7 +86,6 @@ export default function Support() {
           <motion.div key="options" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="space-y-3">
 
-            {/* Chat with Blitzi */}
             <button onClick={openBlitziChat}
               className="w-full flex items-center gap-4 rounded-2xl bg-gradient-primary p-5 text-left shadow-glow transition active:scale-[0.98]">
               <div className="h-11 w-11 rounded-xl bg-white/20 grid place-items-center shrink-0">
@@ -103,7 +97,6 @@ export default function Support() {
               </div>
             </button>
 
-            {/* Email Ticket */}
             <button onClick={() => setShowTicket(true)}
               className="w-full flex items-center gap-4 rounded-2xl bg-secondary/40 border border-white/5 p-5 text-left transition hover:bg-secondary/60 active:scale-[0.98]">
               <div className="h-11 w-11 rounded-xl bg-primary/15 border border-primary/20 grid place-items-center shrink-0">
@@ -159,8 +152,7 @@ export default function Support() {
             <div>
               <h2 className="font-display text-xl font-bold">Ticket Submitted</h2>
               <p className="text-sm text-muted-foreground mt-1">Ref: <span className="font-mono text-primary">{ticketRef}</span></p>
-              <p className="text-xs text-muted-foreground mt-2">We've also notified our support team at blitzpaysup@gmail.com.</p>
-              <p className="text-xs text-muted-foreground">We'll get back to you within 24 hours.</p>
+              <p className="text-xs text-muted-foreground mt-2">We'll get back to you within 24 hours.</p>
             </div>
             <button onClick={() => { setTicketRef(null); setShowTicket(false); setMessage(""); }}
               className="h-11 px-6 rounded-xl bg-secondary/40 border border-white/10 text-sm font-semibold">
