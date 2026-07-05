@@ -1,0 +1,26 @@
+{
+  "name": "BlitzPay - Buy Cheap Data & Airtime",
+  "short_name": "BlitzPay",
+  "description": "Buy cheap MTN, Glo, Airtel, 9mobile data and airtime instantly. Nigeria's fastest VTU wallet with cashback rewards.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0B14",
+  "theme_color": "#0A0B14",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["finance", "shopping", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "32x32",
+      "type": "image/x-icon"
+    }
+  ]
+}
