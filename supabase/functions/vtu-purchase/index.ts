@@ -63,6 +63,116 @@ async function tg(msg: string) {
 
 interface PR { success: boolean; ref?: string; msg?: string; bundle_down?: boolean; converted_to_airtime?: boolean; }
 
+// ── DIAGNOSTIC: Log full validation response to Telegram ────────────────────────────────
+async function diagLog(label: string, phone: string, provider: string, status: string, body: unknown) {
+  const truncated = JSON.stringify(body).slice(0, 800);
+  await tg(`🔍 *DIAG: ${label}*\nProvider: ${provider}\nPhone: ${phone}\nStatus: ${status}\n\n${truncated}`);
+}
+
+// ── PRE-VALIDATION: GSubz ──────────────────────────────────────────────────────────────────────────
+async function gsubzValidateDataLine(serviceID: string, phone: string): Promise<{ ok: boolean; error?: string; raw?: unknown }> {
+  const key = (GSUBZ_KEY || "").trim();
+  if (!key) return { ok: true };
+  try {
+    const fd = new FormData();
+    fd.append("serviceID", serviceID || "mtn");
+    fd.append("phone", phone);
+    fd.append("api", key);
+    const r = await fetch(`${GSUBZ_BASE}/verify/`, {
+      method: "POST", headers: { "Authorization": "Bearer " + key }, body: fd,
+      signal: AbortSignal.timeout(15000)
+    });
+    const d = await r.json();
+    await diagLog("GSubz validate", phone, "gsubz", `HTTP ${r.status}`, d);
+
+    const errorText = (d?.description || d?.message || "").toLowerCase();
+    if (errorText.includes("not eligible") || errorText.includes("owing") || errorText.includes("borrowed") ||
+        errorText.includes("outstanding") || errorText.includes("loan") || errorText.includes("reversed")) {
+      return { ok: false, error: "This line has an outstanding data loan or is not eligible. Please clear it with your network provider first.", raw: d };
+    }
+    if (!r.ok || /ACCESS_NOT_ALLOWED|INVALID|ERROR|FAILED|DENIED/i.test(errorText)) {
+      return { ok: false, error: d?.description || d?.message || "Line validation failed", raw: d };
+    }
+    return { ok: true, raw: d };
+  } catch (e) {
+    await diagLog("GSubz validate ERROR", phone, "gsubz", "EXCEPTION", { error: String(e) });
+    return { ok: true }; // fail open
+  }
+}
+
+// ── PRE-VALIDATION: IACafe ──────────────────────────────────────────────────────────────────────────
+async function iacafeValidateDataLine(planId: number, phone: string): Promise<{ ok: boolean; error?: string; raw?: unknown }> {
+  if (!IACAFE_TOKEN) return { ok: true };
+  // Try multiple possible validation endpoints
+  const endpoints = [
+    `${IACAFE_BASE}/validate-data`,
+    `${IACAFE_BASE}/check-line`,
+    `${IACAFE_BASE}/budget-data/validate`,
+  ];
+  for (const url of endpoints) {
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { Accept: "application/json", Authorization: `Bearer ${IACAFE_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, data_plan: planId }),
+        signal: AbortSignal.timeout(15000)
+      });
+      const d = await r.json();
+      await diagLog("IACafe validate", phone, "iacafe", `HTTP ${r.status} @ ${url.split('/').pop()}`, d);
+      if (r.status === 404) continue; // try next endpoint
+      const msg = (d?.message || d?.error || "").toLowerCase();
+      if (msg.includes("owing") || msg.includes("borrowed") || msg.includes("loan") || msg.includes("not eligible") ||
+          msg.includes("outstanding") || msg.includes("converted") || msg.includes("airtime")) {
+        return { ok: false, error: "This line has an outstanding data loan. The purchase would be converted to airtime. Please clear it with your network provider first.", raw: d };
+      }
+      if (!r.ok || d?.success === false) {
+        return { ok: false, error: d?.message || d?.error || "Line validation failed", raw: d };
+      }
+      return { ok: true, raw: d };
+    } catch {
+      // try next endpoint
+    }
+  }
+  // No validation endpoint found — fail open, but log it
+  await diagLog("IACafe validate", phone, "iacafe", "NO_ENDPOINT_FOUND", { tried: endpoints });
+  return { ok: true };
+}
+
+// ── PRE-VALIDATION: BSPlug ──────────────────────────────────────────────────────────────────────────
+async function bsplugValidateDataLine(netId: number, planId: number, phone: string): Promise<{ ok: boolean; error?: string; raw?: unknown }> {
+  if (!BSPLUG_TOKEN) return { ok: true };
+  const endpoints = [
+    `${BSPLUG_BASE}/data/validate/`,
+    `${BSPLUG_BASE}/data/check/`,
+    `${BSPLUG_BASE}/validate/`,
+  ];
+  for (const url of endpoints) {
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { Accept: "application/json", Authorization: `Token ${BSPLUG_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile_number: phone, plan: planId, network: netId }),
+        signal: AbortSignal.timeout(15000)
+      });
+      const d = await r.json();
+      await diagLog("BSPlug validate", phone, "bsplug", `HTTP ${r.status} @ ${url.split('/').pop()}`, d);
+      if (r.status === 404) continue;
+      const msg = (d?.message || d?.error || "").toLowerCase();
+      if (msg.includes("owing") || msg.includes("borrowed") || msg.includes("loan") || msg.includes("not eligible")) {
+        return { ok: false, error: "This line has an outstanding data loan. Please clear it with your network provider first.", raw: d };
+      }
+      if (!r.ok || d?.success === false) {
+        return { ok: false, error: d?.message || d?.error || "Line validation failed", raw: d };
+      }
+      return { ok: true, raw: d };
+    } catch {
+      // try next
+    }
+  }
+  await diagLog("BSPlug validate", phone, "bsplug", "NO_ENDPOINT_FOUND", { tried: endpoints });
+  return { ok: true };
+}
+
 // ── Provider: BSPlug ────────────────────────────────────────────────
 async function bsplugBuy(netId: number, planId: number, phone: string): Promise<PR> {
   try {
@@ -92,8 +202,7 @@ async function iacafeBuy(planId: number, phone: string, reqId: string): Promise<
     if (!r.ok || d?.code === "error" || d?.success === false)
       return { success: false, msg: d?.error?.message || d?.message || d?.error || "IA Cafe failed" };
 
-    // ── Owing check: detect if data was converted to airtime ──────────────────
-    // IACafe may deliver "success" but the carrier converts data to airtime if customer is owing
+    // Post-purchase owing check
     const respText = JSON.stringify(d).toLowerCase();
     const isOwingConversion = respText.includes("airtime") || respText.includes("owing") || respText.includes("borrowed") ||
                                respText.includes("converted") || respText.includes("not data") ||
@@ -351,6 +460,17 @@ serve(async (req) => {
     let usedProvider = prvCode || "";
 
     if (type === "data" && prvCode === "gsubz") {
+      const cleanCode = pkgCode.replace(/^GSZ-/, "");
+      const parts = cleanCode.split("-");
+      const service = parts.length > 1 ? parts.slice(0, parts.length - 1).join("-").replace(/-/g, "_") : "";
+      const gsubzVal = await gsubzValidateDataLine(service || "mtn", phone);
+      if (!gsubzVal.ok) {
+        await failAndRefund(gsubzVal.error || "GSubz line validation failed");
+        await releaseReservation("failed");
+        await tg(`⚠️ *GSubz Pre-validation Rejected*\nUser: ${user.id}\nPhone: ${phone}\nReason: ${gsubzVal.error}`);
+        return json({ success: false, error: gsubzVal.error || "Line validation failed. Please try again.", code: "LINE_NOT_ELIGIBLE", balance_credited: true, id: pendingTxId }, 200);
+      }
+
       const reqId = `GSZ-${Date.now()}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
       txMeta.gsubz_request_id = reqId;
       const gsubzHealthy = await isGsubzHealthy(admin);
@@ -366,25 +486,46 @@ serve(async (req) => {
         if (fbPrvCode === "iacafe" && fbPkgCode) {
           const planId = parseInt(fbPkgCode.replace("IAC-", ""), 10);
           if (planId) {
+            const iacVal = await iacafeValidateDataLine(planId, phone);
+            if (!iacVal.ok) {
+              await failAndRefund(iacVal.error || "IACafe line validation failed");
+              await releaseReservation("failed");
+              return json({ success: false, error: iacVal.error || "Fallback provider also rejected this line.", code: "LINE_NOT_ELIGIBLE", balance_credited: true, id: pendingTxId }, 200);
+            }
             const fbReqId = `IAC-${Date.now()}`;
             pr = await iacafeBuy(planId, phone, fbReqId);
             if (pr.success) { usedProvider = "iacafe-fallback"; txMeta.provider_used = "iacafe_fallback"; }
             else if (pr.converted_to_airtime) {
-              // Owing line: data became airtime. Refund and notify.
               await failAndRefund(pr.msg || "Customer has outstanding data loan");
               await releaseReservation("failed");
-              await tg(`⚠️ *IACafe Owing Line*\nUser: ${user.id}\nPhone: ${phone}\nPlan: ${pkgCode}\n₦${sellPrice} converted to airtime. Refunded.`);
-              return json({ success: false, error: pr.msg || "This line has an outstanding data loan. Please clear it with your network provider first.", code: "OWING_LINE", balance_credited: true, id: pendingTxId }, 200);
+              await tg(`⚠️ *IACafe Owing Line (fallback)*\nUser: ${user.id}\nPhone: ${phone}\nPlan: ${pkgCode}\n₦${sellPrice} converted to airtime. Refunded.`);
+              return json({ success: false, error: pr.msg || "This line has an outstanding data loan.", code: "OWING_LINE", balance_credited: true, id: pendingTxId }, 200);
             }
           }
         } else if (fbPrvCode?.startsWith("bsplug") && fbPkgCode) {
           const nId = parseInt(fbPrvCode.split("-")[1] || "1", 10); const pId = parseInt(fbPkgCode.replace("BSP-", ""), 10);
-          if (pId && nId) { pr = await bsplugBuy(nId, pId, phone); if (pr.success) { usedProvider = "bsplug-fallback"; txMeta.provider_used = "bsplug_fallback"; } }
+          if (pId && nId) {
+            const bspVal = await bsplugValidateDataLine(nId, pId, phone);
+            if (!bspVal.ok) {
+              await failAndRefund(bspVal.error || "BSPlug line validation failed");
+              await releaseReservation("failed");
+              return json({ success: false, error: bspVal.error || "Fallback provider rejected this line.", code: "LINE_NOT_ELIGIBLE", balance_credited: true, id: pendingTxId }, 200);
+            }
+            pr = await bsplugBuy(nId, pId, phone);
+            if (pr.success) { usedProvider = "bsplug-fallback"; txMeta.provider_used = "bsplug_fallback"; }
+          }
         }
       }
     } else if (type === "data" && prvCode === "iacafe") {
       const planId = parseInt((pkgCode || "").replace("IAC-", ""), 10);
       if (!planId) { await failAndRefund("Invalid IA Cafe plan"); await releaseReservation("failed"); return json({ success: false, error: "Invalid IA Cafe plan", code: "INVALID_PLAN", balance_credited: true }, 200); }
+      const iacVal = await iacafeValidateDataLine(planId, phone);
+      if (!iacVal.ok) {
+        await failAndRefund(iacVal.error || "IACafe line validation failed");
+        await releaseReservation("failed");
+        await tg(`⚠️ *IACafe Pre-validation Rejected*\nUser: ${user.id}\nPhone: ${phone}\nReason: ${iacVal.error}`);
+        return json({ success: false, error: iacVal.error || "Line validation failed.", code: "LINE_NOT_ELIGIBLE", balance_credited: true, id: pendingTxId }, 200);
+      }
       const reqId = `IAC-${Date.now()}`; txMeta.iacafe_request_id = reqId; pr = await iacafeBuy(planId, phone, reqId);
       if (!pr.success && pr.converted_to_airtime) {
         await failAndRefund(pr.msg || "Customer has outstanding data loan");
@@ -394,6 +535,12 @@ serve(async (req) => {
     } else if (type === "data" && prvCode?.startsWith("bsplug")) {
       const nId = parseInt(prvCode.split("-")[1] || "1", 10); const pId = parseInt((pkgCode || "").replace("BSP-", ""), 10);
       if (!pId || !nId) { await failAndRefund("Invalid BSPlug plan"); await releaseReservation("failed"); return json({ success: false, error: "Invalid BSPlug plan", code: "INVALID_PLAN", balance_credited: true }, 200); }
+      const bspVal = await bsplugValidateDataLine(nId, pId, phone);
+      if (!bspVal.ok) {
+        await failAndRefund(bspVal.error || "BSPlug line validation failed");
+        await releaseReservation("failed");
+        return json({ success: false, error: bspVal.error || "Line validation failed.", code: "LINE_NOT_ELIGIBLE", balance_credited: true, id: pendingTxId }, 200);
+      }
       pr = await bsplugBuy(nId, pId, phone);
     } else if (type === "airtime") {
       pr = await gsubzAirtime(network || "", phone || "", sellPrice);
