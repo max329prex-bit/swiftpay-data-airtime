@@ -22,6 +22,13 @@ export default function Auth() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const nav = useNavigate();
 
+  // Already logged in? Redirect to dashboard immediately.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) nav("/app", { replace: true });
+    });
+  }, [nav]);
+
   // Handle when user returns from email confirmation or password reset link
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
