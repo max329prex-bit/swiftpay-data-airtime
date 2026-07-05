@@ -1,12 +1,9 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Loader2, ShieldCheck, ArrowLeft, KeyRound } from "lucide-react";
+import { Loader2, ShieldCheck, ArrowLeft, MessageSquare } from "lucide-react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON_KEY     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
-const ADMIN_SESSION_KEY = "blitzpay_admin_session";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -28,7 +25,6 @@ export default function AdminLogin() {
     return data;
   };
 
-  /** Step 1: verify password → send OTP via Telegram */
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -36,7 +32,7 @@ export default function AdminLogin() {
     try {
       await otpCall({ action: "verify-password", password });
       const d = await otpCall({ action: "request-otp" });
-      setOtpSentTo(d.message || "OTP sent to Telegram admin");
+      setOtpSentTo(d.message || "OTP sent to admin Telegram");
       setStep("otp");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -45,20 +41,15 @@ export default function AdminLogin() {
     }
   }
 
-  /** Step 2: verify OTP → receive admin session token */
   async function handleOtp(e: React.FormEvent) {
     e.preventDefault();
     if (otp.length < 6) return setError("Enter the 6-digit code");
     setLoading(true);
     setError("");
     try {
-      const d = await otpCall({ action: "verify-otp", code: otp });
-      if (!d.token) throw new Error("No session token received");
-
-      // Store independent admin session token (NOT tied to any user account)
-      sessionStorage.setItem(ADMIN_SESSION_KEY, d.token);
-
-      // Navigate to admin panel
+      await otpCall({ action: "verify-otp", code: otp });
+      // Store admin session in sessionStorage (NOT Supabase auth)
+      sessionStorage.setItem("bp_admin_session", Date.now().toString());
       navigate("/app/admin/treasury", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed");
@@ -71,7 +62,6 @@ export default function AdminLogin() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6 p-8 rounded-3xl border border-white/10 bg-white/[0.03] shadow-xl">
 
-        {/* Header */}
         <div className="text-center space-y-2">
           <div className="mx-auto h-12 w-12 rounded-2xl bg-primary/15 flex items-center justify-center">
             <ShieldCheck className="h-6 w-6 text-primary" />
@@ -84,7 +74,6 @@ export default function AdminLogin() {
           </p>
         </div>
 
-        {/* Step 1 — Password */}
         {step === "password" ? (
           <form onSubmit={handlePassword} className="space-y-4">
             <input
@@ -106,12 +95,11 @@ export default function AdminLogin() {
             >
               {loading
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending code…</>
-                : <><KeyRound className="h-4 w-4" /> Send Verification Code</>}
+                : <><MessageSquare className="h-4 w-4" /> Send Verification Code</>}
             </button>
           </form>
 
         ) : (
-          /* Step 2 — OTP */
           <form onSubmit={handleOtp} className="space-y-4">
             <input
               type="text"
