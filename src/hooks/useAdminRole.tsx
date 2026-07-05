@@ -43,7 +43,13 @@ export function useAdminRole(): { isAdmin: boolean; loading: boolean } {
   return { isAdmin, loading };
 }
 
+/** Get admin token for API calls */
+export function getAdminToken(): string | null {
+  return sessionStorage.getItem("bp_admin_session");
+}
+
 /** Clear admin session on logout */
 export function clearAdminSession() {
   sessionStorage.removeItem("bp_admin_session");
 }
+
