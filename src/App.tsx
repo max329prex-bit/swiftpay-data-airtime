@@ -35,6 +35,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
   import FraudMonitor from "./pages/app/admin/FraudMonitor.tsx";
   import Broadcast from "./pages/app/admin/Broadcast.tsx";
   import ProviderMarginReport from "./pages/app/admin/ProviderMarginReport.tsx";
+  import ApiDocs from "./pages/ApiDocs.tsx";
 
   const queryClient = new QueryClient();
 
@@ -81,6 +82,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
                 <Route path="ledger" element={<Ledger />} />
                 <Route path="deposit-status" element={<DepositStatus />} />
               </Route>
+              <Route path="/api/docs" element={<ApiDocs />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
