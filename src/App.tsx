@@ -1,3 +1,4 @@
+// deploy-trigger: force Vercel rebuild
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
   import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
   import { ThemeProvider } from "next-themes";
