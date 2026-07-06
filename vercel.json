@@ -5,15 +5,19 @@
       "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/payvessel-webhook"
     },
     {
+      "source": "/webhook/gsubz",
+      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/gsubz-webhook"
+    },
+    {
       "source": "/api/v1/:path*",
       "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/:path*"
     },
     {
-      "source": "/api/([^/]+)",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/$1"
+      "source": "/api/:path*",
+      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ]
