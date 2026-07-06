@@ -51,9 +51,9 @@ export default function Settings() {
   const generateKey = async () => {
     setGenLoading(true);
     try {
-      const { data, error } = await supabase.rpc("generate_api_key", { _name: genName || "Default" });
+      const { data, error } = await supabase.rpc("generate_api_key", { _user_id: user.id, _key_name: genName || "API Key" });
       if (error) throw error;
-      setNewKey(data.full_key);
+      setNewKey(data.api_key);
       setShowGen(false);
       setGenName("");
       fetchKeys();
