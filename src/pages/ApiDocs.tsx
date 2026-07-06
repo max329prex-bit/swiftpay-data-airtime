@@ -52,7 +52,7 @@ const ENDPOINTS: Endpoint[] = [
       { name: "network",    type: "string", required: true,  desc: "Network: MTN | AIRTEL | GLO | 9MOBILE" },
       { name: "phone",      type: "string", required: true,  desc: "Recipient phone number (11 digits)" },
       { name: "package_code", type: "uuid",   required: true,  desc: "Plan ID from /api-plans" },
-      { ,
+      { name: "amount", type: "number", required: true,  desc: "Purchase amount in NGN (must match package price)" },
     ],
     response: { success: true, transaction: { id: "uuid", reference: "BP-2026-XXXX", status: "processing", network: "MTN", phone: "08012345678", package_code: "BSP-763", provider: "gsubz" }, message: "Purchase is being processed. Check status with GET /api-transaction/:reference" },
     example: `curl -X POST \\\n  -H "x-api-key: bp_abc123..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"network":"MTN","phone":"08012345678","package_code":"uuid-here","package_code":"BSP-763"}' \\\n  ${BASE_URL}/api-purchase`,
