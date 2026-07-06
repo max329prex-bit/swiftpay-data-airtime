@@ -23,6 +23,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
   import Schedules from "./pages/app/Schedules.tsx";
   import ScheduleNew from "./pages/app/ScheduleNew.tsx";
   import Settings from "./pages/app/Settings.tsx";
+  import EditProfile from "./pages/app/EditProfile.tsx";
   import Support from "./pages/app/Support.tsx";
   import TransactionDetail from "./pages/app/TransactionDetail.tsx";
   import Receipt from "./pages/app/Receipt.tsx";
@@ -69,6 +70,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
                 <Route path="schedules/new" element={<ScheduleNew />} />
                 <Route path="support" element={<Support />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="edit-profile" element={<EditProfile />} />
                 <Route path="airtime" element={<Airtime />} />
                 <Route path="data" element={<Data />} />
                 <Route path="electricity" element={<Electricity />} />
