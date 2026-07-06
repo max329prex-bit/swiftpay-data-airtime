@@ -10,14 +10,14 @@ const SUPA_URL  = Deno.env.get("SUPABASE_URL")!;
 const SUPA_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPA_SVC  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const BASE_SYS = `You are Blitzi, the AI assistant inside BlitzPay — a Nigerian fintech app for buying airtime, data, electricity and cable TV.
+const BASE_SYS = `You are Blitzi, the AI assistant inside BlitzPay â a Nigerian fintech app for buying airtime, data, electricity and cable TV.
 
 CRITICAL RULES:
 - NEVER introduce yourself unless asked.
 - NEVER start with "Hi!", "Hello!" or greetings. Go straight to the answer.
-- NEVER end with "How can I help you?" — they already know.
+- NEVER end with "How can I help you?" â they already know.
 - Answer the user's actual question DIRECTLY and helpfully.
-- Keep replies concise. Use ₦ for Naira.
+- Keep replies concise. Use â¦ for Naira.
 - NO markdown formatting. NEVER use **bold**, *italic*, or # headers. Plain text only.
 - For numbered steps, put each step on its own line (use actual line breaks, not all in one paragraph).
 - If the user has account context (balance, recent transactions), reference it naturally.
@@ -26,12 +26,12 @@ CRITICAL RULES:
 - When asked about DATA PLANS, you MUST say "Let me check our current plans..." and ONLY use the plans provided in the context. NEVER guess or make up prices.
 
 What you know about BlitzPay:
-- Wallet: funded via PayVessel virtual bank account (bank transfer). User deposits directly to their assigned account number. A 1.5% processing fee is deducted. Balance reflects within minutes after transfer.
-- Airtime: MTN, Airtel, Glo, 9Mobile. Min ₦50. Network auto-detected from phone prefix. Primary provider: GSubz.
-- Data bundles: daily, weekly, monthly plans. Blitz Prime shows best value (₦/GB) per network.
-- BlitzPoints: earn 2 pts per ₦250 on DATA purchases only. 100 pts = 1GB free data reward. Airtime does NOT earn BlitzPoints.
-- Electricity: select DISCO (Ikeja, Eko, Abuja, etc.) → Prepaid/Postpaid → enter meter number → verify → pay. Primary provider: IACafe.
-- Cable TV: DStv, GOtv, StarTimes → smartcard/IUC number → verify → pick package → pay. Primary provider: GSubz.
+- Wallet: funded via PayVessel virtual bank account (bank transfer). User deposits directly to their assigned account number. A 1% processing fee is deducted. Balance reflects within minutes after transfer.
+- Airtime: MTN, Airtel, Glo, 9Mobile. Min â¦50. Network auto-detected from phone prefix. Primary provider: GSubz.
+- Data bundles: daily, weekly, monthly plans. Blitz Prime shows best value (â¦/GB) per network.
+- BlitzPoints: earn 2 pts per â¦250 on DATA purchases only. 100 pts = 1GB free data reward. Airtime does NOT earn BlitzPoints.
+- Electricity: select DISCO (Ikeja, Eko, Abuja, etc.) â Prepaid/Postpaid â enter meter number â verify â pay. Primary provider: IACafe.
+- Cable TV: DStv, GOtv, StarTimes â smartcard/IUC number â verify â pick package â pay. Primary provider: GSubz.
 - Transaction PIN: 4-digit PIN required for every purchase. Set/change in Settings.
 - Failed/refunded: wallet auto-refunded within 5-10 min. If not after 30 min, email blitzpaysup@gmail.com.
 - Support: blitzpaysup@gmail.com or use Send Ticket in the Support page.
@@ -71,7 +71,7 @@ async function fetchPackagesFormatted(admin: ReturnType<typeof createClient>): P
     for (const net of networks) {
       out += `\n${net}:\n`;
       for (const p of byNetwork[net]) {
-        out += `  • ${p.name} (${p.size}) — ₦${p.price} — ${p.validity} — code: ${p.code}\n`;
+        out += `  â¢ ${p.name} (${p.size}) â â¦${p.price} â ${p.validity} â code: ${p.code}\n`;
       }
     }
     out += "\nTo buy any plan, go to the Data page and enter your phone number. Prices are updated live from our providers.";
@@ -115,8 +115,8 @@ serve(async (req) => {
     const admin = createClient(SUPA_URL, SUPA_SVC);
     const lastUserMsg = messages[messages.length - 1]?.content || "";
 
-    // ── SPECIAL HANDLING: Data plan queries ─────────────────────────────────────────
-    // If user asks about data plans, fetch from DB directly — bypass LLM to prevent hallucination
+    // ââ SPECIAL HANDLING: Data plan queries âââââââââââââââââââââââââââââââââââââââââ
+    // If user asks about data plans, fetch from DB directly â bypass LLM to prevent hallucination
     if (isPlanQuery(lastUserMsg)) {
       const plansReply = await fetchPackagesFormatted(admin);
       return new Response(JSON.stringify({ reply: plansReply }), {
@@ -149,14 +149,14 @@ serve(async (req) => {
           const name = profile?.full_name?.split(" ")[0] || "the user";
 
           let accountCtx = `\n\nUSER ACCOUNT CONTEXT (${name}):`;
-          accountCtx += `\n- Wallet balance: ₦${Number(balance).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
-          if (refund > 0) accountCtx += `\n- Refund balance: ₦${Number(refund).toLocaleString("en-NG", { minimumFractionDigits: 2 })} (pending credit)`;
-          accountCtx += `\n- BlitzPoints: ${pts} pts (earn 2 pts per ₦250 spent on DATA only. Airtime does NOT earn points.)`;
+          accountCtx += `\n- Wallet balance: â¦${Number(balance).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
+          if (refund > 0) accountCtx += `\n- Refund balance: â¦${Number(refund).toLocaleString("en-NG", { minimumFractionDigits: 2 })} (pending credit)`;
+          accountCtx += `\n- BlitzPoints: ${pts} pts (earn 2 pts per â¦250 spent on DATA only. Airtime does NOT earn points.)`;
           if (txs && txs.length > 0) {
             accountCtx += `\n- Recent transactions:`;
             for (const tx of txs.slice(0, 3)) {
               const date = new Date(tx.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short" });
-              accountCtx += `\n  * ${tx.type} ${tx.network || ""} ₦${tx.amount} — ${tx.status} (${date}, ref: ${tx.reference})`;
+              accountCtx += `\n  * ${tx.type} ${tx.network || ""} â¦${tx.amount} â ${tx.status} (${date}, ref: ${tx.reference})`;
             }
           }
           sysPrompt = BASE_SYS + accountCtx;
