@@ -13,11 +13,7 @@
       "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/:path*"
     },
     {
-      "source": "/api/:path*",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/:path*"
-    },
-    {
-      "source": "/:path*",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
