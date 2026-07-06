@@ -1203,6 +1203,121 @@ export type Database = {
         }
         Relationships: []
       }
+        api_keys: {
+          Row: {
+            created_at: string
+            id: string
+            is_active: boolean
+            key_hash: string
+            key_prefix: string
+            last_used_at: string | null
+            name: string | null
+            rate_limit: number
+            revoked_at: string | null
+            revoked_reason: string | null
+            user_id: string
+          }
+          Insert: {
+            created_at?: string
+            id?: string
+            is_active?: boolean
+            key_hash: string
+            key_prefix: string
+            last_used_at?: string | null
+            name?: string | null
+            rate_limit?: number
+            revoked_at?: string | null
+            revoked_reason?: string | null
+            user_id: string
+          }
+          Update: {
+            created_at?: string
+            id?: string
+            is_active?: boolean
+            key_hash?: string
+            key_prefix?: string
+            last_used_at?: string | null
+            name?: string | null
+            rate_limit?: number
+            revoked_at?: string | null
+            revoked_reason?: string | null
+            user_id?: string
+          }
+          Relationships: []
+        }
+        api_purchases: {
+          Row: {
+            amount: number
+            api_key_id: string
+            created_at: string
+            id: string
+            meta: Json | null
+            network: string
+            package_id: string | null
+            phone: string
+            provider_code: string | null
+            provider_reference: string | null
+            reference: string
+            resolved_at: string | null
+            status: string
+            type: Database["public"]["Enums"]["tx_type"]
+            updated_at: string | null
+            user_id: string
+          }
+          Insert: {
+            amount: number
+            api_key_id: string
+            created_at?: string
+            id?: string
+            meta?: Json | null
+            network: string
+            package_id?: string | null
+            phone: string
+            provider_code?: string | null
+            provider_reference?: string | null
+            reference: string
+            resolved_at?: string | null
+            status?: string
+            type: Database["public"]["Enums"]["tx_type"]
+            updated_at?: string | null
+            user_id: string
+          }
+          Update: {
+            amount?: number
+            api_key_id?: string
+            created_at?: string
+            id?: string
+            meta?: Json | null
+            network?: string
+            package_id?: string | null
+            phone?: string
+            provider_code?: string | null
+            provider_reference?: string | null
+            reference?: string
+            resolved_at?: string | null
+            status?: string
+            type?: Database["public"]["Enums"]["tx_type"]
+            updated_at?: string | null
+            user_id?: string
+          }
+          Relationships: [
+            {
+              foreignKeyName: "api_purchases_api_key_id_fkey"
+              columns: ["api_key_id"]
+              isOneToOne: false
+              referencedRelation: "api_keys"
+              referencedColumns: ["id"]
+            },
+            {
+              foreignKeyName: "api_purchases_package_id_fkey"
+              columns: ["package_id"]
+              isOneToOne: false
+              referencedRelation: "packages"
+              referencedColumns: ["id"]
+            },
+          ]
+        }
+        
     }
     Views: {
       [_ in never]: never
