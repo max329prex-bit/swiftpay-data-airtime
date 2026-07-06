@@ -153,7 +153,7 @@ export default function Settings() {
                     <div className="space-y-2">
                       {keys.map((k) => (
                         <div key={k.id} className="flex items-center gap-3 bg-white/[0.03] rounded-lg px-3 py-2.5">
-                          <code className="font-mono text-xs text-purple-300">{k.key_prefix}***</code>
+                          <code className="font-mono text-xs text-purple-300">{k.api_key?.slice(0, 8)}***</code>
                           <span className="text-xs text-muted-foreground">{k.name || "Unnamed"}</span>
                           <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${k.is_active ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>{k.is_active ? "Active" : "Revoked"}</span>
                         </div>
