@@ -154,7 +154,7 @@ export default function Wallet() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       setStaticError(msg);
-      // Don't toast KYC errors — they get a dedicated UI card
+      // Don't toast KYC errors â they get a dedicated UI card
       if (!silent && !msg.startsWith("KYC_REQUIRED:")) toast.error(msg);
     } finally { setStaticLoad(false); }
   }, []);
@@ -272,7 +272,7 @@ export default function Wallet() {
         <div className="text-sm font-semibold">{va.account_name}</div>
       </div>
 
-      <p className="text-center text-xs text-muted-foreground">Tap to copy · No minimum</p>
+      <p className="text-center text-xs text-muted-foreground">Tap to copy Â· No minimum</p>
     </motion.div>
   );
 
@@ -318,11 +318,11 @@ export default function Wallet() {
       <div className="rounded-2xl bg-secondary/20 border border-white/5 p-4 flex gap-3 text-sm text-muted-foreground">
         <Info className="w-4 h-4 mt-0.5 text-primary/70 shrink-0" />
         {tab === "static"
-          ? <p>Your permanent account — transfer any amount anytime. Balance updates instantly. <span className="text-yellow-400/80 font-medium">1.5% deposit fee applies.</span></p>
-          : <p>One-time account — valid for a single transfer only. Expires after use or 30 minutes. <span className="text-yellow-400/80 font-medium">1.5% deposit fee applies.</span></p>}
+          ? <p>Your permanent account â transfer any amount anytime. Balance updates instantly. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>
+          : <p>One-time account â valid for a single transfer only. Expires after use or 30 minutes. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>}
       </div>
 
-      {/* ── STATIC TAB ────────────────────────────────────────────────────── */}
+      {/* ââ STATIC TAB ââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       <AnimatePresence mode="wait">
         {tab === "static" && (
           <motion.div key="static-tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -332,7 +332,7 @@ export default function Wallet() {
             {staticLoading && (
               <div className="rounded-2xl bg-secondary/30 border border-white/5 p-6 flex items-center justify-center gap-3 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Loading your account…</span>
+                <span className="text-sm">Loading your accountâ¦</span>
               </div>
             )}
 
@@ -351,7 +351,7 @@ export default function Wallet() {
                   </div>
                   <button onClick={() => navigate("/app/settings")}
                     className="w-full h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-medium flex items-center justify-center gap-2 hover:bg-amber-500/30 transition">
-                    Go to Settings → Verification
+                    Go to Settings â Verification
                   </button>
                   <p className="text-[10px] text-muted-foreground/60 text-center">Your one-time account tab still works while you set this up</p>
                 </div>
@@ -365,7 +365,7 @@ export default function Wallet() {
               )
             )}
 
-            {/* ── KYC Form ── */}
+            {/* ââ KYC Form ââ */}
             {!staticLoading && !staticError && showKYC && !staticVA && (
               <motion.div key="kyc-form" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 className="rounded-2xl bg-secondary/30 border border-primary/20 p-5 space-y-5">
@@ -473,7 +473,7 @@ export default function Wallet() {
                   className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition disabled:opacity-50 shadow-glow"
                 >
                   {kycSubmitting
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating account…</>
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating accountâ¦</>
                     : <><ShieldCheck className="w-4 h-4" /> Create my permanent account <ChevronRight className="w-4 h-4 opacity-60" /></>}
                 </button>
 
@@ -498,7 +498,7 @@ export default function Wallet() {
           </motion.div>
         )}
 
-        {/* ── DYNAMIC TAB ─────────────────────────────────────────────────── */}
+        {/* ââ DYNAMIC TAB âââââââââââââââââââââââââââââââââââââââââââââââââââ */}
         {tab === "dynamic" && (
           <motion.div key="dynamic-tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="space-y-4">
@@ -516,7 +516,7 @@ export default function Wallet() {
                   <ChevronRight className="w-5 h-5 opacity-60" />
                 </button>
                 <p className="text-center text-xs text-muted-foreground">
-                  No BVN required · Instant · Single use only
+                  No BVN required Â· Instant Â· Single use only
                 </p>
               </div>
             )}
@@ -524,7 +524,7 @@ export default function Wallet() {
             {dynamicLoading && (
               <div className="rounded-2xl bg-secondary/30 border border-white/5 p-6 flex items-center justify-center gap-3 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Generating your account…</span>
+                <span className="text-sm">Generating your accountâ¦</span>
               </div>
             )}
 
@@ -535,7 +535,7 @@ export default function Wallet() {
                     ${countdown < 120 ? "bg-orange-500/10 border-orange-500/20 text-orange-400"
                                       : "bg-secondary/20 border-white/5 text-muted-foreground"}`}>
                     <Clock className="w-4 h-4 shrink-0" />
-                    <span>Expires in <strong>{fmtCountdown(countdown)}</strong> — use immediately</span>
+                    <span>Expires in <strong>{fmtCountdown(countdown)}</strong> â use immediately</span>
                   </div>
                 )}
                 <AccountCard va={dynamicVA} copied={copiedDynamic}
@@ -547,7 +547,7 @@ export default function Wallet() {
         )}
       </AnimatePresence>
 
-      <p className="text-center text-xs text-muted-foreground">Secured by Payvessel · Instant bank transfer · <span className="text-yellow-400/70">1.5% fee on all deposits</span></p>
+      <p className="text-center text-xs text-muted-foreground">Secured by Payvessel Â· Instant bank transfer Â· <span className="text-yellow-400/70">1% fee on all deposits</span></p>
     </div>
   );
 }
