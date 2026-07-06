@@ -90,9 +90,7 @@ async function gsubzValidateDataLine(serviceID: string, phone: string): Promise<
         errorText.includes("outstanding") || errorText.includes("loan") || errorText.includes("reversed")) {
       return { ok: false, error: "This line has an outstanding data loan or is not eligible. Please clear it with your network provider first.", raw: d };
     }
-    if (!r.ok || /ACCESS_NOT_ALLOWED|INVALID|ERROR|FAILED|DENIED/i.test(errorText)) {
-      return { ok: false, error: d?.description || d?.message || "Line validation failed", raw: d };
-    }
+    // Fail open for all other API errors — only the explicit owing/not-eligible check above should block.
     return { ok: true, raw: d };
   } catch (e) {
     await diagLog("GSubz validate ERROR", phone, "gsubz", "EXCEPTION", { error: String(e) });
@@ -125,9 +123,8 @@ async function iacafeValidateDataLine(planId: number, phone: string): Promise<{ 
           msg.includes("outstanding") || msg.includes("converted") || msg.includes("airtime")) {
         return { ok: false, error: "This line has an outstanding data loan. The purchase would be converted to airtime. Please clear it with your network provider first.", raw: d };
       }
-      if (!r.ok || d?.success === false) {
-        return { ok: false, error: d?.message || d?.error || "Line validation failed", raw: d };
-      }
+      // Fail open on HTTP errors or generic failures — owing check already done above
+      if (!r.ok || d?.success === false) { continue; }
       return { ok: true, raw: d };
     } catch {
       // try next endpoint
@@ -161,9 +158,8 @@ async function bsplugValidateDataLine(netId: number, planId: number, phone: stri
       if (msg.includes("owing") || msg.includes("borrowed") || msg.includes("loan") || msg.includes("not eligible")) {
         return { ok: false, error: "This line has an outstanding data loan. Please clear it with your network provider first.", raw: d };
       }
-      if (!r.ok || d?.success === false) {
-        return { ok: false, error: d?.message || d?.error || "Line validation failed", raw: d };
-      }
+      // Fail open on HTTP errors or generic failures — owing check already done above
+      if (!r.ok || d?.success === false) { continue; }
       return { ok: true, raw: d };
     } catch {
       // try next
