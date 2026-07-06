@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const [pkgsR, statusR] = await Promise.all([
-      fetch(`${SUPA_URL}/rest/v1/packages?select=network,name,size,validity,price,provider_code,package_code,sort_order,coming_soon,bp_value,tier,health_score,is_blitz_prime&is_active=eq.true&order=sort_order`, { headers: rh }),
+      fetch(`${SUPA_URL}/rest/v1/packages?select=network,name,size,validity,price,provider_code,package_code,sort_order,coming_soon,bp_value,tier,health_score,is_blitz_prime,requires_non_owing_line&is_active=eq.true&order=sort_order`, { headers: rh }),
       fetch(`${SUPA_URL}/rest/v1/bundle_status?select=package_code,is_available,fail_count,success_count,last_error,last_checked_at,health_score,auto_paused_at`, { headers: rh }),
     ]);
     const packages = await pkgsR.json();
@@ -44,6 +44,7 @@ serve(async (req) => {
         sell_price: pkg.price, provider_code: pkg.provider_code, package_code: pkg.package_code,
         bp_value: pkg.bp_value ?? 1, tier: pkg.tier ?? "promo",
         health_score: pkgHealth, is_blitz_prime: pkg.is_blitz_prime ?? false,
+        requires_non_owing_line: pkg.requires_non_owing_line ?? false,
         coming_soon: comingSoon, available, success_rate,
         ...(!available && !comingSoon ? {
           unavailable_reason: s.auto_paused_at
