@@ -32,6 +32,7 @@ interface Plan {
   bp_value: number;
   tier?: "stable" | "promo";
   health_score?: number;
+  requires_non_owing_line?: boolean;
 }
 
 const NC: Record<NetworkId, string> = {
@@ -56,14 +57,8 @@ function parseDuration(validity: string): Duration {
   return "monthly";
 }
 
-/** Gift/awoof plans require non-owing lines */
-function isGiftPlan(pkgCode: string): boolean {
-  const c = (pkgCode || '').toLowerCase();
-  return c.includes('awoof') || c.includes('gifting') || c.includes('gift');
-}
-function isGiftPlanObj(p: { id?: string; provider_code?: string | null } | null | undefined): boolean {
-  if (!p) return false;
-  return isGiftPlan(p.id || '') || (p.provider_code || '').toLowerCase().includes('awuf');
+function isNonOwingPlan(p: Plan | null | undefined): boolean {
+  return p?.requires_non_owing_line === true;
 }
 function parseGbSize(size: string): number {
   const m = (size || "").match(/(\d+\.?\d*)\s*(MB|GB|TB)/i);
@@ -104,6 +99,11 @@ function PlanCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean;
       )}
       {plan.tier === "promo" && plan.available && (
         <span className="text-[7px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 leading-none">🔥 Hot Deal</span>
+      )}
+      {plan.requires_non_owing_line ? (
+        <span className="text-[7px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 leading-none">🚫 Non-Owing</span>
+      ) : (
+        <span className="text-[7px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 leading-none">✅ Owing</span>
       )}
       {plan.coming_soon && (
         <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
@@ -209,6 +209,7 @@ export default function Data() {
             success_rate: 92,
             bp_value: Math.max(1, Math.floor(price / 250) * 5),
             tier: dataType.includes("sme") || dataType.includes("sme2") ? "stable" : "promo",
+            requires_non_owing_line: true,
           });
         }
 
@@ -241,6 +242,7 @@ export default function Data() {
               bp_value: p.bp_value ?? 1,
               is_prime: false,
               tier: p.tier ?? "promo",
+              requires_non_owing_line: p.requires_non_owing_line ?? false,
             };
           });
         }
@@ -503,29 +505,29 @@ export default function Data() {
 
 
             {/* Gift/Awoof warning in plan detail */}
-              {plan && isGiftPlanObj(plan) && (
+              {plan && isNonOwingPlan(plan) && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                   <div className="flex items-start gap-2">
                     <span className="text-amber-400 text-lg leading-none mt-0.5">&#9888;</span>
                     <div className="text-xs text-amber-200 leading-relaxed">
-                      <span className="font-semibold">Non-owing line only.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and be refunded.
+                      <span className="font-semibold">Non-Owing plan.</span> This bundle only works for numbers that are <span className="font-semibold">not currently owing data</span>. If this number is owing, the purchase will fail and be refunded.
                     </div>
                   </div>
                   <button type="button" onClick={() => { setPlan(null); setHideGiftPlans(true); }}
                     className="mt-2 w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition">
-                    See regular plans for owing users
+                    See Owing plans instead
                   </button>
                 </motion.div>
               )}
               {/* Regular plan - owing users CAN buy */}
-              {plan && !isGiftPlanObj(plan) && (
+              {plan && !isNonOwingPlan(plan) && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
                   <div className="flex items-center gap-2">
                     <span className="text-emerald-400 text-lg leading-none">&#10003;</span>
                     <div className="text-xs text-emerald-200 leading-relaxed">
-                      <span className="font-semibold">Owing users can buy.</span> This regular plan works for all lines, including numbers that are <span className="font-semibold">currently owing data</span>.
+                      <span className="font-semibold">Owing plan.</span> This regular plan works for all lines, including numbers that are <span className="font-semibold">currently owing data</span>.
                     </div>
                   </div>
                 </motion.div>
@@ -565,12 +567,12 @@ export default function Data() {
                 ))}
               </div>
                 {/* Gift/Awoof warning in confirmation */}
-                  {isGiftPlanObj(plan) && (
+                  {isNonOwingPlan(plan) && (
                     <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 mt-2">
                       <div className="flex items-start gap-2">
                         <span className="text-amber-400 text-sm leading-none mt-0.5">&#9888;</span>
                         <div className="text-xs text-amber-200 leading-relaxed">
-                          <span className="font-semibold">Non-owing line required.</span> If {phone} is currently owing data, this purchase will fail and be refunded.
+                          <span className="font-semibold">Non-Owing plan.</span> If {phone} is currently owing data, this purchase will fail and be refunded.
                         </div>
                       </div>
                       <button type="button" onClick={() => { setStep("form"); setPlan(null); setHideGiftPlans(true); }}
@@ -580,12 +582,12 @@ export default function Data() {
                     </div>
                   )}
                   {/* Regular plan confirmation - owing users CAN buy */}
-                  {!isGiftPlanObj(plan) && (
+                  {!isNonOwingPlan(plan) && (
                     <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 mt-2">
                       <div className="flex items-center gap-2">
                         <span className="text-emerald-400 text-sm leading-none">&#10003;</span>
                         <div className="text-xs text-emerald-200 leading-relaxed">
-                          <span className="font-semibold">Owing users can buy.</span> This regular plan works for all lines, including numbers currently owing data.
+                          <span className="font-semibold">Owing plan.</span> This regular plan works for all lines, including numbers currently owing data.
                         </div>
                       </div>
                     </div>
