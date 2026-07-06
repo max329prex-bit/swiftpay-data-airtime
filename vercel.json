@@ -1,36 +1,16 @@
 {
   "rewrites": [
     {
-      "source": "/webhook/payvessel",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/payvessel-webhook"
+      "source": "/api/v1/:path*",
+      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/:path*"
     },
     {
-      "source": "/webhook/gsubz",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/gsubz-webhook"
+      "source": "/api/v1/([^/]+)",
+      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/$1"
     },
     {
-      "source": "/api/v1/balance",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/api-balance"
-    },
-    {
-      "source": "/api/v1/plans",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/api-plans"
-    },
-    {
-      "source": "/api/v1/purchase",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/api-purchase"
-    },
-    {
-      "source": "/api/v1/transaction/:path*",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/api-transaction"
-    },
-    {
-      "source": "/api/v1/keys",
-      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/api-keys"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/api/([^/]+)",
+      "destination": "https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/$1"
     }
   ]
 }
