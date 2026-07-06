@@ -33,11 +33,13 @@ export default function Settings() {
   ];
 
   const fetchKeys = async () => {
+    if (!user?.id) return;
     setLoadingKeys(true);
     try {
-      const { data, error } = await supabase.rpc("list_api_keys");
+      const { data, error } = await supabase.rpc("list_api_keys", { _user_id: user.id });
       if (error) throw error;
-      setKeys(data || []);
+      const keyArray = Array.isArray(data) ? data : (data ? [data] : []);
+      setKeys(keyArray);
     } catch (e: any) {
       toast.error("Failed to load API keys");
     } finally { setLoadingKeys(false); }
@@ -49,17 +51,26 @@ export default function Settings() {
   };
 
   const generateKey = async () => {
+    if (!user?.id) return;
     setGenLoading(true);
     try {
       const { data, error } = await supabase.rpc("generate_api_key", { _user_id: user.id, _key_name: genName || "API Key" });
       if (error) throw error;
+      if (data?.error) {
+        if (data.error?.toLowerCase().includes("balance") || data.error?.toLowerCase().includes("insufficient")) {
+          toast.error(`Wallet balance must be at least \u20a6${data.required || 5000}. Current: \u20a6${data.current || 0}`);
+        } else {
+          toast.error(data.error);
+        }
+        return;
+      }
       setNewKey(data.api_key);
       setShowGen(false);
       setGenName("");
       fetchKeys();
+      toast.success(data.message || "API key generated!");
     } catch (e: any) {
-      if (e.message?.includes("MIN_BALANCE")) toast.error("Wallet balance must be at least \u20a65,000");
-      else toast.error(e.message || "Failed to generate key");
+      toast.error(e.message || "Failed to generate key");
     } finally { setGenLoading(false); }
   };
 
