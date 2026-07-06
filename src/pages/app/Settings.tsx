@@ -1,151 +1,199 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  ArrowLeft, Zap, User, Bell, Lock, Shield, HelpCircle, ChevronRight, LogOut,
-  KeyRound, ChevronDown, Copy, Check, Plus, Eye, EyeOff, Terminal, FileText, Trash2, Loader2
-} from "lucide-react";
+import { useEffect, useState } from "react";
+  import { useNavigate } from "react-router-dom";
+  import { Eye, EyeOff, LogOut, User, Bell, Shield, Sparkles, ChevronRight, Moon, Sun,
+           Monitor, Activity, BookOpen, Megaphone, ShieldAlert, BarChart3, Headphones,
+           BadgeCheck, TrendingUp, KeyRound, FileText, Plus, Loader2, Eye as EyeIcon, EyeOff as EyeOffIcon, Copy, Check } from "lucide-react";
+  import { useAuth } from "@/hooks/useAuth";
+  import { useHideBalance } from "@/hooks/useHideBalance";
+  import { supabase } from "@/integrations/supabase/client";
+  import { Switch } from "@/components/ui/switch";
+  import { toast } from "sonner";
+  import { useTheme } from "next-themes";
+  import { motion, AnimatePresence } from "framer-motion";
+  import { Button } from "@/components/ui/button";
+  import { Input } from "@/components/ui/input";
 
-export default function Settings() {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
-  const [keysOpen, setKeysOpen] = useState(false);
-  const [keys, setKeys] = useState<any[]>([]);
-  const [loadingKeys, setLoadingKeys] = useState(false);
-  const [showGen, setShowGen] = useState(false);
-  const [genName, setGenName] = useState("");
-  const [genLoading, setGenLoading] = useState(false);
-  const [newKey, setNewKey] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [showKey, setShowKey] = useState(false);
+  function useIsAdmin() {
+    const { user } = useAuth();
+    const [isAdmin, setIsAdmin] = useState(false);
+    useEffect(() => {
+      if (!user) return;
+      supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle()
+        .then(({ data }) => setIsAdmin(data?.role === "admin"));
+    }, [user]);
+    return isAdmin;
+  }
 
-  const sections = [
-    { icon: User, label: "Edit profile", action: () => navigate("/app/edit-profile") },
-    { icon: Bell, label: "Notifications", action: () => toast.info("Coming soon") },
-    { icon: Lock, label: "Change password", action: () => toast.info("Coming soon") },
-    { icon: Shield, label: "Security", action: () => toast.info("Coming soon") },
-    { icon: HelpCircle, label: "Help & support", action: () => toast.info("Coming soon") },
-  ];
-
-  const fetchKeys = async () => {
-    if (!user?.id) return;
-    setLoadingKeys(true);
-    try {
-      const { data, error } = await supabase.rpc("list_api_keys", { _user_id: user.id });
-      if (error) throw error;
-      const keyArray = Array.isArray(data) ? data : (data ? [data] : []);
-      setKeys(keyArray);
-    } catch (e: any) {
-      toast.error("Failed to load API keys");
-    } finally { setLoadingKeys(false); }
-  };
-
-  const toggleKeys = () => {
-    if (!keysOpen && keys.length === 0) fetchKeys();
-    setKeysOpen(!keysOpen);
-  };
-
-  const generateKey = async () => {
-    if (!user?.id) return;
-    setGenLoading(true);
-    try {
-      const { data, error } = await supabase.rpc("generate_api_key", { _user_id: user.id, _key_name: genName || "API Key" });
-      if (error) throw error;
-      if (data?.error) {
-        if (data.error?.toLowerCase().includes("balance") || data.error?.toLowerCase().includes("insufficient")) {
-          toast.error(`Wallet balance must be at least \u20a6${data.required || 5000}. Current: \u20a6${data.current || 0}`);
-        } else {
-          toast.error(data.error);
-        }
-        return;
+  export default function Settings() {
+    const { user } = useAuth();
+    const { hide, setHide } = useHideBalance();
+    const { theme, setTheme } = useTheme();
+    const [name, setName] = useState("");
+    const [phone, setPhone] = useState("");
+    const [notif, setNotif] = useState(() => {
+      const old = localStorage.getItem("swiftly:notif");
+      if (old !== null) {
+        localStorage.setItem("blitzpay:notif", old);
+        localStorage.removeItem("swiftly:notif");
       }
-      setNewKey(data.api_key);
-      setShowGen(false);
-      setGenName("");
-      fetchKeys();
-      toast.success(data.message || "API key generated!");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to generate key");
-    } finally { setGenLoading(false); }
-  };
+      return localStorage.getItem("blitzpay:notif") !== "0";
+    });
+    const nav = useNavigate();
+    const isAdmin = useIsAdmin();
 
-  const copyKey = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-    toast.success("Copied to clipboard");
-  };
+    // API Keys state
+    const [keysOpen, setKeysOpen] = useState(false);
+    const [keys, setKeys] = useState<any[]>([]);
+    const [loadingKeys, setLoadingKeys] = useState(false);
+    const [showGen, setShowGen] = useState(false);
+    const [genName, setGenName] = useState("");
+    const [genLoading, setGenLoading] = useState(false);
+    const [newKey, setNewKey] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
+    const [showKey, setShowKey] = useState(false);
 
-  return (
-    <div className="min-h-screen bg-background" style={{ backgroundImage: "var(--gradient-aurora)", backgroundAttachment: "fixed" }}>
-      {/* Header */}
-      <div className="sticky top-0 z-40 glass border-b border-white/10">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3.5">
-          <button onClick={() => navigate(-1)} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-white/5 transition-colors">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-primary shadow-glow">
-              <Zap className="h-4 w-4 text-white" fill="white" />
-            </span>
-            <span className="font-display text-lg font-bold tracking-tight">
-              Blitz<span className="text-gradient">Pay</span>
-            </span>
+    useEffect(() => {
+      if (!user) return;
+      supabase.from("profiles").select("full_name, phone").eq("user_id", user.id).maybeSingle()
+        .then(({ data }) => { setName(data?.full_name ?? ""); setPhone(data?.phone ?? ""); });
+    }, [user]);
+
+    const initials = (name || user?.email || "?").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
+    const themeLabel = theme === "dark" ? "Dark" : theme === "light" ? "Light" : "System";
+    const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+    const nextTheme = (theme === "dark" ? "light" : theme === "light" ? "system" : "dark") as "dark" | "light" | "system";
+
+    const fetchKeys = async () => {
+      if (!user?.id) return;
+      setLoadingKeys(true);
+      try {
+        const { data, error } = await supabase.rpc("list_api_keys", { _user_id: user.id });
+        if (error) throw error;
+        const keyArray = Array.isArray(data) ? data : (data ? [data] : []);
+        setKeys(keyArray);
+      } catch (e: any) {
+        toast.error("Failed to load API keys");
+      } finally { setLoadingKeys(false); }
+    };
+
+    const toggleKeys = () => {
+      if (!keysOpen && keys.length === 0) fetchKeys();
+      setKeysOpen(!keysOpen);
+    };
+
+    const generateKey = async () => {
+      if (!user?.id) return;
+      setGenLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("generate_api_key", { _user_id: user.id, _key_name: genName || "API Key" });
+        if (error) throw error;
+        if (data?.error) {
+          if (data.error?.toLowerCase().includes("balance") || data.error?.toLowerCase().includes("insufficient")) {
+            toast.error(`Wallet balance must be at least ₦${data.required || 5000}. Current: ₦${data.current || 0}`);
+          } else {
+            toast.error(data.error);
+          }
+          return;
+        }
+        setNewKey(data.api_key);
+        setShowGen(false);
+        setGenName("");
+        fetchKeys();
+        toast.success(data.message || "API key generated!");
+      } catch (e: any) {
+        toast.error(e.message || "Failed to generate key");
+      } finally { setGenLoading(false); }
+    };
+
+    const copyKey = (text: string) => {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+      toast.success("Copied to clipboard");
+    };
+
+    return (
+      <div className="space-y-5 pb-6">
+        {/* Profile card */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
+          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+          <div className="relative flex items-center gap-4">
+            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/20 backdrop-blur font-display text-xl font-bold text-white">{initials}</div>
+            <div className="min-w-0">
+              <div className="font-display text-xl font-bold text-white truncate">{name || "Add your name"}</div>
+              <div className="text-xs text-white/80 truncate">{user?.email}</div>
+              {phone && <div className="text-xs text-white/70">{phone}</div>}
+            </div>
           </div>
         </div>
-      </div>
 
-      <main className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="font-display text-2xl font-bold tracking-tight mb-6">Settings</h1>
+        {/* Privacy */}
+        <Section title="Privacy">
+          <Row icon={hide ? EyeOff : Eye} label="Hide balance" desc="Mask your wallet amount on the home screen">
+            <Switch checked={hide} onCheckedChange={setHide} />
+          </Row>
+          <Row icon={Shield} label="Change transaction PIN" onClick={() => nav("/app/setup-pin")} chevron />
+          <Row
+            icon={BadgeCheck}
+            label="Identity Verification (KYC)"
+            desc="Set up your permanent deposit account"
+            onClick={() => nav("/app/wallet")}
+            chevron
+          />
+        </Section>
 
-        {/* Profile summary */}
-        <div className="glass-strong rounded-2xl p-5 mb-6 border border-white/10">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-full bg-gradient-primary shadow-glow grid place-items-center text-lg font-bold text-white">
-              {user?.email?.charAt(0).toUpperCase() || "U"}
-            </div>
+        {/* App */}
+        <Section title="App">
+          <Row icon={Bell} label="Push notifications" desc="Deals & transaction alerts">
+            <Switch checked={notif} onCheckedChange={(v) => {
+              setNotif(v);
+              localStorage.setItem("blitzpay:notif", v ? "1" : "0");
+              toast.success(v ? "Notifications on" : "Notifications off");
+            }} />
+          </Row>
+          <Row icon={ThemeIcon} label="Theme" desc={themeLabel}
+            onClick={() => { setTheme(nextTheme); toast.success(`Switched to ${nextTheme} mode`); }} chevron />
+          <Row icon={Sparkles} label="BlitzPoints info" desc="Earn points on every purchase" />
+        </Section>
+
+        {/* Tools */}
+        <Section title="Tools">
+          <Row icon={Activity} label="Network Status" desc="View live provider health" onClick={() => nav("/app/provider-status")} chevron />
+          <Row icon={BookOpen} label="Wallet Ledger" desc="Full balance movement history" onClick={() => nav("/app/ledger")} chevron />
+        </Section>
+
+        {/* Admin */}
+        {isAdmin && (
+          <Section title="Admin">
+            <Row icon={BarChart3} label="Treasury Dashboard" desc="Provider float and health" onClick={() => nav("/app/admin/treasury")} chevron />
+            <Row icon={Headphones} label="Support Center" desc="Manage user tickets" onClick={() => nav("/app/admin/support")} chevron />
+            <Row icon={Megaphone} label="Broadcast" desc="Send system-wide alerts" onClick={() => nav("/app/admin/broadcast")} chevron />
+            <Row icon={ShieldAlert} label="Fraud Monitor" desc="Velocity flags and suspicious activity" onClick={() => nav("/app/admin/fraud")} chevron />
+            <Row icon={TrendingUp} label="Margin Report" desc="Provider cost vs sell price" onClick={() => nav("/app/admin/margin")} chevron />
+          </Section>
+        )}
+
+        {/* NEW: Developer / API Keys */}
+        <div className="glass divide-y divide-white/5 rounded-2xl overflow-hidden">
+          <button onClick={toggleKeys} className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/5 transition">
+            <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-white/[0.08] text-foreground">
+              <KeyRound className="h-4 w-4" />
+            </span>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{user?.email}</p>
-              <p className="text-xs text-muted-foreground">{user?.id?.slice(0, 8) || "User"}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Standard settings */}
-        <div className="space-y-1 mb-6">
-          {sections.map((s) => (
-            <button key={s.label} onClick={s.action} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/[0.03] transition-colors text-left">
-              <s.icon className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm font-medium">{s.label}</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
-            </button>
-          ))}
-        </div>
-
-        {/* Developer / API Keys */}
-        <div className="glass-strong rounded-2xl border border-white/10 overflow-hidden mb-6">
-          <button onClick={toggleKeys} className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.03] transition-colors text-left">
-            <KeyRound className="h-5 w-5 text-purple-400" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Developer</p>
-              <p className="text-xs text-muted-foreground">API keys &amp; documentation</p>
+              <div className="text-sm font-medium">Developer</div>
+              <div className="text-xs text-muted-foreground">API keys &amp; documentation</div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={(e) => { e.stopPropagation(); navigate("/api/docs"); }} className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1">
+              <button onClick={(e) => { e.stopPropagation(); nav("/api/docs"); }} className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1">
                 <FileText className="h-3.5 w-3.5" /> Docs
               </button>
-              {keysOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              {keysOpen ? <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 rotate-90" /> : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
             </div>
           </button>
 
           <AnimatePresence>
             {keysOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-white/10">
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">API Keys</h3>
@@ -177,13 +225,21 @@ export default function Settings() {
           </AnimatePresence>
         </div>
 
+        {/* Account */}
+        <Section title="Account">
+          <Row icon={User} label="Edit profile" onClick={() => nav("/app/edit-profile")} chevron />
+          <Row icon={LogOut} label="Sign out" danger onClick={async () => { await supabase.auth.signOut(); nav("/"); }} chevron />
+        </Section>
+
+        <div className="pt-2 text-center text-[11px] text-muted-foreground">BlitzPay · v1.0.0</div>
+
         {/* Generate Key Dialog */}
         <AnimatePresence>
           {showGen && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowGen(false)}>
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="glass-strong rounded-2xl p-5 w-full max-w-sm border border-white/10" onClick={(e) => e.stopPropagation()}>
                 <h3 className="font-display text-lg font-bold mb-1">Generate API Key</h3>
-                <p className="text-xs text-muted-foreground mb-4">Requires &nbsp;&#8358;5,000 wallet balance. Key shown only once.</p>
+                <p className="text-xs text-muted-foreground mb-4">Requires a minimum of ₦5,000 wallet balance (not deducted).</p>
                 <Input value={genName} onChange={(e) => setGenName(e.target.value)} placeholder="Key name (e.g. Production)" className="bg-white/5 border-white/10 text-sm mb-4" />
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="flex-1 border-white/10" onClick={() => setShowGen(false)}>Cancel</Button>
@@ -211,7 +267,7 @@ export default function Settings() {
                 <div className="flex items-center gap-2 bg-black/40 rounded-lg p-3 border border-white/5 mb-4">
                   <code className="font-mono text-xs text-purple-300 flex-1 break-all">{showKey ? newKey : newKey.slice(0, 12) + "***"}</code>
                   <button onClick={() => setShowKey(!showKey)} className="text-muted-foreground hover:text-white transition-colors">
-                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showKey ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                   </button>
                 </div>
                 <div className="flex gap-2">
@@ -225,13 +281,36 @@ export default function Settings() {
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+    );
+  }
 
-        {/* Logout */}
-        <button onClick={signOut} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-red-500/10 transition-colors text-left text-red-400">
-          <LogOut className="h-5 w-5" />
-          <span className="text-sm font-medium">Log out</span>
-        </button>
-      </main>
-    </div>
-  );
-}
+  function Section({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+      <div>
+        <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</div>
+        <div className="glass divide-y divide-white/5 rounded-2xl overflow-hidden">{children}</div>
+      </div>
+    );
+  }
+
+  function Row({ icon: Icon, label, desc, children, onClick, chevron, danger }: {
+    icon: any; label: string; desc?: string; children?: React.ReactNode;
+    onClick?: () => void; chevron?: boolean; danger?: boolean;
+  }) {
+    const Comp: any = onClick ? "button" : "div";
+    return (
+      <Comp onClick={onClick} className={`flex w-full items-center gap-3 p-4 text-left ${onClick ? "hover:bg-white/5 transition" : ""}`}>
+        <span className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl ${danger ? "bg-destructive/15 text-destructive" : "bg-white/[0.08] text-foreground"}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className={`text-sm font-medium ${danger ? "text-destructive" : ""}`}>{label}</div>
+          {desc && <div className="text-xs text-muted-foreground">{desc}</div>}
+        </div>
+        {children}
+        {chevron && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+      </Comp>
+    );
+  }
+  
