@@ -455,27 +455,83 @@ export default function Data() {
               ))}
             </div>
 
-            {tabPlans.length === 0 ? (
-              <div className="text-xs text-muted-foreground text-center py-8 glass rounded-2xl">
-                {loadingPlans ? "Loading plans\u2026" : "No plans for this duration"}
+            {network === "MTN" ? (
+              <div className="space-y-4">
+                {/* Owing Plans */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                    <span className="text-xs font-bold text-emerald-400">Owing Plans</span>
+                    <span className="text-[10px] text-muted-foreground">Works even if line is owing</span>
+                  </div>
+                  {(() => {
+                    const list = tabPlans.filter(p => !p.requires_non_owing_line);
+                    return list.length === 0 ? (
+                      <div className="text-xs text-muted-foreground text-center py-4 glass rounded-2xl">No Owing plans for this duration</div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-3 gap-2">
+                          {list.slice(0, showMore ? list.length : Math.min(6, list.length)).map(p => (
+                            <PlanCard key={p.id} plan={p} selected={plan?.id === p.id} onSelect={pp => setPlan(pp)} />
+                          ))}
+                        </div>
+                        {list.length > 6 && (
+                          <button onClick={() => setShowMore(v => !v)} type="button"
+                            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/[0.06] transition">
+                            {showMore ? <><ChevronUp className="h-3.5 w-3.5" /> Show Less</> : <><ChevronDown className="h-3.5 w-3.5" /> More Owing Plans ({list.length - 6})</>}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                <div className="h-px bg-white/10" />
+
+                {/* Non-Owing Plans */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-amber-400" />
+                    <span className="text-xs font-bold text-amber-400">Non-Owing Plans</span>
+                    <span className="text-[10px] text-muted-foreground">Only for non-owing lines</span>
+                  </div>
+                  {(() => {
+                    const list = tabPlans.filter(p => p.requires_non_owing_line);
+                    return list.length === 0 ? (
+                      <div className="text-xs text-muted-foreground text-center py-4 glass rounded-2xl">No Non-Owing plans for this duration</div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {list.map(p => (
+                          <PlanCard key={p.id} plan={p} selected={plan?.id === p.id} onSelect={pp => setPlan(pp)} />
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {tabPlans.slice(0, showMore ? tabPlans.length : Math.min(6, tabPlans.length)).map(p => (
-                  <PlanCard key={p.id} plan={p} selected={plan?.id === p.id} onSelect={pp => setPlan(pp)} />
-                ))}
-              </div>
-            )}
+              <>
+                {tabPlans.length === 0 ? (
+                  <div className="text-xs text-muted-foreground text-center py-8 glass rounded-2xl">
+                    {loadingPlans ? "Loading plans…" : "No plans for this duration"}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {tabPlans.slice(0, showMore ? tabPlans.length : Math.min(6, tabPlans.length)).map(p => (
+                      <PlanCard key={p.id} plan={p} selected={plan?.id === p.id} onSelect={pp => setPlan(pp)} />
+                    ))}
+                  </div>
+                )}
 
-            {tabPlans.length > 6 && (
-              <button onClick={() => setShowMore(v => !v)} type="button"
-                className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/[0.06] transition">
-                {showMore ? <><ChevronUp className="h-3.5 w-3.5" /> Show Less</> : <><ChevronDown className="h-3.5 w-3.5" /> More Plans ({tabPlans.length - 6})</>}
-              </button>
+                {tabPlans.length > 6 && (
+                  <button onClick={() => setShowMore(v => !v)} type="button"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/[0.06] transition">
+                    {showMore ? <><ChevronUp className="h-3.5 w-3.5" /> Show Less</> : <><ChevronDown className="h-3.5 w-3.5" /> More Plans ({tabPlans.length - 6})</>}
+                  </button>
+                )}
+              </>
             )}
           </div>
-
-          {plan && (
             <>
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 space-y-2">
