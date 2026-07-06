@@ -51,11 +51,11 @@ const ENDPOINTS: Endpoint[] = [
     params: [
       { name: "network",    type: "string", required: true,  desc: "Network: MTN | AIRTEL | GLO | 9MOBILE" },
       { name: "phone",      type: "string", required: true,  desc: "Recipient phone number (11 digits)" },
-      { name: "package_id", type: "uuid",   required: true,  desc: "Plan ID from /api-plans" },
-      { name: "amount",     type: "number", required: true,  desc: "Price from plan (NGN)" },
+      { name: "package_code", type: "uuid",   required: true,  desc: "Plan ID from /api-plans" },
+      { ,
     ],
-    response: { success: true, transaction: { id: "uuid", reference: "BP-2026-XXXX", status: "processing", network: "MTN", phone: "08012345678", amount: 280, provider: "gsubz" }, message: "Purchase is being processed. Check status with GET /api-transaction/:reference" },
-    example: `curl -X POST \\\n  -H "x-api-key: bp_abc123..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"network":"MTN","phone":"08012345678","package_id":"uuid-here","amount":280}' \\\n  ${BASE_URL}/api-purchase`,
+    response: { success: true, transaction: { id: "uuid", reference: "BP-2026-XXXX", status: "processing", network: "MTN", phone: "08012345678", package_code: "BSP-763", provider: "gsubz" }, message: "Purchase is being processed. Check status with GET /api-transaction/:reference" },
+    example: `curl -X POST \\\n  -H "x-api-key: bp_abc123..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"network":"MTN","phone":"08012345678","package_code":"uuid-here","package_code":"BSP-763"}' \\\n  ${BASE_URL}/api-purchase`,
   },
   {
     method: "GET",
@@ -63,7 +63,7 @@ const ENDPOINTS: Endpoint[] = [
     title: "Check Transaction",
     description: "Poll to track purchase status. Returns pending \u2192 processing \u2192 successful/failed.",
     auth: "x-api-key",
-    response: { success: true, transaction: { id: "uuid", status: "successful", reference: "BP-2026-XXXX", network: "MTN", phone: "08012345678", amount: 280, provider_reference: "GSUBZ-XXXX", created_at: "2026-07-06T12:00:00Z", updated_at: "2026-07-06T12:00:30Z" } },
+    response: { success: true, transaction: { id: "uuid", status: "successful", reference: "BP-2026-XXXX", network: "MTN", phone: "08012345678", package_code: "BSP-763", provider_reference: "GSUBZ-XXXX", created_at: "2026-07-06T12:00:00Z", updated_at: "2026-07-06T12:00:30Z" } },
     example: `curl -H "x-api-key: bp_abc123..." \\\n  ${BASE_URL}/api-transaction/BP-2026-XXXX`,
   },
 ];
