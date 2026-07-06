@@ -44,6 +44,10 @@ function calcTier(providerCode: string): string {
   const promoProviders = ["mtn-awuf-data","airtel-awuf-data","gloawufdata","9mobile-awuf-data","glo-gifting"];
   return promoProviders.includes(providerCode) ? "promo" : "stable";
 }
+function isNonOwingPlan(pkgCode: string): boolean {
+  const c = (pkgCode || "").toLowerCase();
+  return c.includes("awoof") || c.includes("gifting") || c.includes("gift") || c.startsWith("iac-");
+}
 async function tg(msg: string) {
   if (!TG_BOT || !TG_CHAT) return;
   try {
@@ -150,7 +154,8 @@ serve(async (req) => {
             price, provider_code: "iacafe", package_code: `IAC-${pc}`,
             sort_order: price, is_active: true, coming_soon: false,
             bp_value: calcBpValue(price),
-            tier
+            tier,
+            requires_non_owing_line: isNonOwingPlan(`IAC-${pc}`)
           }, { onConflict: "package_code" });
           if (!ue) { results[`${net}/iacafe`] = (results[`${net}/iacafe`] || 0) + 1; totalUpserted++; }
         }
