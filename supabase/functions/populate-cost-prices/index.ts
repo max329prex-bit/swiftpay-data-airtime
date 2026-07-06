@@ -14,54 +14,41 @@ const cors = {
 };
 
 // ── Gsubz ──────────────────────────────────────────────────────────────────
-// GSubz has no public GET plan-listing endpoint. We use the known plan IDs
-// from the packages table and probe the purchase endpoint to discover prices.
-// The purchase endpoint returns plan details when queried with a valid plan ID.
+// GSubz exposes a public GET /plans endpoint per service. We query each known
+// service, map the returned planId to our GSZ-{service}-{planId} package_code,
+// and apply the configured cashback percentage (default 2%) to get the true
+// cost price BlitzPay pays after GSubz rebates.
 async function fetchGsubzPlans(): Promise<{ byCode: Map<string,number>; byPlanId: Map<string,number> }> {
   const byCode   = new Map<string, number>();
   const byPlanId = new Map<string, number>();
-  if (!GSUBZ_KEY) { console.warn("[gsubz] No API key"); return { byCode, byPlanId }; }
+  const CASHBACK_PCT = Number(Deno.env.get("GSUBZ_CASHBACK_PCT") ?? "2") / 100;
 
-  // GSubz doesn't expose a GET /plans endpoint. All known endpoints return 404.
-  // The working API is POST to https://api.gsubz.com/api/pay/ with FormData.
-  // We'll skip probing broken endpoints and instead try the known base URL
-  // for any plan-listing endpoint that might exist.
-  const attempts = [
-    { url: "https://api.gsubz.com/api/plans",       authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
-    { url: "https://api.gsubz.com/api/v1/plans",     authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
-    { url: "https://api.gsubz.com/api/data/plans",  authHeader: { "api-key": GSUBZ_KEY } },
-    { url: "https://api.gsubz.com/api/v1/data/plans", authHeader: { "Authorization": `Bearer ${GSUBZ_KEY}` } },
-  ];
+  // Known services derived from current GSZ package_code format.
+  const services = ["mtn_awoof", "mtn_sme", "airtel_gifting", "airtel_sme", "glo_sme"];
 
-  for (const { url, authHeader } of attempts) {
+  for (const service of services) {
     try {
+      const url = `https://gsubz.com/api/plans?service=${service}`;
       const r = await fetch(url, {
-        headers: { ...authHeader, Accept: "application/json" },
+        headers: { "Accept": "application/json", "User-Agent": "BlitzPay/1.0" },
         signal: AbortSignal.timeout(12000),
       });
       const text = await r.text();
-      console.log(`[gsubz] ${url} → ${r.status} body_preview=${text.slice(0,400)}`);
+      console.log(`[gsubz] GET ${url} → ${r.status} body_preview=${text.slice(0,300)}`);
       if (!r.ok) continue;
       const d = JSON.parse(text);
-      const list: unknown[] = Array.isArray(d?.data_plans) ? d.data_plans
-        : Array.isArray(d?.data)   ? d.data
-        : Array.isArray(d?.plans)  ? d.plans
-        : Array.isArray(d)         ? d
-        : [];
-      if (list.length === 0) { console.log(`[gsubz] ${url} returned empty list`); continue; }
-      console.log(`[gsubz] ${url} returned ${list.length} plans, sample:`, JSON.stringify(list[0]));
-      for (const p of list as Record<string,unknown>[]) {
-        const planId  = String(p.plan_id ?? p.id ?? p.planId ?? "");
-        const service = String(p.service ?? p.service_type ?? p.serviceID ?? "");
-        const network = String(p.network ?? "").toLowerCase();
-        const price   = Number(p.price ?? p.amount ?? p.plan_amount ?? p.selling_price ?? 0);
+      const plans: unknown[] = Array.isArray(d?.plans) ? d.plans : [];
+      if (plans.length === 0) { console.log(`[gsubz] service=${service} returned empty plan list`); continue; }
+      for (const p of plans as Record<string,unknown>[]) {
+        const planId = String(p.value ?? p.id ?? p.planId ?? "");
+        const price  = Number(p.price ?? p.amount ?? 0);
         if (!planId || price <= 0) continue;
-        byPlanId.set(planId, price);
-        if (service) byCode.set(`GSZ-${service}-${planId}`, price);
-        if (network) byCode.set(`GSZ-${network}-${planId}`, price);
+        const cost = +(price * (1 - CASHBACK_PCT)).toFixed(2);
+        byPlanId.set(planId, cost);
+        byCode.set(`GSZ-${service}-${planId}`, cost);
       }
-      if (byCode.size > 0 || byPlanId.size > 0) break;
-    } catch(e) { console.warn(`[gsubz] ${url} error:`, e); }
+      console.log(`[gsubz] service=${service} mapped ${plans.length} plans`);
+    } catch (e) { console.warn(`[gsubz] service=${service} error:`, e); }
   }
   console.log(`[gsubz] byCode: ${byCode.size}, byPlanId: ${byPlanId.size}`);
   return { byCode, byPlanId };
