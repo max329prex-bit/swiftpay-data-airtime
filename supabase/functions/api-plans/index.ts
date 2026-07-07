@@ -16,7 +16,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
       const plans = (packages || []).map(p => ({
         id: p.id, name: p.name, network: p.network, size: p.size, validity: p.validity,
         price: Number(p.price), api_price: Math.round(Number(p.price) * 0.98 * 100) / 100,
-        discount: "2%", provider: p.provider_code, available: p.is_active, health_score: p.health_score
+        discount: "2%", provider: "partner", available: p.is_active, health_score: p.health_score
       }));
       return json({ success: true, plans });
     } catch (e: any) { return json({ success: false, error: e.message }, 500); }

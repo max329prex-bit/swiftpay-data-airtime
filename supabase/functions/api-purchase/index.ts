@@ -37,7 +37,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
         const service = network.toUpperCase() === "MTN" ? "mtn_sme" : GSUBZ_AIRTIME_MAP[network.toUpperCase()] || "mtn_sme";
         const gsubzRes = await fetch(`${GSUBZ_BASE}/pay/`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ serviceID: service, plan: pkg.provider_id || pkg.id, api: GSUBZ_KEY, phone, requestID: ref, amount: "" }) });
         const gsubzData = await gsubzRes.json().catch(() => ({}));
-        providerResult = { provider: "gsubz", status: gsubzRes.ok ? "submitted" : "failed", response: gsubzData };
+        providerResult = { provider: "partner", status: gsubzRes.ok ? "submitted" : "failed", response: gsubzData };
         if (gsubzRes.ok && gsubzData.status === "successful") {
           await supa.from("transactions").update({ status: "successful", provider_reference: gsubzData.transid || gsubzData.transactionId, updated_at: new Date().toISOString() }).eq("reference", ref);
           await supa.from("api_purchases").update({ status: "successful", provider_reference: gsubzData.transid || gsubzData.transactionId, updated_at: new Date().toISOString() }).eq("reference", ref);
@@ -45,7 +45,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
       }
       return json({
         success: true,
-        transaction: { id: tx.id, reference: ref, status: providerResult?.status === "submitted" ? "processing" : "pending", network, phone, amount: Number(amount), provider: pkg.provider_code },
+        transaction: { id: tx.id, reference: ref, status: providerResult?.status === "submitted" ? "processing" : "pending", network, phone, amount: Number(amount), provider: "partner" },
         provider_result: providerResult,
         message: "Purchase is being processed. Check status with GET /api/v1/transaction/:reference"
       });

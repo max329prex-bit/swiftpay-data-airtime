@@ -18,7 +18,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
       await supa.rpc("update_api_key_last_used", { _key_id: keyId });
       const { data: tx } = await supa.from("transactions").select("id,status,reference,network,phone,amount,provider_reference,meta,created_at,updated_at").eq("reference", ref).eq("user_id", userId).single();
       if (!tx) return json({ success: false, error: "Transaction not found" }, 404);
-      return json({ success: true, transaction: tx });
+      const { provider_reference, meta, ...safeTx } = tx;
+      const safeMeta = meta ? Object.fromEntries(Object.entries(meta).filter(([k]) => !k.toLowerCase().includes("provider") && !k.toLowerCase().includes("gsubz") && !k.toLowerCase().includes("iacafe") && !k.toLowerCase().includes("bsplug"))) : null;
+      return json({ success: true, transaction: { ...safeTx, provider_reference: provider_reference ? "PARTNER-XXXX" : null, meta: safeMeta } });
     } catch (e: any) { return json({ success: false, error: e.message }, 500); }
   });
   function json(body, status = 200) { return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } }); }
