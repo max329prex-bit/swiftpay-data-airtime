@@ -28,6 +28,13 @@ jobs:
           supabase link --project-ref $SUPABASE_PROJECT_ID
           supabase functions deploy
 
+      - name: Set Supabase Secrets
+        run: |
+          supabase secrets set --project-ref $SUPABASE_PROJECT_ID \
+            GMAIL_ADDRESS="${{ secrets.GMAIL_ADDRESS }}" \
+            GMAIL_APP_PASSWORD="${{ secrets.GMAIL_APP_PASSWORD }}" \
+            OPAY_SENDER="${{ secrets.OPAY_SENDER }}"
+
       - name: Apply Migrations (dev only)
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
