@@ -107,10 +107,15 @@ export default function FreeTransferPanel() {
     toast.success("Copied!");
   }
 
-  async function accountNumberIsTaken(accountNumber: string, excludeUserId: string): Promise<boolean> {
+  async function defaultBankIsTaken(
+    bankName: string,
+    accountNumber: string,
+    excludeUserId: string
+  ): Promise<boolean> {
     const { data, error } = await supabase
       .from("profiles")
       .select("user_id")
+      .eq("ft_bank_name", bankName.trim())
       .eq("ft_account_number", accountNumber.replace(/\D/g, ""))
       .neq("user_id", excludeUserId)
       .maybeSingle();
@@ -132,8 +137,9 @@ export default function FreeTransferPanel() {
     if (error) { toast.error(error); return; }
 
     const acct = setupAccountNumber.replace(/\D/g, "").slice(0, 10);
-    const taken = await accountNumberIsTaken(acct, user.id);
-    if (taken) { toast.error("This account number is already registered by another user. Use a different account number."); return; }
+    const bank = setupBankName.trim();
+    const taken = await defaultBankIsTaken(bank, acct, user.id);
+    if (taken) { toast.error("This bank + account number is already registered by another user."); return; }
 
     setSavingDefaults(true);
     try {
@@ -146,8 +152,8 @@ export default function FreeTransferPanel() {
           ft_account_number: acct,
         }, { onConflict: "user_id" });
       if (error) {
-        if (error.message.includes("idx_profiles_ft_account_number")) {
-          toast.error("This account number is already registered by another user.");
+        if (error.message.includes("idx_profiles_ft_bank_account")) {
+          toast.error("This bank + account number is already registered by another user.");
         } else {
           toast.error("Failed to save: " + error.message);
         }
