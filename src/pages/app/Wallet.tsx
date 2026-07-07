@@ -565,7 +565,13 @@ export default function Wallet() {
         )}
       </AnimatePresence>
 
-      <p className="text-center text-xs text-muted-foreground">Secured by Payvessel · Instant bank transfer · <span className="text-yellow-400/70">1% fee on all deposits</span></p>
+      {tab === "free" ? (
+        <p className="text-center text-xs text-muted-foreground">
+          Free transfer for deposits ≥ ₦500 · <span className="text-yellow-400/70">1% fee applies below ₦500</span>
+        </p>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground">Secured by Payvessel · Instant bank transfer · <span className="text-yellow-400/70">1% fee on all deposits</span></p>
+      )}
     </div>
   );
 }

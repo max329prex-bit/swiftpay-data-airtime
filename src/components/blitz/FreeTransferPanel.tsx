@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { naira } from "@/lib/networks";
 import { toast } from "sonner";
 import {
-  Gift, Loader2, Copy, CheckCircle2, Building2, User, CreditCard,
+  Loader2, Copy, CheckCircle2, Building2, User, CreditCard,
   ArrowRight, RefreshCw, AlertCircle, ChevronLeft, Wallet,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +26,15 @@ interface FreeTransferProfile {
   ft_account_number?: string | null;
 }
 
+async function parseJsonResponse<T = any>(res: Response): Promise<{ ok: boolean; data: T }> {
+  const raw = await res.text();
+  try {
+    return { ok: res.ok, data: JSON.parse(raw) as T };
+  } catch {
+    return { ok: false, data: { error: "Service returned an unexpected response." } as T };
+  }
+}
+
 export default function FreeTransferPanel() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -42,6 +51,8 @@ export default function FreeTransferPanel() {
   const [copiedName, setCopiedName] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [pollTicks, setPollTicks] = useState(0);
+  const [pollFailures, setPollFailures] = useState(0);
 
   const pollRef = useRef<number | null>(null);
 
@@ -70,6 +81,8 @@ export default function FreeTransferPanel() {
       window.clearInterval(pollRef.current);
       pollRef.current = null;
     }
+    setPollTicks(0);
+    setPollFailures(0);
   }, []);
 
   useEffect(() => () => clearPoll(), [clearPoll]);
@@ -86,23 +99,30 @@ export default function FreeTransferPanel() {
     toast.success("Copied!");
   }
 
-  async function handleCreate() {
+  function validateInputs(): string | null {
     const amt = Number(amount.replace(/[^0-9.]/g, ""));
-    if (!amt || amt < 50) {
-      toast.error("Enter a valid amount (minimum ₦50)");
-      return;
-    }
-    if (!bankName.trim() || !accountName.trim() || !accountNumber.replace(/\D/g, "").trim()) {
-      toast.error("Bank name, account name, and account number are required");
+    if (!amt || amt < 50) return "Enter a valid amount (minimum ₦50)";
+    if (!bankName.trim()) return "Bank name is required";
+    if (!accountName.trim()) return "Account name is required";
+    const acct = accountNumber.replace(/\D/g, "");
+    if (acct.length < 10) return "Account number must be at least 10 digits";
+    return null;
+  }
+
+  async function handleCreate() {
+    const error = validateInputs();
+    if (error) {
+      toast.error(error);
       return;
     }
 
+    const amt = Number(amount.replace(/[^0-9.]/g, ""));
     setSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in");
 
-      const res = await fetch(`${SUPA_URL}/functions/v1/create-free-transfer`, {
+      const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/create-free-transfer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -110,14 +130,12 @@ export default function FreeTransferPanel() {
         },
         body: JSON.stringify({
           amount: amt,
-          bank_name: bankName,
-          account_name: accountName,
-          account_number: accountNumber,
+          bank_name: bankName.trim(),
+          account_name: accountName.trim().toUpperCase(),
+          account_number: accountNumber.replace(/\D/g, ""),
         }),
-      });
-      const raw = await res.text();
-      const data = JSON.parse(raw);
-      if (!res.ok || data.error) throw new Error(data.error || "Could not create deposit");
+      }));
+      if (!ok || data.error) throw new Error(data.error || "Could not create deposit");
 
       setDeposit({
         deposit_id: data.deposit_id,
@@ -139,16 +157,29 @@ export default function FreeTransferPanel() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`${SUPA_URL}/functions/v1/check-free-transfer`, {
+      const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/check-free-transfer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ deposit_id: depositId }),
-      });
-      const raw = await res.text();
-      const data = JSON.parse(raw);
+      }));
+
+      if (!ok || data.error) {
+        setPollFailures(prev => {
+          const next = prev + 1;
+          if (next >= 3) {
+            clearPoll();
+            setStep("failed");
+            setStatusMsg("Verification check failed repeatedly. Please try again or contact support.");
+          }
+          return next;
+        });
+        return;
+      }
+      setPollFailures(0);
+
       if (data.status === "verified") {
         setStep("success");
         setStatusMsg(data.message);
@@ -162,10 +193,27 @@ export default function FreeTransferPanel() {
         setStatusMsg(data.message);
         clearPoll();
       } else {
+        setPollTicks(prev => {
+          const next = prev + 1;
+          if (next >= 24) {
+            clearPoll();
+            setStep("pay");
+            setStatusMsg("Verification is taking longer than expected. Please tap \"I have made payment\" again in a moment.");
+          }
+          return next;
+        });
         setStatusMsg(data.message || "Verifying…");
       }
-    } catch {
-      // ignore poll errors
+    } catch (e: any) {
+      setPollFailures(prev => {
+        const next = prev + 1;
+        if (next >= 3) {
+          clearPoll();
+          setStep("failed");
+          setStatusMsg("Verification check failed. Please try again or contact support.");
+        }
+        return next;
+      });
     }
   }
 
@@ -177,17 +225,15 @@ export default function FreeTransferPanel() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in");
-      const res = await fetch(`${SUPA_URL}/functions/v1/trigger-email-check`, {
+      const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/trigger-email-check`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ deposit_id: deposit.deposit_id }),
-      });
-      const raw = await res.text();
-      const data = JSON.parse(raw);
-      if (!res.ok || data.error) throw new Error(data.error || "Could not trigger check");
+      }));
+      if (!ok || data.error) throw new Error(data.error || "Could not trigger check");
 
       setStatusMsg(data.message || "Checking for your payment…");
       pollRef.current = window.setInterval(() => checkStatus(deposit.deposit_id), 5000);
@@ -303,8 +349,10 @@ export default function FreeTransferPanel() {
               <div className="text-center">
                 <div className="text-xs text-muted-foreground">Send exactly</div>
                 <div className="text-3xl font-bold text-emerald-400">{naira(deposit.amount)}</div>
-                {deposit.fee > 0 && (
+                {deposit.fee > 0 ? (
                   <div className="text-xs text-orange-300/80 mt-1">1% fee applies (₦{deposit.fee.toFixed(2)})</div>
+                ) : (
+                  <div className="text-xs text-emerald-300/80 mt-1">Free deposit</div>
                 )}
               </div>
 
@@ -430,7 +478,7 @@ export default function FreeTransferPanel() {
             <div className="text-lg font-semibold">Verification failed</div>
             <p className="text-sm text-destructive/80">{statusMsg}</p>
             <button
-              onClick={() => setStep("form")}
+              onClick={() => setStep("pay")}
               className="mt-2 text-sm text-destructive font-medium hover:underline"
             >
               Try again
