@@ -51,7 +51,7 @@ export function AppShell() {
   const nav = useNavigate();
   const [, setPinChecked] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => !localStorage.getItem("blitzpay:splash_seen"));
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [broadcastDismissed, setBroadcastDismissed] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -76,9 +76,10 @@ export function AppShell() {
   useEffect(() => {
     if (!user) return;
     supabase.rpc("has_transaction_pin").then(({ data }) => {
-      if (data === false && window.location.pathname !== "/app/setup-pin") {
-        nav("/app/setup-pin", { replace: true });
-      }
+        const exemptPaths = ["/app/setup-pin", "/app/edit-profile", "/app/settings"];
+        if (data === false && !exemptPaths.includes(window.location.pathname)) {
+          nav("/app/setup-pin", { replace: true });
+        }
       setPinChecked(true);
     });
   }, [user, nav]);
@@ -163,7 +164,7 @@ export function AppShell() {
 
   if (showSplash || loading) return (
     <AnimatePresence>
-      <SplashScreen key="splash" onDone={() => setShowSplash(false)} />
+      <SplashScreen key="splash" onDone={() => { setShowSplash(false); localStorage.setItem("blitzpay:splash_seen", "1"); }} />
     </AnimatePresence>
   );
   if (!user) return <Index />;
