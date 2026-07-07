@@ -1,52 +1,57 @@
-Three small, surgical polish fixes — no business logic changes.
+## Free Transfer — Frontend Integration
 
-## 1. Landing page "Download App" button is invisible
+Backend (`create-free-transfer`, `check-free-transfer`, `opay-email-webhook`, tables, RPC, profile columns `ft_bank_name/ft_account_name/ft_account_number`) is already live. This plan wires the UI on top of it.
 
-**Cause:** `App.tsx` forces `defaultTheme="dark"`, so shadcn's `outline` button variant resolves `bg-background` to near-black. On the white hero section it renders as a black button on a black-ish chip with no visible text.
+### 1. Wallet page — add a 3rd tab "Free Transfer"
 
-**Fix (`src/pages/Index.tsx`, line 158):** Replace the outline variant with explicit light styling so it always reads correctly on the white hero, regardless of theme:
-```tsx
-<Button size="lg" variant="outline"
-  className="rounded-full px-6 bg-white text-slate-900 border-slate-300 hover:bg-slate-50 hover:text-slate-900">
-  <Download className="mr-1 h-4 w-4" /> Download App
-</Button>
-```
-The second Download button (line 312, dark CTA band) already has explicit dark-section classes — leave it untouched.
+In `src/pages/app/Wallet.tsx`, extend the existing tab switcher from 2 tabs: **Permanent · Free Transfer** (Free Transfer highlighted as "FREE ≥ ₦500" badge). Just permanent and free transfer remove one time 
 
-## 2. PIN setup boxes are not visible
+### 2. New component `FreeTransferPanel` (rendered inside the new tab)
 
-**Cause:** `InputOTPSlot` defaults to `border-input` which is extremely faint on the `bg-gradient-aurora` backdrop. The 4 slots blend into the card.
+Flow states in one panel:
 
-**Fix (`src/pages/app/PinSetup.tsx`):** Add visible surface + border to each slot via className (8 slots, both create + confirm). Tokens only, no hardcoded colors:
-```tsx
-className="h-14 w-14 text-xl rounded-2xl border-2 border-primary/30 bg-background/40 first:rounded-2xl last:rounded-2xl"
-```
-Also add `gap-3` to `InputOTPGroup` (override `flex items-center` with a wrapper class) so the rounded slots sit apart instead of touching — the default group joins them edge-to-edge which hides the per-slot rounding.
+**State A — first-time setup** (when `profiles.ft_account_name` is null)
 
-## 3. BlitzData Scheduler is hidden
+- Card asking for defaults: Bank Name, Account Name, Account Number.
+- Saves via `supabase.from('profiles').update(...)`.
+- After save, moves to State B.
 
-Currently only reachable from `/app/bills`. Promote it to the dashboard with a single, premium entry card placed directly under the Quick actions row — keeps the existing dashboard hierarchy intact (wallet → points → quick actions → **scheduler** → support → recent).
+**State B — enter amount**
 
-**Fix (`src/pages/app/Dashboard.tsx`):** Add one card linking to `/app/schedules`:
-```tsx
-<Link to="/app/schedules"
-  className="relative overflow-hidden rounded-2xl border border-accent/20 bg-gradient-to-r from-primary/10 to-accent/10 p-4 flex items-center gap-3 hover:border-accent/40 transition group">
-  <span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-primary shadow-glow">
-    <CalendarClock className="h-5 w-5 text-white" />
-  </span>
-  <div className="flex-1 min-w-0">
-    <div className="text-sm font-semibold flex items-center gap-2">
-      BlitzData Scheduler
-      <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent">New</span>
-    </div>
-    <div className="text-xs text-muted-foreground">Auto-renew data & airtime on your schedule</div>
-  </div>
-  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition" />
-</Link>
-```
-Import `CalendarClock` from `lucide-react`.
+- Amount input (₦).
+- Live fee preview: FREE if ≥500, else 1% (≈₦X fee, receive ₦Y).
+- Shows saved default sender: `{ft_account_name} · {ft_bank_name} · ****{last4}`.
+- Link: **"I'm sending from a different bank"** → expands inline fields (bank, name, number) for one-off override, not saved.
+- Button: **Continue** → invokes `create-free-transfer` with `{ amount, bank_name, account_name, account_number }`.
 
-## What is NOT changing
-- No backend, RPC, or schema changes.
-- No restructuring of the dashboard, landing layout, or PIN flow.
-- All other components untouched.
+**State C — pay & verify**
+
+- Show BlitzPay OPay account (from function response `pay_to`): **6554098879 · PRAISE ADAKOLE ONOJA · OPay** with copy buttons.
+- Countdown to `expires_at` (12h).
+- Big button **"I've Made Payment"** → switches to polling.
+- Polls `check-free-transfer` every 5s (max ~3 min in-app; deposit still auto-credits later via Gmail Apps Script).
+- Statuses:
+  - `pending` → "Verifying your payment…" spinner.
+  - `verified` → toast success, refresh wallet, navigate to `/app/history`.
+  - `expired` → red card with support instructions (email screenshot to support).
+  - `not_found` after 3 min → soft message: "Still waiting… we'll credit automatically when OPay's email arrives. Check History shortly."
+
+### 3. Realtime credit
+
+Existing `wallet-live` channel already listens for `transactions` inserts with `type=wallet_fund status=success` → it'll auto-refresh balance when the Apps Script webhook credits, even if the user closed the polling screen.
+
+### 4. Settings — add "Free Transfer Defaults" section
+
+In `src/pages/app/Settings.tsx` (or `EditProfile.tsx`), add a small card to view/edit `ft_bank_name/ft_account_name/ft_account_number` so users can change their saved defaults later.
+
+### 5. Small polish
+
+- Move the yellow "1% fee applies" info banner on the Wallet page so it only shows on Permanent/One-Time tabs, not Free Transfer (which is free ≥500).
+- No route changes needed; all lives under `/app/wallet`.
+
+### Technical notes
+
+- All calls use `supabase.functions.invoke('create-free-transfer' | 'check-free-transfer')`.
+- No new tables/migrations required — schema already exists.
+- No new secrets required.
+- Types already regenerated (types.ts shows `ft_*` and `free_transfer_deposits`).
