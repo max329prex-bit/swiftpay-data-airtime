@@ -139,6 +139,117 @@ export type Database = {
         }
         Relationships: []
       }
+      api_keys: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          name: string | null
+          permissions: Json | null
+          rate_limit_per_minute: number | null
+          user_id: string
+          wallet_discount_percent: number | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          name?: string | null
+          permissions?: Json | null
+          rate_limit_per_minute?: number | null
+          user_id: string
+          wallet_discount_percent?: number | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          name?: string | null
+          permissions?: Json | null
+          rate_limit_per_minute?: number | null
+          user_id?: string
+          wallet_discount_percent?: number | null
+        }
+        Relationships: []
+      }
+      api_purchases: {
+        Row: {
+          amount: number
+          api_key_id: string
+          charge_amount: number
+          completed_at: string | null
+          created_at: string | null
+          discount_amount: number
+          final_amount: number
+          id: string
+          meta: Json | null
+          network: string
+          phone: string
+          provider_reference: string | null
+          reference: string
+          status: string | null
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          api_key_id: string
+          charge_amount?: number
+          completed_at?: string | null
+          created_at?: string | null
+          discount_amount?: number
+          final_amount: number
+          id?: string
+          meta?: Json | null
+          network: string
+          phone: string
+          provider_reference?: string | null
+          reference: string
+          status?: string | null
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          api_key_id?: string
+          charge_amount?: number
+          completed_at?: string | null
+          created_at?: string | null
+          discount_amount?: number
+          final_amount?: number
+          id?: string
+          meta?: Json | null
+          network?: string
+          phone?: string
+          provider_reference?: string | null
+          reference?: string
+          status?: string | null
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_purchases_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_purchases_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           key: string
@@ -283,6 +394,54 @@ export type Database = {
         }
         Relationships: []
       }
+      free_transfer_deposits: {
+        Row: {
+          account_name: string
+          account_number: string
+          amount: number
+          bank_name: string
+          created_at: string | null
+          credited_amount: number | null
+          expires_at: string | null
+          id: string
+          matched_amount: number | null
+          matched_at: string | null
+          matched_email_id: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          amount: number
+          bank_name: string
+          created_at?: string | null
+          credited_amount?: number | null
+          expires_at?: string | null
+          id?: string
+          matched_amount?: number | null
+          matched_at?: string | null
+          matched_email_id?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          amount?: number
+          bank_name?: string
+          created_at?: string | null
+          credited_amount?: number | null
+          expires_at?: string | null
+          id?: string
+          matched_amount?: number | null
+          matched_at?: string | null
+          matched_email_id?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       liquidity_reservations: {
         Row: {
           amount: number
@@ -352,6 +511,38 @@ export type Database = {
         }
         Relationships: []
       }
+      opay_used_emails: {
+        Row: {
+          amount: number | null
+          deposit_id: string | null
+          message_uid: string
+          used_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          deposit_id?: string | null
+          message_uid: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          deposit_id?: string | null
+          message_uid?: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opay_used_emails_deposit_id_fkey"
+            columns: ["deposit_id"]
+            isOneToOne: false
+            referencedRelation: "free_transfer_deposits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packages: {
         Row: {
           bp_value: number
@@ -369,6 +560,7 @@ export type Database = {
           package_code: string
           price: number
           provider_code: string
+          requires_non_owing_line: boolean
           size: string
           sort_order: number
           tier: string
@@ -390,6 +582,7 @@ export type Database = {
           package_code: string
           price: number
           provider_code: string
+          requires_non_owing_line?: boolean
           size: string
           sort_order?: number
           tier?: string
@@ -411,6 +604,7 @@ export type Database = {
           package_code?: string
           price?: number
           provider_code?: string
+          requires_non_owing_line?: boolean
           size?: string
           sort_order?: number
           tier?: string
@@ -540,6 +734,10 @@ export type Database = {
           avatar_url: string | null
           bvn: string | null
           created_at: string
+          email: string | null
+          ft_account_name: string | null
+          ft_account_number: string | null
+          ft_bank_name: string | null
           full_name: string | null
           id: string
           nin: string | null
@@ -553,6 +751,10 @@ export type Database = {
           avatar_url?: string | null
           bvn?: string | null
           created_at?: string
+          email?: string | null
+          ft_account_name?: string | null
+          ft_account_number?: string | null
+          ft_bank_name?: string | null
           full_name?: string | null
           id?: string
           nin?: string | null
@@ -566,6 +768,10 @@ export type Database = {
           avatar_url?: string | null
           bvn?: string | null
           created_at?: string
+          email?: string | null
+          ft_account_name?: string | null
+          ft_account_number?: string | null
+          ft_bank_name?: string | null
           full_name?: string | null
           id?: string
           nin?: string | null
@@ -1203,121 +1409,6 @@ export type Database = {
         }
         Relationships: []
       }
-        api_keys: {
-          Row: {
-            created_at: string
-            id: string
-            is_active: boolean
-            key_hash: string
-            key_prefix: string
-            last_used_at: string | null
-            name: string | null
-            rate_limit: number
-            revoked_at: string | null
-            revoked_reason: string | null
-            user_id: string
-          }
-          Insert: {
-            created_at?: string
-            id?: string
-            is_active?: boolean
-            key_hash: string
-            key_prefix: string
-            last_used_at?: string | null
-            name?: string | null
-            rate_limit?: number
-            revoked_at?: string | null
-            revoked_reason?: string | null
-            user_id: string
-          }
-          Update: {
-            created_at?: string
-            id?: string
-            is_active?: boolean
-            key_hash?: string
-            key_prefix?: string
-            last_used_at?: string | null
-            name?: string | null
-            rate_limit?: number
-            revoked_at?: string | null
-            revoked_reason?: string | null
-            user_id?: string
-          }
-          Relationships: []
-        }
-        api_purchases: {
-          Row: {
-            amount: number
-            api_key_id: string
-            created_at: string
-            id: string
-            meta: Json | null
-            network: string
-            package_id: string | null
-            phone: string
-            provider_code: string | null
-            provider_reference: string | null
-            reference: string
-            resolved_at: string | null
-            status: string
-            type: Database["public"]["Enums"]["tx_type"]
-            updated_at: string | null
-            user_id: string
-          }
-          Insert: {
-            amount: number
-            api_key_id: string
-            created_at?: string
-            id?: string
-            meta?: Json | null
-            network: string
-            package_id?: string | null
-            phone: string
-            provider_code?: string | null
-            provider_reference?: string | null
-            reference: string
-            resolved_at?: string | null
-            status?: string
-            type: Database["public"]["Enums"]["tx_type"]
-            updated_at?: string | null
-            user_id: string
-          }
-          Update: {
-            amount?: number
-            api_key_id?: string
-            created_at?: string
-            id?: string
-            meta?: Json | null
-            network?: string
-            package_id?: string | null
-            phone?: string
-            provider_code?: string | null
-            provider_reference?: string | null
-            reference?: string
-            resolved_at?: string | null
-            status?: string
-            type?: Database["public"]["Enums"]["tx_type"]
-            updated_at?: string | null
-            user_id?: string
-          }
-          Relationships: [
-            {
-              foreignKeyName: "api_purchases_api_key_id_fkey"
-              columns: ["api_key_id"]
-              isOneToOne: false
-              referencedRelation: "api_keys"
-              referencedColumns: ["id"]
-            },
-            {
-              foreignKeyName: "api_purchases_package_id_fkey"
-              columns: ["package_id"]
-              isOneToOne: false
-              referencedRelation: "packages"
-              referencedColumns: ["id"]
-            },
-          ]
-        }
-        
     }
     Views: {
       [_ in never]: never
@@ -1390,9 +1481,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_list_users: {
+        Args: never
+        Returns: {
+          balance: number
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          phone: string
+          role: string
+          tx_count: number
+          wallet_funded: boolean
+        }[]
+      }
       advance_schedule_after_success: {
         Args: { _schedule_id: string }
         Returns: undefined
+      }
+      api_purchase_data: {
+        Args: {
+          _api_key: string
+          _network: string
+          _package_code: string
+          _phone: string
+        }
+        Returns: Json
       }
       cancel_schedule: { Args: { _id: string }; Returns: undefined }
       commit_transaction: {
@@ -1602,6 +1716,10 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      credit_wallet_from_free_transfer: {
+        Args: { _amount: number; _deposit_id: string; _user_id: string }
+        Returns: number
+      }
       credit_wallet_from_korapay: {
         Args: { _amount: number; _korapay_ref: string; _user_id: string }
         Returns: undefined
@@ -1714,6 +1832,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      generate_api_key: {
+        Args: { _key_name?: string; _user_id: string }
+        Returns: Json
+      }
       get_package_with_min_price: {
         Args: { _pkg_code: string }
         Returns: {
@@ -1732,6 +1854,7 @@ export type Database = {
           package_code: string
           price: number
           provider_code: string
+          requires_non_owing_line: boolean
           size: string
           sort_order: number
           tier: string
@@ -1780,6 +1903,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_session: { Args: { _token: string }; Returns: boolean }
       is_tx_pending: { Args: { _tx_id: string }; Returns: boolean }
+      list_api_keys: { Args: { _user_id: string }; Returns: Json }
       mark_bundle_available: {
         Args: {
           _network: string
@@ -1895,6 +2019,10 @@ export type Database = {
         Returns: string
       }
       resume_schedule: { Args: { _id: string }; Returns: undefined }
+      revoke_api_key: {
+        Args: { _key_id: string; _user_id: string }
+        Returns: Json
+      }
       search_transaction_by_reference: {
         Args: { _ref: string }
         Returns: {
@@ -1946,6 +2074,20 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_api_key_last_used: {
+        Args: { _key_id: string }
+        Returns: undefined
+      }
+      verify_api_key: {
+        Args: { _api_key: string }
+        Returns: {
+          api_key_id: string
+          is_active: boolean
+          permissions: Json
+          user_id: string
+          wallet_discount_percent: number
+        }[]
       }
       verify_transaction_pin: { Args: { _pin: string }; Returns: boolean }
     }
