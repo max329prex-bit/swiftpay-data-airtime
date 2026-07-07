@@ -51,7 +51,7 @@ export function AppShell() {
   const nav = useNavigate();
   const [, setPinChecked] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [showSplash, setShowSplash] = useState(() => !localStorage.getItem("blitzpay:splash_seen"));
+  const [showSplash, setShowSplash] = useState(true);
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [broadcastDismissed, setBroadcastDismissed] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -164,7 +164,7 @@ export function AppShell() {
 
   if (showSplash || loading) return (
     <AnimatePresence>
-      <SplashScreen key="splash" onDone={() => { setShowSplash(false); localStorage.setItem("blitzpay:splash_seen", "1"); }} />
+      <SplashScreen key="splash" onDone={() => setShowSplash(false)} />
     </AnimatePresence>
   );
   if (!user) return <Index />;
