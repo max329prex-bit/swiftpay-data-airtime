@@ -1,4 +1,3 @@
-// deploy-trigger: force Vercel rebuild
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
   import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
   import { ThemeProvider } from "next-themes";
@@ -85,7 +84,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
                 <Route path="ledger" element={<Ledger />} />
                 <Route path="deposit-status" element={<DepositStatus />} />
               </Route>
-              <Route path="/api/docs" element={<ApiDocs />} />
+              <Route path="/api-docs" element={<ApiDocs />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
