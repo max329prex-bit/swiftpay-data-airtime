@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Phone, Mail, Save, Loader2, X } from "lucide-react";
+import { ArrowLeft, User, Phone, Mail, Save, Loader2, X, Building2, CreditCard, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,6 +13,9 @@ export default function EditProfile() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [ftBank, setFtBank] = useState("");
+  const [ftName, setFtName] = useState("");
+  const [ftAcct, setFtAcct] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -20,7 +23,7 @@ export default function EditProfile() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("full_name, phone")
+      .select("full_name, phone, ft_bank_name, ft_account_name, ft_account_number")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -28,6 +31,9 @@ export default function EditProfile() {
         if (error) { toast.error("Could not load profile"); return; }
         setFullName(data?.full_name ?? "");
         setPhone(data?.phone ?? "");
+        setFtBank(data?.ft_bank_name ?? "");
+        setFtName(data?.ft_account_name ?? "");
+        setFtAcct(data?.ft_account_number ?? "");
       });
   }, [user]);
 
@@ -37,7 +43,14 @@ export default function EditProfile() {
     const { error } = await supabase
       .from("profiles")
       .upsert(
-        { user_id: user.id, full_name: fullName.trim() || null, phone: phone.trim() || null },
+        {
+          user_id: user.id,
+          full_name: fullName.trim() || null,
+          phone: phone.trim() || null,
+          ft_bank_name: ftBank.trim() || null,
+          ft_account_name: ftName.trim().toUpperCase() || null,
+          ft_account_number: ftAcct.replace(/\D/g, "") || null,
+        },
         { onConflict: "user_id" }
       );
     if (error) toast.error("Failed to save: " + error.message);
@@ -88,6 +101,42 @@ export default function EditProfile() {
             <Input value={user?.email ?? ""} disabled className="pl-10 h-12 bg-white/[0.02] border-white/5 rounded-xl text-muted-foreground cursor-not-allowed" />
           </div>
           <p className="text-xs text-muted-foreground pl-1">Email cannot be changed</p>
+        </div>
+
+        {/* Free Transfer defaults */}
+        <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <Gift className="w-4 h-4 text-emerald-400" />
+            <div>
+              <div className="text-sm font-semibold">Free Transfer defaults</div>
+              <div className="text-[11px] text-muted-foreground">Bank account you'll transfer from — used to auto-verify deposits.</div>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Bank Name</label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input value={ftBank} onChange={e => setFtBank(e.target.value)} placeholder="e.g. OPay, GTBank"
+                className="pl-10 h-11 bg-white/[0.04] border-white/10 rounded-xl" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Account Name</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input value={ftName} onChange={e => setFtName(e.target.value)} placeholder="Exactly as on your bank"
+                className="pl-10 h-11 bg-white/[0.04] border-white/10 rounded-xl" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Account Number</label>
+            <div className="relative">
+              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input value={ftAcct} onChange={e => setFtAcct(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="10 digits" inputMode="numeric"
+                className="pl-10 h-11 bg-white/[0.04] border-white/10 rounded-xl" />
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-4">
