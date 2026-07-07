@@ -33,6 +33,7 @@ export default function EditProfile() {
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data, error }) => {
+        setLoading(false);
         if (error) { toast.error("Could not load profile"); return; }
         const name = data?.full_name ?? "";
         const ph = data?.phone ?? "";
@@ -41,7 +42,6 @@ export default function EditProfile() {
         setPhone(ph);
         setAvatarUrl(av);
         setOriginal({ full_name: name, phone: ph, avatar_url: av });
-        setLoading(false);
       });
   }, [user, nav]);
 
@@ -66,13 +66,13 @@ export default function EditProfile() {
 
     const { error } = await supabase
       .from("profiles")
-      .update({
+      .upsert({
+        user_id: user.id,
         full_name: fullName.trim() || null,
         phone: phone.trim() || null,
         avatar_url: avatarUrl || null,
         updated_at: new Date().toISOString()
-      })
-      .eq("user_id", user.id);
+      }, { onConflict: "user_id" });
 
     if (error) {
       toast.error("Failed to save: " + error.message);
