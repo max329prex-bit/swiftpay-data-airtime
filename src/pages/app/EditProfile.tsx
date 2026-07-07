@@ -15,52 +15,33 @@ export default function EditProfile() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [changed, setChanged] = useState(false);
 
   useEffect(() => {
-    if (!user) { nav("/auth"); return; }
-
+    if (!user) return;
     supabase
       .from("profiles")
       .select("full_name, phone")
       .eq("user_id", user.id)
-      .single()
+      .maybeSingle()
       .then(({ data, error }) => {
         setLoading(false);
-        if (error && error.code !== "PGRST116") {
-          toast.error("Could not load profile");
-          return;
-        }
+        if (error) { toast.error("Could not load profile"); return; }
         setFullName(data?.full_name ?? "");
         setPhone(data?.phone ?? "");
       });
-  }, [user, nav]);
-
-  useEffect(() => {
-    setChanged(true);
-  }, [fullName, phone]);
+  }, [user]);
 
   async function handleSave() {
     if (!user) return;
     setSaving(true);
-
     const { error } = await supabase
       .from("profiles")
       .upsert(
-        {
-          user_id: user.id,
-          full_name: fullName.trim() || null,
-          phone: phone.trim() || null,
-        },
+        { user_id: user.id, full_name: fullName.trim() || null, phone: phone.trim() || null },
         { onConflict: "user_id" }
       );
-
-    if (error) {
-      toast.error("Failed to save: " + error.message);
-    } else {
-      toast.success("Profile saved");
-      setChanged(false);
-    }
+    if (error) toast.error("Failed to save: " + error.message);
+    else toast.success("Profile saved");
     setSaving(false);
   }
 
@@ -74,13 +55,9 @@ export default function EditProfile() {
 
   return (
     <div className="min-h-screen bg-background pb-8">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <button
-            onClick={() => nav("/app/settings")}
-            className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition"
-          >
+          <button onClick={() => nav("/app/settings")} className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="font-display text-lg font-bold">Edit Profile</h1>
@@ -88,73 +65,37 @@ export default function EditProfile() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-6">
-        {/* Name */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Full Name
-          </label>
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Full Name</label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Your full name"
-              className="pl-10 h-12 bg-white/[0.04] border-white/10 rounded-xl"
-            />
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" className="pl-10 h-12 bg-white/[0.04] border-white/10 rounded-xl" />
           </div>
         </div>
 
-        {/* Phone */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Phone Number
-          </label>
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone Number</label>
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="08012345678"
-              className="pl-10 h-12 bg-white/[0.04] border-white/10 rounded-xl"
-            />
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08012345678" className="pl-10 h-12 bg-white/[0.04] border-white/10 rounded-xl" />
           </div>
         </div>
 
-        {/* Email (read-only) */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Email
-          </label>
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={user?.email ?? ""}
-              disabled
-              className="pl-10 h-12 bg-white/[0.02] border-white/5 rounded-xl text-muted-foreground cursor-not-allowed"
-            />
+            <Input value={user?.email ?? ""} disabled className="pl-10 h-12 bg-white/[0.02] border-white/5 rounded-xl text-muted-foreground cursor-not-allowed" />
           </div>
           <p className="text-xs text-muted-foreground pl-1">Email cannot be changed</p>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3 pt-4">
-          <Button
-            variant="outline"
-            className="flex-1 h-12 rounded-xl border-white/10"
-            onClick={() => nav("/app/settings")}
-          >
+          <Button variant="outline" className="flex-1 h-12 rounded-xl border-white/10" onClick={() => nav("/app/settings")}>
             <X className="w-4 h-4 mr-2" /> Cancel
           </Button>
-          <Button
-            className="flex-1 h-12 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-medium"
-            disabled={!changed || saving}
-            onClick={handleSave}
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
+          <Button className="flex-1 h-12 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-medium" disabled={saving} onClick={handleSave}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
