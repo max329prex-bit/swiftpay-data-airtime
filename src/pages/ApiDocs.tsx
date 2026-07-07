@@ -39,14 +39,14 @@ const ENDPOINTS: Endpoint[] = [
     title: "List Data Plans",
     description: "All available data bundles across MTN, Airtel, Glo, and 9mobile. 2% API discount applied automatically.",
     auth: "x-api-key",
-    response: { success: true, plans: [{ id: "uuid", name: "1GB - 30 Days", network: "MTN", size: "1GB", validity: "30 Days", price: 280, api_price: 274.4, discount: "2%", provider: "gsubz", available: true, health_score: 0.95 }] },
+    response: { success: true, plans: [{ id: "uuid", name: "1GB - 30 Days", network: "MTN", size: "1GB", validity: "30 Days", price: 280, api_price: 274.4, discount: "2%", provider: "partner", available: true, health_score: 0.95 }] },
     example: `curl -H "x-api-key: bp_abc123..." \\\n  ${BASE_URL}/api-plans`,
   },
   {
     method: "POST",
     path: "/api-purchase",
     title: "Purchase Data",
-    description: "Buy data instantly. Wallet debited, transaction created, and provider (GSUBZ) delivers the bundle in real-time.",
+    description: "Buy data instantly. Wallet debited, transaction created, and our provider delivers the bundle in real-time.",
     auth: "x-api-key",
     params: [
       { name: "network",    type: "string", required: true,  desc: "Network: MTN | AIRTEL | GLO | 9MOBILE" },
@@ -54,7 +54,7 @@ const ENDPOINTS: Endpoint[] = [
       { name: "package_code", type: "uuid",   required: true,  desc: "Plan ID from /api-plans" },
       { name: "amount", type: "number", required: true,  desc: "Purchase amount in NGN (must match package price)" },
     ],
-    response: { success: true, transaction: { id: "uuid", reference: "BP-2026-XXXX", status: "processing", network: "MTN", phone: "08012345678", package_code: "BSP-763", provider: "gsubz" }, message: "Purchase is being processed. Check status with GET /api-transaction/:reference" },
+    response: { success: true, transaction: { id: "uuid", reference: "BP-2026-XXXX", status: "processing", network: "MTN", phone: "08012345678", package_code: "BSP-763", provider: "partner" }, message: "Purchase is being processed. Check status with GET /api-transaction/:reference" },
     example: `curl -X POST \\\n  -H "x-api-key: bp_abc123..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"network":"MTN","phone":"08012345678","package_code":"uuid-here","package_code":"BSP-763"}' \\\n  ${BASE_URL}/api-purchase`,
   },
   {
@@ -63,7 +63,7 @@ const ENDPOINTS: Endpoint[] = [
     title: "Check Transaction",
     description: "Poll to track purchase status. Returns pending \u2192 processing \u2192 successful/failed.",
     auth: "x-api-key",
-    response: { success: true, transaction: { id: "uuid", status: "successful", reference: "BP-2026-XXXX", network: "MTN", phone: "08012345678", package_code: "BSP-763", provider_reference: "GSUBZ-XXXX", created_at: "2026-07-06T12:00:00Z", updated_at: "2026-07-06T12:00:30Z" } },
+    response: { success: true, transaction: { id: "uuid", status: "successful", reference: "BP-2026-XXXX", network: "MTN", phone: "08012345678", package_code: "BSP-763", provider_reference: "PARTNER-XXXX", created_at: "2026-07-06T12:00:00Z", updated_at: "2026-07-06T12:00:30Z" } },
     example: `curl -H "x-api-key: bp_abc123..." \\\n  ${BASE_URL}/api-transaction/BP-2026-XXXX`,
   },
 ];
