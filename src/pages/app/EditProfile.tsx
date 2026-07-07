@@ -39,6 +39,19 @@ export default function EditProfile() {
 
   async function handleSave() {
     if (!user) return;
+    const acct = ftAcct.replace(/\D/g, "");
+    if (acct) {
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("ft_account_number", acct)
+        .neq("user_id", user.id)
+        .maybeSingle();
+      if (existing) {
+        toast.error("This account number is already registered by another user. Use a different account number.");
+        return;
+      }
+    }
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
@@ -49,12 +62,19 @@ export default function EditProfile() {
           phone: phone.trim() || null,
           ft_bank_name: ftBank.trim() || null,
           ft_account_name: ftName.trim().toUpperCase() || null,
-          ft_account_number: ftAcct.replace(/\D/g, "") || null,
+          ft_account_number: acct || null,
         },
         { onConflict: "user_id" }
       );
-    if (error) toast.error("Failed to save: " + error.message);
-    else toast.success("Profile saved");
+    if (error) {
+      if (error.message.includes("idx_profiles_ft_account_number")) {
+        toast.error("This account number is already registered by another user.");
+      } else {
+        toast.error("Failed to save: " + error.message);
+      }
+    } else {
+      toast.success("Profile saved");
+    }
     setSaving(false);
   }
 

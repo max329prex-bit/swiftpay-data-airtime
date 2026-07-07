@@ -303,21 +303,16 @@ export default function Wallet() {
       </motion.div>
 
       {/* Tab switcher */}
-      <div className="grid grid-cols-3 gap-1 rounded-2xl bg-secondary/20 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-2xl bg-secondary/20 p-1">
         <button onClick={() => setTab("free")}
           className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
             ${tab === "free" ? "bg-emerald-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-          <Gift className="w-4 h-4" /> Free
+          <Gift className="w-4 h-4" /> Free Transfer
         </button>
         <button onClick={() => setTab("static")}
           className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
             ${tab === "static" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
           <Lock className="w-4 h-4" /> Permanent
-        </button>
-        <button onClick={() => setTab("dynamic")}
-          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
-            ${tab === "dynamic" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-          <Zap className="w-4 h-4" /> Instant
         </button>
       </div>
 
@@ -516,62 +511,13 @@ export default function Wallet() {
           </motion.div>
         )}
 
-        {/* ── DYNAMIC TAB ─────────────────────────────────────────────────── */}
-        {tab === "dynamic" && (
-          <motion.div key="dynamic-tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="space-y-4">
-            {!dynamicVA && !dynamicLoading && (
-              <div className="space-y-3">
-                {dynamicError && (
-                  <div className="rounded-2xl bg-secondary/30 border border-white/5 p-4">
-                    <p className="text-sm text-muted-foreground text-center">{dynamicError}</p>
-                  </div>
-                )}
-                <button onClick={fetchDynamic} disabled={dynamicLoading}
-                  className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition shadow-glow">
-                  <Zap className="w-5 h-5" />
-                  Generate instant account
-                  <ChevronRight className="w-5 h-5 opacity-60" />
-                </button>
-                <p className="text-center text-xs text-muted-foreground">
-                  No BVN required · Instant · Single use only
-                </p>
-              </div>
-            )}
-
-            {dynamicLoading && (
-              <div className="rounded-2xl bg-secondary/30 border border-white/5 p-6 flex items-center justify-center gap-3 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Generating your account…</span>
-              </div>
-            )}
-
-            {dynamicVA && !dynamicLoading && (
-              <div className="space-y-3">
-                {countdown !== null && (
-                  <div className={`rounded-xl border px-4 py-2.5 flex items-center gap-2 text-sm
-                    ${countdown < 120 ? "bg-orange-500/10 border-orange-500/20 text-orange-400"
-                                      : "bg-secondary/20 border-white/5 text-muted-foreground"}`}>
-                    <Clock className="w-4 h-4 shrink-0" />
-                    <span>Expires in <strong>{fmtCountdown(countdown)}</strong> — use immediately</span>
-                  </div>
-                )}
-                <AccountCard va={dynamicVA} copied={copiedDynamic}
-                  onCopy={() => copyText(dynamicVA.account_number, "dynamic")}
-                  onRefresh={fetchDynamic} showRefresh={true} />
-              </div>
-            )}
-          </motion.div>
-        )}
       </AnimatePresence>
 
-      {tab === "free" ? (
-        <p className="text-center text-xs text-muted-foreground">
-          Free transfer for deposits ≥ ₦500 · <span className="text-yellow-400/70">1% fee applies below ₦500</span>
-        </p>
-      ) : (
-        <p className="text-center text-xs text-muted-foreground">Secured by Payvessel · Instant bank transfer · <span className="text-yellow-400/70">1% fee on all deposits</span></p>
-      )}
+      <p className="text-center text-xs text-muted-foreground">
+        {tab === "free"
+          ? <>Free transfer for deposits ≥ ₦500 · <span className="text-yellow-400/70">1% fee applies below ₦500</span></>
+          : <>Secured by Payvessel · Permanent bank transfer · <span className="text-yellow-400/70">1% fee on all deposits</span></>}
+      </p>
     </div>
   );
 }
