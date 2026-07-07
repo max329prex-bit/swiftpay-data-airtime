@@ -165,6 +165,10 @@ export default function FreeTransferPanel() {
   function iMadePayment() {
     if (!depositId) return;
     setStage("verifying");
+    // Trigger an instant email check via Google Apps Script
+    supabase.functions.invoke("trigger-email-check", {
+      body: { deposit_id: depositId },
+    }).catch(() => {});
     let attempts = 0;
     const maxAttempts = 36; // 3 minutes at 5s
     const check = async () => {
@@ -216,10 +220,10 @@ export default function FreeTransferPanel() {
       <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 flex gap-3">
         <Gift className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
         <div className="text-sm">
-          <div className="font-semibold text-emerald-400">Free Deposits ≥ ₦500</div>
+          <div className="font-semibold text-emerald-400">Free Transfer Deposits</div>
           <div className="text-xs text-muted-foreground mt-0.5">
             Transfer directly to BlitzPay's OPay account. Auto-verified from OPay's email in seconds.
-            Deposits under ₦500 have a 1% fee.
+            Deposits ≥₦500 are free. Deposits below ₦500 attract a 1% fee.
           </div>
         </div>
       </div>
@@ -234,9 +238,10 @@ export default function FreeTransferPanel() {
                 <ShieldCheck className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <div className="font-semibold text-sm">One-time setup</div>
+                <div className="font-semibold text-sm">Set your funding account</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  Save the account you'll transfer from — we'll match it automatically.
+                  Set the account you will use to fund your BlitzPay wallet continuously.
+                  Deposits ≥₦500 are free. Deposits below ₦500 attract a 1% fee.
                 </div>
               </div>
             </div>

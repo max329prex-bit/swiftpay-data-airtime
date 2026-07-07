@@ -127,7 +127,7 @@ export default function Wallet() {
     const update = () => {
       const secs = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
       setCountdown(secs);
-      if (secs <= 0) { clearCountdown(); setDynamicVA(null); toast.info("One-time account expired."); }
+      if (secs <= 0) { clearCountdown(); setDynamicVA(null); toast.info("Instant account expired."); }
     };
     update();
     timerRef.current = setInterval(update, 1000);
@@ -211,7 +211,7 @@ export default function Wallet() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in");
       const data = await callTopup(session.access_token, "dynamic");
-      if (!data.success) throw new Error(data.error || "Could not create one-time account");
+      if (!data.success) throw new Error(data.error || "Could not create instant account");
       setDynamicVA(data);
       if (data.expires_at) startCountdown(data.expires_at);
     } catch (e: unknown) {
@@ -317,7 +317,7 @@ export default function Wallet() {
         <button onClick={() => setTab("dynamic")}
           className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
             ${tab === "dynamic" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-          <Zap className="w-4 h-4" /> One-Time
+          <Zap className="w-4 h-4" /> Instant
         </button>
       </div>
 
@@ -327,7 +327,7 @@ export default function Wallet() {
           <Info className="w-4 h-4 mt-0.5 text-primary/70 shrink-0" />
           {tab === "static"
             ? <p>Your permanent account — transfer any amount anytime. Balance updates instantly. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>
-            : <p>One-time account — valid for a single transfer only. Expires after use or 30 minutes. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>}
+            : <p>Instant account — valid for a single transfer only. Expires after use or 30 minutes. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>}
         </div>
       )}
 
@@ -371,7 +371,7 @@ export default function Wallet() {
                     className="w-full h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-medium flex items-center justify-center gap-2 hover:bg-amber-500/30 transition">
                     Go to Settings → Verification
                   </button>
-                  <p className="text-[10px] text-muted-foreground/60 text-center">Your one-time account tab still works while you set this up</p>
+                  <p className="text-[10px] text-muted-foreground/60 text-center">Your instant account tab still works while you set this up</p>
                 </div>
               ) : (
                 <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-5 space-y-3">
@@ -530,7 +530,7 @@ export default function Wallet() {
                 <button onClick={fetchDynamic} disabled={dynamicLoading}
                   className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition shadow-glow">
                   <Zap className="w-5 h-5" />
-                  Generate one-time account
+                  Generate instant account
                   <ChevronRight className="w-5 h-5 opacity-60" />
                 </button>
                 <p className="text-center text-xs text-muted-foreground">
