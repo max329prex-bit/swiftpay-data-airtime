@@ -12,7 +12,7 @@ export default function Support() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [ticketRef, setTicketRef] = useState<string | null>(null);
-  const [degradedProviders, setDegradedProviders] = useState<string[]>([]);
+  const [hasDegradedPlans, setHasDegradedPlans] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -20,13 +20,10 @@ export default function Support() {
       .from("bundle_status")
       .select("package_code, auto_paused_at")
       .not("auto_paused_at", "is", null)
-      .limit(5)
+      .limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
-          const providers = [...new Set(data.map((d: Record<string, unknown>) =>
-            (d.package_code as string).split("-")[0]?.toUpperCase()
-          ))];
-          setDegradedProviders(providers);
+          setHasDegradedPlans(true);
         }
       });
   }, [user]);
@@ -70,13 +67,12 @@ export default function Support() {
         <p className="text-sm text-muted-foreground mt-1">We'll help resolve your issue quickly.</p>
       </div>
 
-      {degradedProviders.length > 0 && (
+      {hasDegradedPlans && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-start gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
           <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
           <div className="text-sm text-yellow-300">
-            <strong>Service Notice:</strong> Some {degradedProviders.join(", ")} plans are temporarily
-            paused. Funds are safe. Avoid retrying — we're on it.
+            <strong>Service Notice:</strong> Some plans are temporarily paused. Funds are safe. Avoid retrying — we're on it.
           </div>
         </motion.div>
       )}
