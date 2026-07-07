@@ -12,6 +12,13 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
+// BlitzPay OPay Business Account (displayed to user)
+const BLITZPAY_ACCOUNT = {
+  number: "6554098879",
+  name: "PRAISE ADAKOLE ONOJA",
+  bank: "OPay",
+};
+
 interface FreeTransferDeposit {
   deposit_id: string;
   amount: number;
@@ -68,28 +75,60 @@ export default function FreeTransferPanel() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("ft_bank_name, ft_account_name, ft_account_number")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        setLoading(false);
-        if (error) {
-          toast.error("Could not load your saved bank details");
-          return;
-        }
-        const p = data ?? {};
-        setProfile(p);
-        if (p.ft_bank_name) setSetupBankName(p.ft_bank_name);
-        if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
-        if (p.ft_account_number) setSetupAccountNumber(p.ft_account_number);
-        if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
-          setStep("amount");
-        } else {
-          setStep("setup");
-        }
-      });
+
+    async function load() {
+      const [{ data: profileData, error: profileErr }, { data: pendingDeps }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("ft_bank_name, ft_account_name, ft_account_number")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("free_transfer_deposits")
+          .select("id, amount, status, expires_at")
+          .eq("user_id", user.id)
+          .eq("status", "pending")
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      setLoading(false);
+
+      if (profileErr) {
+        toast.error("Could not load your saved bank details");
+        return;
+      }
+
+      const p = profileData ?? {};
+      setProfile(p);
+      if (p.ft_bank_name) setSetupBankName(p.ft_bank_name);
+      if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
+      if (p.ft_account_number) setSetupAccountNumber(p.ft_account_number);
+
+      const dep = pendingDeps?.[0];
+      if (dep) {
+        const fee = dep.amount >= 500 ? 0 : Math.round(dep.amount * 0.01 * 100) / 100;
+        setDeposit({
+          deposit_id: dep.id,
+          amount: dep.amount,
+          fee,
+          net_amount: dep.amount - fee,
+          expires_at: dep.expires_at,
+          pay_to: BLITZPAY_ACCOUNT,
+        });
+        setStep("pay");
+        return;
+      }
+
+      if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
+        setStep("amount");
+      } else {
+        setStep("setup");
+      }
+    }
+
+    load();
   }, [user]);
 
   const clearAll = useCallback(() => {
