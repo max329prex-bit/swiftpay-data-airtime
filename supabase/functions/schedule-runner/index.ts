@@ -119,6 +119,20 @@ serve(async (req) => {
     }
   }
 
+  // 4. Scan OPay Gmail for free-transfer deposits
+  try {
+    const scanResp = await fetch(`${SUPA_URL}/functions/v1/scan-opay-emails`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SUPA_SVC}`, "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(60000),
+    });
+    const scanData = await scanResp.json().catch(() => ({}));
+    console.log("[scheduler] scan-opay-emails:", JSON.stringify(scanData).slice(0, 300));
+  } catch (e) {
+    console.error("[scheduler] scan-opay-emails failed:", e instanceof Error ? e.message : String(e));
+  }
+
   return new Response(JSON.stringify({ processed: results.length, results }), {
     headers: { ...cors, "Content-Type": "application/json" },
   });

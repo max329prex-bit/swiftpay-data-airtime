@@ -10,7 +10,6 @@ const CORS = {
 const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SVC  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SCRIPT_SECRET = Deno.env.get("FT_SCRIPT_SECRET")!;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -59,36 +58,24 @@ serve(async (req) => {
       }), { headers: CORS });
     }
 
-    // Load the Apps Script Web App URL from app_settings
-    const { data: setting } = await svc
-      .from("app_settings")
-      .select("value")
-      .eq("key", "ft_script_url")
-      .maybeSingle();
-
-    const scriptUrl = setting?.value?.url || setting?.value;
-    if (!scriptUrl || typeof scriptUrl !== "string") {
-      return new Response(JSON.stringify({
-        success: false,
-        status: "not_configured",
-        message: "Free transfer email checker is not configured yet. Please try again in a few minutes.",
-      }), { status: 503, headers: CORS });
-    }
-
-    // Trigger the Apps Script to check emails immediately
-    const resp = await fetch(scriptUrl, {
+    // Trigger the IMAP scanner directly
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/scan-opay-emails`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ secret: SCRIPT_SECRET }),
+      headers: {
+        "Authorization": `Bearer ${SUPABASE_SVC}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(60000),
     });
 
-    let scriptResult: any = {};
-    try { scriptResult = await resp.json(); } catch { /* ignore */ }
+    let scanResult: any = {};
+    try { scanResult = await resp.json(); } catch { /* ignore */ }
 
     return new Response(JSON.stringify({
-      success: resp.ok,
+      success: resp.ok && scanResult?.success !== false,
       status: "triggered",
-      emails_processed: scriptResult?.emails_processed ?? 0,
+      emails_processed: scanResult?.processed ?? 0,
       message: resp.ok
         ? "Checking for your payment now. This usually takes a few seconds."
         : "Could not reach the email checker. Please wait for the automatic check.",
