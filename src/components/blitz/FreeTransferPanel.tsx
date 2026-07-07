@@ -327,28 +327,6 @@ export default function FreeTransferPanel() {
         .subscribe();
       channelRef.current = ch;
 
-      // Insert a pending/verifying transaction so the user sees it in History.
-      const fee = deposit.fee;
-      const net = deposit.net_amount;
-      const { error: txErr } = await supabase
-        .from("transactions")
-        .upsert({
-          user_id: user.id,
-          type: "wallet_fund",
-          amount: net,
-          reference: `FT-${deposit.deposit_id}`,
-          status: "verifying",
-          meta: {
-            provider: "free_transfer",
-            gross_amount: deposit.amount,
-            fee,
-            net_amount: net,
-            deposit_id: deposit.deposit_id,
-          },
-        }, { onConflict: "reference" });
-
-      if (txErr) throw txErr;
-
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in");
 
