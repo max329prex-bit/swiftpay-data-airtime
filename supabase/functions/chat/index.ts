@@ -5,29 +5,22 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-const SYS = `You are Blitzi, the friendly AI assistant for BlitzPay — a Nigerian fintech app for airtime, data, electricity, cable TV, and wallet funding.
+const SYS = `You are Blitzi, the friendly AI assistant for BlitzPay — a Nigerian fintech app.
+Help users with: wallet balance, buying airtime/data, paying electricity/cable bills, wallet funding, and account support.
+Always use Naira (₦). Be warm and concise.
+IMPORTANT: You only know about BlitzPay's services. You have no knowledge of any external vendors, providers, or third-party services. BlitzPay is a self-contained platform.`;
 
-RULES (STRICT — NEVER VIOLATE):
-- NEVER mention any third-party provider, vendor, API partner, or supplier name. BlitzPay uses its own proprietary infrastructure.
-- If asked about providers or partners, say ONLY: "BlitzPay handles all services through our own platform."
-- NEVER confirm or deny specific company names a user mentions.
-- NEVER discuss BlitzPay's internal systems, costs, margins, or vendors.
-- Help users ONLY with: wallet balance, airtime/data purchases, electricity/cable bills, wallet funding, and account support.
-- Be warm, concise, helpful. Always use Naira (₦) for amounts.`;
+// Regex that catches all common variations case-insensitively
+const BLOCKED_REGEX = /g[\s\-_]?subz|iacafe|ia[\s\-_]?cafe|bsplug|bs[\s\-_]?plug|clubkonnect|n3tdata|husmodata|megasubz|mega[\s\-_]?subz|datastation|smeplug|sme[\s\-_]?plug|tmssubscribe|vtpass|vt[\s\-_]?pass|topgosubz|fastsubz/gi;
 
-// Hard-coded list of provider/vendor names that must NEVER appear in responses
-const BLOCKED_TERMS = [
-  "gsubz", "iacafe", "bsplug", "clubkonnect", "n3tdata", "husmodata",
-  "megasubz", "datastation", "smeplug", "tmssubscribe", "vtu.ng",
-  "vtpass", "datavn", "topgosubz", "subremote", "fastsubz"
-];
+// Keywords that signal a "who is your provider" type question
+const PROVIDER_QUESTION_REGEX = /\b(provider|vendor|supplier|partner|aggregator|vtu\s+provider|third.?party|backend|infrastructure|powered by|who (do|does|are)|what (company|service|api|platform) (do|does)|which (company|service|api|platform))\b/i;
 
-function containsBlockedTerm(text: string): boolean {
-  const lower = text.toLowerCase();
-  return BLOCKED_TERMS.some(term => lower.includes(term));
+const SAFE_REPLY = "BlitzPay handles all services through our own platform and network. Is there anything else I can help you with? 😊";
+
+function sanitizeText(text: string): string {
+  return text.replace(BLOCKED_REGEX, "[BlitzPay]");
 }
-
-const SAFE_FALLBACK = "BlitzPay handles all services through our own platform and network. Is there anything else I can help you with? 😊";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -36,6 +29,21 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
+    const msgList: { role: string; content: string }[] = messages || [];
+
+    // Layer 1: Check if the latest user message is asking about providers
+    const lastUserMsg = [...msgList].reverse().find(m => m.role === "user");
+    if (lastUserMsg && PROVIDER_QUESTION_REGEX.test(lastUserMsg.content)) {
+      return new Response(JSON.stringify({ reply: SAFE_REPLY }), {
+        headers: { ...cors, "Content-Type": "application/json" }
+      });
+    }
+
+    // Layer 2: Scrub any provider names from the message history before sending to LLM
+    const cleanMessages = msgList.map(m => ({
+      ...m,
+      content: sanitizeText(m.content)
+    }));
 
     const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
       method: "POST",
@@ -45,18 +53,18 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "llama-3.3-70b",
-        messages: [{ role: "system", content: SYS }, ...(messages || [])],
+        messages: [{ role: "system", content: SYS }, ...cleanMessages],
         max_tokens: 512,
         temperature: 0.2
       })
     });
 
     const data = await r.json();
-    let reply = data.choices?.[0]?.message?.content ?? "Sorry, I couldn't respond.";
+    let reply: string = data.choices?.[0]?.message?.content ?? "Sorry, I couldn't respond.";
 
-    // Hard filter — if response contains any blocked provider name, replace entirely
-    if (containsBlockedTerm(reply)) {
-      reply = SAFE_FALLBACK;
+    // Layer 3: Hard post-filter on the LLM output
+    if (BLOCKED_REGEX.test(reply)) {
+      reply = SAFE_REPLY;
     }
 
     return new Response(JSON.stringify({ reply }), {
