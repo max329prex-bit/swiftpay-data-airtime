@@ -10,6 +10,8 @@ import {
   Loader2, Copy, CheckCircle2, Building2, RefreshCw, Info,
   Zap, Lock, Clock, ChevronRight, ShieldCheck, User, Phone, CreditCard, Mail
 } from "lucide-react";
+import FreeTransferPanel from "@/components/blitz/FreeTransferPanel";
+import { Gift } from "lucide-react";
 
 interface VAResult {
   success: boolean;
@@ -52,7 +54,7 @@ export default function Wallet() {
   const { balance, reserved, available, refresh } = useWallet();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"static" | "dynamic">("static");
+  const [tab, setTab] = useState<"static" | "dynamic" | "free">("free");
 
   // Static VA state
   const [staticVA, setStaticVA]        = useState<VAResult | null>(null);
@@ -301,26 +303,42 @@ export default function Wallet() {
       </motion.div>
 
       {/* Tab switcher */}
-      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-secondary/20 p-1">
+      <div className="grid grid-cols-3 gap-1 rounded-2xl bg-secondary/20 p-1">
+        <button onClick={() => setTab("free")}
+          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
+            ${tab === "free" ? "bg-emerald-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          <Gift className="w-4 h-4" /> Free
+        </button>
         <button onClick={() => setTab("static")}
-          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition
+          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
             ${tab === "static" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
           <Lock className="w-4 h-4" /> Permanent
         </button>
         <button onClick={() => setTab("dynamic")}
-          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition
+          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
             ${tab === "dynamic" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
           <Zap className="w-4 h-4" /> One-Time
         </button>
       </div>
 
-      {/* Info banner */}
-      <div className="rounded-2xl bg-secondary/20 border border-white/5 p-4 flex gap-3 text-sm text-muted-foreground">
-        <Info className="w-4 h-4 mt-0.5 text-primary/70 shrink-0" />
-        {tab === "static"
-          ? <p>Your permanent account — transfer any amount anytime. Balance updates instantly. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>
-          : <p>One-time account — valid for a single transfer only. Expires after use or 30 minutes. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>}
-      </div>
+      {/* Info banner (hidden on Free tab — it has its own) */}
+      {tab !== "free" && (
+        <div className="rounded-2xl bg-secondary/20 border border-white/5 p-4 flex gap-3 text-sm text-muted-foreground">
+          <Info className="w-4 h-4 mt-0.5 text-primary/70 shrink-0" />
+          {tab === "static"
+            ? <p>Your permanent account — transfer any amount anytime. Balance updates instantly. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>
+            : <p>One-time account — valid for a single transfer only. Expires after use or 30 minutes. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>}
+        </div>
+      )}
+
+      {/* ── FREE TRANSFER TAB ─────────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        {tab === "free" && (
+          <motion.div key="free-tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <FreeTransferPanel />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── STATIC TAB ────────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
