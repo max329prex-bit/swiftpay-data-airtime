@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Loader2, Copy, CheckCircle2, Building2, RefreshCw, Info,
-  Zap, Lock, Clock, ChevronRight, ShieldCheck, User, Phone, CreditCard
+  Zap, Lock, Clock, ChevronRight, ShieldCheck, User, Phone, CreditCard, Mail
 } from "lucide-react";
 
 interface VAResult {

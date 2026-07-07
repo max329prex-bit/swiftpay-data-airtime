@@ -82,7 +82,7 @@ export default function UserManagement() {
         }));
       } else {
         // Supabase-authenticated admin — can use RPC (has JWT)
-        let rpcResult = await supabase.rpc("admin_list_users" as any).catch(() => null);
+        let rpcResult = await (supabase.rpc("admin_list_users" as any) as any).then((r: any) => r).catch(() => null);
 
         if (rpcResult?.data && Array.isArray(rpcResult.data)) {
           userData = (rpcResult.data as any[]).map((p: any) => ({

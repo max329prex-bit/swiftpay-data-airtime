@@ -72,8 +72,9 @@ export default function Settings() {
     try {
       const { data, error } = await supabase.rpc("generate_api_key", { _user_id: user.id, _key_name: genName.trim() });
       if (error) throw error;
-      if (data?.error) { toast.error(data.error); return; }
-      setNewKey(data.api_key);
+      const d = data as any;
+      if (d?.error) { toast.error(d.error); return; }
+      setNewKey(d.api_key);
       setShowGen(false);
       setGenName("");
       loadApiKeys();
