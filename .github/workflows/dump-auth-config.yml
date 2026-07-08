@@ -1,0 +1,14 @@
+name: Dump Supabase Auth Config
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dump-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GET full auth config
+        run: |
+          curl -s \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
+            https://api.supabase.com/v1/projects/tljnhlhzyntotadxoypz/config/auth | jq 'keys'

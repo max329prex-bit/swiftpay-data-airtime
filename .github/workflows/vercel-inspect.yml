@@ -1,0 +1,16 @@
+name: Inspect Vercel Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: 'Vercel deployment ID (e.g. dpl_...)'
+        required: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g vercel@latest
+      - run: vercel inspect ${{ github.event.inputs.deployment_id }} --logs --token ${{ secrets.VERCEL_TOKEN }}

@@ -1,0 +1,52 @@
+name: Deploy Supabase Functions
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: tljnhlhzyntotadxoypz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy Edge Functions
+        run: |
+          supabase link --project-ref $SUPABASE_PROJECT_ID
+          supabase functions deploy
+
+      - name: Set Supabase Secrets
+        run: |
+          supabase secrets set --project-ref $SUPABASE_PROJECT_ID \
+            GMAIL_ADDRESS="${{ secrets.GMAIL_ADDRESS }}" \
+            GMAIL_APP_PASSWORD="${{ secrets.GMAIL_APP_PASSWORD }}" \
+            OPAY_SENDER="${{ secrets.OPAY_SENDER }}"
+
+      # Optional secrets: only set them if they are configured in the GitHub repo.
+      # This prevents every deploy from wiping manually-configured secrets.
+      - name: Set optional secrets (if configured)
+        run: |
+          if [ -n "${{ secrets.CRON_SECRET }}" ]; then
+            supabase secrets set --project-ref $SUPABASE_PROJECT_ID CRON_SECRET="${{ secrets.CRON_SECRET }}"
+          fi
+          if [ -n "${{ secrets.FT_SCRIPT_SECRET }}" ]; then
+            supabase secrets set --project-ref $SUPABASE_PROJECT_ID FT_SCRIPT_SECRET="${{ secrets.FT_SCRIPT_SECRET }}"
+          fi
+
+      # Migration history is currently out of sync with the remote database,
+      # so db push fails. Migrations are applied manually; this workflow only
+      # deploys edge functions and secrets until the migration history is
+      # repaired via the Supabase dashboard or CLI.

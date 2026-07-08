@@ -1,0 +1,35 @@
+name: Apply Supabase Migrations
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: tljnhlhzyntotadxoypz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project and list migrations
+        run: |
+          supabase link --project-ref $SUPABASE_PROJECT_ID
+          supabase migration list --linked
+
+      - name: Repair out-of-sync migration history
+        # Remote has a migration 20260611 that is not in the local repo's expected
+        # format. Mark it as reverted so the remaining local migrations can be pushed.
+        run: |
+          supabase migration repair --status reverted --linked 20260611
+
+      - name: Push pending migrations
+        # --include-all applies local migrations not found in remote history table.
+        run: |
+          supabase db push --include-all --yes --linked

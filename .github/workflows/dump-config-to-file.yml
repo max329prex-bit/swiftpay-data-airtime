@@ -1,0 +1,23 @@
+name: Dump Supabase Config to File
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and save config
+        run: |
+          curl -s \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
+            https://api.supabase.com/v1/projects/tljnhlhzyntotadxoypz/config/auth > /tmp/config.json
+          cat /tmp/config.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps({k:v for k,v in d.items() if any(x in k for x in ['link','email','external','hook','mailer'])},indent=2))" > supabase_auth_config.json
+          git config user.email "bot@blitzpay.ng"
+          git config user.name "BlitzBot"
+          git add supabase_auth_config.json
+          git commit -m "temp: dump supabase auth config" || echo "no changes"
+          git push
