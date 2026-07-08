@@ -259,7 +259,12 @@ function nameMatches(emailName: string, storedName: string): boolean {
   const clean = (s: string) => s.toUpperCase().replace(/[^A-Z\s]/g, "").trim();
   const ew = clean(emailName).split(/\s+/).filter(w => w.length > 1);
   const sw = clean(storedName).split(/\s+/).filter(w => w.length > 1);
-  return ew.some(w => sw.includes(w));
+  if (ew.length === 0 || sw.length === 0) return false;
+  const shared = ew.filter(w => sw.includes(w)).length;
+  // Require at least 2 shared words (or ALL words if stored name has only 1).
+  // Prevents false-positive matches when two users share just a first or last name.
+  const required = Math.min(2, sw.length);
+  return shared >= required;
 }
 
 function bankMatches(a: string, b: string): boolean {

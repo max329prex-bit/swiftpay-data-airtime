@@ -19,7 +19,15 @@ const BLITZPAY_ACCOUNT = {
   bank: "OPay",
 };
 
-const DEPOSIT_STORAGE_KEY = "blitzpay_free_transfer_deposit";
+const DEPOSIT_STORAGE_KEY_PREFIX = "blitzpay_free_transfer_deposit:";
+
+// Format an amount with kobo precision (e.g. ₦150.07).
+function nairaExact(n: number): string {
+  return "₦" + Number(n).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 interface FreeTransferDeposit {
   deposit_id: string;
@@ -36,13 +44,30 @@ interface FreeTransferProfile {
   ft_account_number?: string | null;
 }
 
-function saveDeposit(deposit: FreeTransferDeposit) {
-  try { sessionStorage.setItem(DEPOSIT_STORAGE_KEY, JSON.stringify(deposit)); } catch { /* ignore */ }
+function keyFor(userId: string | undefined) {
+  return DEPOSIT_STORAGE_KEY_PREFIX + (userId ?? "anon");
 }
 
-function loadDeposit(): FreeTransferDeposit | null {
+function saveDeposit(userId: string | undefined, deposit: FreeTransferDeposit) {
+  if (!userId) return;
+  try { sessionStorage.setItem(keyFor(userId), JSON.stringify(deposit)); } catch { /* ignore */ }
+}
+
+function loadDeposit(userId: string | undefined): FreeTransferDeposit | null {
+  if (!userId) return null;
   try {
-    const raw = sessionStorage.getItem(DEPOSIT_STORAGE_KEY);
+    // Purge any legacy un-scoped key + keys belonging to other users so we
+    // never render another user's pay-screen inside this session.
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (!k) continue;
+      if (k === "blitzpay_free_transfer_deposit") {
+        sessionStorage.removeItem(k);
+      } else if (k.startsWith(DEPOSIT_STORAGE_KEY_PREFIX) && k !== keyFor(userId)) {
+        sessionStorage.removeItem(k);
+      }
+    }
+    const raw = sessionStorage.getItem(keyFor(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as FreeTransferDeposit;
     if (new Date(parsed.expires_at) < new Date()) return null;
@@ -50,8 +75,9 @@ function loadDeposit(): FreeTransferDeposit | null {
   } catch { return null; }
 }
 
-function clearDeposit() {
-  try { sessionStorage.removeItem(DEPOSIT_STORAGE_KEY); } catch { /* ignore */ }
+function clearDeposit(userId: string | undefined) {
+  if (!userId) return;
+  try { sessionStorage.removeItem(keyFor(userId)); } catch { /* ignore */ }
 }
 
 async function parseJsonResponse<T = any>(res: Response): Promise<{ ok: boolean; data: T }> {
@@ -97,7 +123,7 @@ export default function FreeTransferPanel() {
     if (!user) return;
 
     // 1. Restore from local storage instantly so the pay screen survives app switches.
-    const stored = loadDeposit();
+    const stored = loadDeposit(user.id);
     if (stored) {
       setDeposit(stored);
       setStep("pay");
@@ -129,7 +155,7 @@ export default function FreeTransferPanel() {
       console.error("FreeTransfer: could not load pending deposit", depErr);
     }
 
-    const p = profileData ?? {};
+    const p: FreeTransferProfile = (profileData as FreeTransferProfile | null) ?? {};
     setProfile(p);
     if (p.ft_bank_name) setSetupBankName(p.ft_bank_name);
     if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
@@ -148,7 +174,7 @@ export default function FreeTransferPanel() {
         pay_to: BLITZPAY_ACCOUNT,
       };
       setDeposit(restored);
-      saveDeposit(restored);
+      saveDeposit(user.id, restored);
       setStep("pay");
       return;
     }
@@ -189,14 +215,14 @@ export default function FreeTransferPanel() {
   useEffect(() => {
     if (step !== "success") return;
     const timer = window.setTimeout(() => {
-      clearDeposit();
+      clearDeposit(user?.id);
       setDeposit(null);
       setAmount("");
       setStatusMsg("");
       setStep("amount");
     }, 2500);
     return () => window.clearTimeout(timer);
-  }, [step]);
+  }, [step, user?.id]);
 
   async function copyText(text: string, which: "acct" | "name") {
     await navigator.clipboard.writeText(text);
@@ -335,7 +361,7 @@ export default function FreeTransferPanel() {
         pay_to: data.pay_to,
       };
       setDeposit(newDeposit);
-      saveDeposit(newDeposit);
+      saveDeposit(user.id, newDeposit);
       setStep("pay");
     } catch (e: any) {
       toast.error(e.message || "Failed to create deposit");
@@ -376,17 +402,17 @@ export default function FreeTransferPanel() {
       setPollFailures(0);
 
       if (data.status === "verified") {
-        clearDeposit();
+        clearDeposit(user?.id);
         setStep("success");
         setStatusMsg(data.message);
         clearAll();
       } else if (data.status === "expired") {
-        clearDeposit();
+        clearDeposit(user?.id);
         setStep("expired");
         setStatusMsg(data.message);
         clearAll();
       } else if (data.status === "failed") {
-        clearDeposit();
+        clearDeposit(user?.id);
         setStep("failed");
         setStatusMsg(data.message);
         clearAll();
@@ -434,12 +460,12 @@ export default function FreeTransferPanel() {
         }, (payload) => {
           const tx = payload.new as any;
           if (tx?.status === "success") {
-            clearDeposit();
+            clearDeposit(user?.id);
             setStep("success");
             setStatusMsg(`Deposit successful! ${naira(tx.amount)} has been added to your wallet.`);
             clearAll();
           } else if (tx?.status === "failed") {
-            clearDeposit();
+            clearDeposit(user?.id);
             setStep("failed");
             setStatusMsg("Verification failed. Please contact support.");
             clearAll();
@@ -694,16 +720,16 @@ export default function FreeTransferPanel() {
             <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4 flex gap-3">
               <Info className="w-5 h-5 text-emerald-400 shrink-0" />
               <p className="text-sm text-emerald-100/80">
-                Make <strong>exact amount</strong> from your <strong>{override ? overrideBankName : profile.ft_bank_name}</strong> bank to this account. Once done, come back and click <strong>I have made payment</strong>.
+                Send the <strong>EXACT amount including the kobo</strong> (e.g. {nairaExact(deposit.amount)}) from your <strong>{override ? overrideBankName : profile.ft_bank_name}</strong> bank. The kobo is unique to <em>your</em> deposit — without it we can't credit you.
               </p>
             </div>
 
             <div className="rounded-2xl bg-secondary/30 border border-emerald-500/20 p-5 space-y-4">
               <div className="text-center">
                 <div className="text-xs text-muted-foreground">Send exactly</div>
-                <div className="text-3xl font-bold text-emerald-400">{naira(deposit.amount)}</div>
+                <div className="text-3xl font-bold text-emerald-400">{nairaExact(deposit.amount)}</div>
                 {deposit.fee > 0 ? (
-                  <div className="text-xs text-orange-300/80 mt-1">1% fee applies ({naira(deposit.fee)})</div>
+                  <div className="text-xs text-orange-300/80 mt-1">1% fee applies ({nairaExact(deposit.fee)})</div>
                 ) : (
                   <div className="text-xs text-emerald-300/80 mt-1">Free deposit</div>
                 )}

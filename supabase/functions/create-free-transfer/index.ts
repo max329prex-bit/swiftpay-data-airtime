@@ -56,12 +56,37 @@ serve(async (req) => {
       .eq("status", "pending")
       .lt("expires_at", new Date().toISOString());
 
+    // Pick a UNIQUE kobo-suffixed amount so this deposit can never be
+    // confused with a concurrent deposit of the same round amount.
+    // Example: 150 → 150.07. Try up to 60 times to find one that
+    // does not clash with any other pending deposit.
+    const requested = Math.floor(Number(amount));
+    let uniqueAmount = requested;
+    let found = false;
+    for (let i = 0; i < 60; i++) {
+      const kobo = Math.floor(Math.random() * 99) + 1; // 1..99 kobo
+      const candidate = Math.round((requested + kobo / 100) * 100) / 100;
+      const { data: clash } = await svc
+        .from("free_transfer_deposits")
+        .select("id")
+        .eq("status", "pending")
+        .eq("amount", candidate)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (!clash) { uniqueAmount = candidate; found = true; break; }
+    }
+    if (!found) {
+      return new Response(JSON.stringify({
+        error: "Too many concurrent deposits for this amount. Please try again in a minute.",
+      }), { status: 429, headers: CORS });
+    }
+
     // Create new pending deposit
     const { data: dep, error: depErr } = await svc
       .from("free_transfer_deposits")
       .insert({
         user_id:        user.id,
-        amount:         Number(amount),
+        amount:         uniqueAmount,
         bank_name:      bank_name.trim().toUpperCase(),
         account_name:   account_name.trim().toUpperCase(),
         account_number: account_number.replace(/\D/g, ""),
@@ -72,19 +97,20 @@ serve(async (req) => {
     if (depErr) throw depErr;
 
     // Calculate fee preview
-    const fee = amount >= 500 ? 0 : Math.round(amount * 0.01 * 100) / 100;
+    const fee = uniqueAmount >= 500 ? 0 : Math.round(uniqueAmount * 0.01 * 100) / 100;
 
     return new Response(JSON.stringify({
       success:   true,
       deposit_id: dep.id,
       expires_at: dep.expires_at,
-      amount,
+      amount: uniqueAmount,
+      requested_amount: requested,
       fee,
-      net_amount: amount - fee,
+      net_amount: uniqueAmount - fee,
       pay_to: BLITZPAY_ACCOUNT,
       message: fee === 0
-        ? "Transfer the exact amount to the account below. FREE deposit!"
-        : `A 1% processing fee (₦${fee}) applies to deposits under ₦500. You will receive ₦${amount - fee}.`,
+        ? `Transfer EXACTLY ₦${uniqueAmount.toFixed(2)} (including the kobo) so we can uniquely identify your deposit. FREE!`
+        : `Transfer EXACTLY ₦${uniqueAmount.toFixed(2)} (including the kobo). A 1% fee (₦${fee.toFixed(2)}) applies below ₦500. You will receive ₦${(uniqueAmount - fee).toFixed(2)}.`,
     }), { headers: CORS });
 
   } catch (err) {
