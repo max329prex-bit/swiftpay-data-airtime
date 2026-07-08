@@ -37,6 +37,5 @@ jobs:
 
       - name: Apply Migrations (dev only)
         if: github.ref == 'refs/heads/main'
-        continue-on-error: true
         run: |
-          supabase db push --project-ref $SUPABASE_PROJECT_ID
+          supabase db push --linked
