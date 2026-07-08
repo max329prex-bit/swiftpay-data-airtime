@@ -17,6 +17,15 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   try {
+    // Fail-closed: only the service-role key or a matching cron secret may run this poller.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const headerSecret = req.headers.get("x-cron-secret");
+    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+    const isServiceRole = SUPA_SVC && authHeader === `Bearer ${SUPA_SVC}`;
+    if (!isServiceRole && headerSecret !== cronSecret) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+    }
+
     const sb = createClient(SUPA_URL, SUPA_SVC);
 
     // Poll for unsent support tickets (last 5 minutes)

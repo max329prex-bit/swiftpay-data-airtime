@@ -1,14 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
+const SUPA_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPA_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPA_SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   try {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const isServiceRole = SUPA_SVC && authHeader === `Bearer ${SUPA_SVC}`;
+    if (!isServiceRole) {
+      const uc = createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: authHeader } } });
+      const { data: { user }, error: authErr } = await uc.auth.getUser();
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
+
     const { from, subject, body, to } = await req.json();
     const recipient = to || Deno.env.get("SUPPORT_EMAIL") || "blitzpaysup@gmail.com";
 

@@ -203,10 +203,31 @@ serve(async (req) => {
     if (ticketMatch && userId) {
       try {
         const ticketData = JSON.parse(ticketMatch[1]);
-        const tRef = await createTicket(admin, userId, ticketData.intent || "other", ticketData.message || "User needs support");
+        const intent = ticketData.intent || "other";
+        const message = ticketData.message || "User needs support";
+        const tRef = await createTicket(admin, userId, intent, message);
         if (tRef) {
           ticketRef = tRef;
           reply = reply.replace(ticketMatch[0], `\n\nSupport ticket created: ${tRef}. Our team will review it within 24h.`).trim();
+
+          // Notify admin immediately via email/Telegram so the ticket doesn't sit unseen.
+          try {
+            await fetch(`${SUPA_URL}/functions/v1/send-support-email`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${SUPA_SVC}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                from: "support@blitzpay.ng",
+                subject: `BlitzPay AI Ticket - ${tRef}`,
+                body: `New support ticket created by Blitzi.\n\nUser ID: ${userId}\nIntent: ${intent}\nTicket Ref: ${tRef}\n\nMessage:\n${message}`,
+              }),
+              signal: AbortSignal.timeout(15000),
+            });
+          } catch (notifyErr) {
+            console.error("swift-chat: failed to notify admin for ticket", tRef, notifyErr);
+          }
         }
       } catch (e) {
         console.error("Ticket parse error:", e);
