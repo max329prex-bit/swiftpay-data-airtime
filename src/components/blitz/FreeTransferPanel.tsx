@@ -456,17 +456,49 @@ export default function FreeTransferPanel() {
       }
       if (!session.access_token) throw new Error("Not signed in");
 
-      const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/trigger-email-check`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ deposit_id: deposit.deposit_id }),
-      }));
-      if (!ok || data.error) throw new Error(data.error || "Could not trigger check");
+      const trigger = async () => {
+        let { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+          if (!refreshed) throw new Error("Not signed in");
+          session = refreshed;
+        }
+        if (!session.access_token) throw new Error("Not signed in");
 
-      setStatusMsg(data.message || "Checking for your payment…");
+        const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/trigger-email-check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ deposit_id: deposit.deposit_id }),
+        }));
+        if (!ok || data.error) throw new Error(data.error || "Could not trigger check");
+        return data;
+      };
+
+      // Trigger immediately, then retry every 5 seconds for up to a minute
+      // so the email is caught as soon as OPay delivers it.
+      let attempts = 0;
+      const maxAttempts = 12;
+      const retryMs = 5000;
+      const retryLoop = async () => {
+        while (attempts < maxAttempts) {
+          attempts++;
+          if (!deposit) break;
+          try {
+            const data = await trigger();
+            setStatusMsg(data.message || "Checking for your payment…");
+          } catch (err: any) {
+            console.error("Retry trigger failed:", err);
+          }
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, retryMs));
+          }
+        }
+      };
+      retryLoop();
+
       // Poll every second as a fallback for faster verification.
       pollRef.current = window.setInterval(() => checkStatus(deposit.deposit_id), 1000);
     } catch (e: any) {
