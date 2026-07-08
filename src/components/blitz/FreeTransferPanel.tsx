@@ -122,13 +122,6 @@ export default function FreeTransferPanel() {
   const loadDefaultsAndDeposit = useCallback(async () => {
     if (!user) return;
 
-    // 1. Restore from local storage instantly so the pay screen survives app switches.
-    const stored = loadDeposit(user.id);
-    if (stored) {
-      setDeposit(stored);
-      setStep("pay");
-    }
-
     const [{ data: profileData, error: profileErr }, { data: pendingDeps, error: depErr }] = await Promise.all([
       supabase
         .from("profiles")
@@ -161,9 +154,11 @@ export default function FreeTransferPanel() {
     if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
     if (p.ft_account_number) setSetupAccountNumber(p.ft_account_number);
 
-    // 2. Sync with the database: if a newer/verified deposit is found, use it; otherwise keep the stored one.
     const dep = pendingDeps?.[0];
     if (dep) {
+      // Only restore the pay screen when the database confirms this user still
+      // has a pending deposit. This prevents the same-browser multi-account
+      // case where a cached pay screen from another login could be shown.
       const fee = dep.amount >= 500 ? 0 : Math.round(dep.amount * 0.01 * 100) / 100;
       const restored: FreeTransferDeposit = {
         deposit_id: dep.id,
@@ -179,13 +174,14 @@ export default function FreeTransferPanel() {
       return;
     }
 
-    // No pending deposit in DB and no stored one -> show the normal flow.
-    if (!stored) {
-      if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
-        setStep("amount");
-      } else {
-        setStep("setup");
-      }
+    // No pending deposit in DB: clear any stale cached pay screen for this user
+    // and show the normal setup/amount flow.
+    clearDeposit(user.id);
+    setDeposit(null);
+    if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
+      setStep("amount");
+    } else {
+      setStep("setup");
     }
   }, [user]);
 
@@ -199,23 +195,22 @@ export default function FreeTransferPanel() {
       }
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [loadDefaultsAndDeposit]);
 
-  // Defensive: if the user logs out or switches accounts, clear the pay screen
-  // so a subsequent user never sees a previous user's deposit details.
-  const prevUserRef = useRef<string | null>(null);
-  useEffect(() => {
-    const current = user?.id ?? null;
-    if (prevUserRef.current && prevUserRef.current !== current) {
-      clearDeposit(prevUserRef.current);
-      if (!current) {
+    // Always clear the cached pay screen when the user signs out so the next
+    // account on this browser never sees the previous one's deposit details.
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || (event === "USER_UPDATED" && !session?.user)) {
+        clearDeposit(user?.id);
         setDeposit(null);
         setStep("setup");
       }
-    }
-    prevUserRef.current = current;
-  }, [user]);
+    });
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      authListener?.subscription?.unsubscribe();
+    };
+  }, [loadDefaultsAndDeposit, user?.id]);
 
   const clearAll = useCallback(() => {
     if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
