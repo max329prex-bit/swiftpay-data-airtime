@@ -19,6 +19,8 @@ const BLITZPAY_ACCOUNT = {
   bank: "OPay",
 };
 
+const DEPOSIT_STORAGE_KEY = "blitzpay_free_transfer_deposit";
+
 interface FreeTransferDeposit {
   deposit_id: string;
   amount: number;
@@ -32,6 +34,24 @@ interface FreeTransferProfile {
   ft_bank_name?: string | null;
   ft_account_name?: string | null;
   ft_account_number?: string | null;
+}
+
+function saveDeposit(deposit: FreeTransferDeposit) {
+  try { sessionStorage.setItem(DEPOSIT_STORAGE_KEY, JSON.stringify(deposit)); } catch { /* ignore */ }
+}
+
+function loadDeposit(): FreeTransferDeposit | null {
+  try {
+    const raw = sessionStorage.getItem(DEPOSIT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as FreeTransferDeposit;
+    if (new Date(parsed.expires_at) < new Date()) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function clearDeposit() {
+  try { sessionStorage.removeItem(DEPOSIT_STORAGE_KEY); } catch { /* ignore */ }
 }
 
 async function parseJsonResponse<T = any>(res: Response): Promise<{ ok: boolean; data: T }> {
@@ -76,6 +96,13 @@ export default function FreeTransferPanel() {
   const loadDefaultsAndDeposit = useCallback(async () => {
     if (!user) return;
 
+    // 1. Restore from local storage instantly so the pay screen survives app switches.
+    const stored = loadDeposit();
+    if (stored) {
+      setDeposit(stored);
+      setStep("pay");
+    }
+
     const [{ data: profileData, error: profileErr }, { data: pendingDeps, error: depErr }] = await Promise.all([
       supabase
         .from("profiles")
@@ -108,25 +135,31 @@ export default function FreeTransferPanel() {
     if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
     if (p.ft_account_number) setSetupAccountNumber(p.ft_account_number);
 
+    // 2. Sync with the database: if a newer/verified deposit is found, use it; otherwise keep the stored one.
     const dep = pendingDeps?.[0];
     if (dep) {
       const fee = dep.amount >= 500 ? 0 : Math.round(dep.amount * 0.01 * 100) / 100;
-      setDeposit({
+      const restored: FreeTransferDeposit = {
         deposit_id: dep.id,
         amount: dep.amount,
         fee,
         net_amount: dep.amount - fee,
         expires_at: dep.expires_at,
         pay_to: BLITZPAY_ACCOUNT,
-      });
+      };
+      setDeposit(restored);
+      saveDeposit(restored);
       setStep("pay");
       return;
     }
 
-    if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
-      setStep("amount");
-    } else {
-      setStep("setup");
+    // No pending deposit in DB and no stored one -> show the normal flow.
+    if (!stored) {
+      if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
+        setStep("amount");
+      } else {
+        setStep("setup");
+      }
     }
   }, [user]);
 
@@ -273,14 +306,16 @@ export default function FreeTransferPanel() {
       }));
       if (!ok || data.error) throw new Error(data.error || "Could not create deposit");
 
-      setDeposit({
+      const newDeposit: FreeTransferDeposit = {
         deposit_id: data.deposit_id,
         amount: data.amount,
         fee: data.fee,
         net_amount: data.net_amount,
         expires_at: data.expires_at,
         pay_to: data.pay_to,
-      });
+      };
+      setDeposit(newDeposit);
+      saveDeposit(newDeposit);
       setStep("pay");
     } catch (e: any) {
       toast.error(e.message || "Failed to create deposit");
@@ -317,14 +352,17 @@ export default function FreeTransferPanel() {
       setPollFailures(0);
 
       if (data.status === "verified") {
+        clearDeposit();
         setStep("success");
         setStatusMsg(data.message);
         clearAll();
       } else if (data.status === "expired") {
+        clearDeposit();
         setStep("expired");
         setStatusMsg(data.message);
         clearAll();
       } else if (data.status === "failed") {
+        clearDeposit();
         setStep("failed");
         setStatusMsg(data.message);
         clearAll();
@@ -372,10 +410,12 @@ export default function FreeTransferPanel() {
         }, (payload) => {
           const tx = payload.new as any;
           if (tx?.status === "success") {
+            clearDeposit();
             setStep("success");
             setStatusMsg(`Deposit successful! ${naira(tx.amount)} has been added to your wallet.`);
             clearAll();
           } else if (tx?.status === "failed") {
+            clearDeposit();
             setStep("failed");
             setStatusMsg("Verification failed. Please contact support.");
             clearAll();
