@@ -377,10 +377,10 @@ export default function FreeTransferPanel() {
         setStatusMsg(data.message);
         clearAll();
       } else {
-        // 60 ticks × 3s = 3 minutes, then let the user retry
+        // 300 ticks × 1s = 5 minutes, then let the user retry
         setPollFailures(prev => {
           const next = prev + 1;
-          if (next >= 60) {
+          if (next >= 300) {
             clearAll();
             setStep("pay");
             setStatusMsg("Verification is taking longer than expected. Please tap \"I have made payment\" again in a moment.");
@@ -453,8 +453,8 @@ export default function FreeTransferPanel() {
       if (!ok || data.error) throw new Error(data.error || "Could not trigger check");
 
       setStatusMsg(data.message || "Checking for your payment…");
-      // Poll every 3 seconds as a fallback.
-      pollRef.current = window.setInterval(() => checkStatus(deposit.deposit_id), 3000);
+      // Poll every second as a fallback for faster verification.
+      pollRef.current = window.setInterval(() => checkStatus(deposit.deposit_id), 1000);
     } catch (e: any) {
       toast.error(e.message || "Failed to check payment");
       setStep("pay");
