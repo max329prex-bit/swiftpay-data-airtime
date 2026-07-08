@@ -288,8 +288,14 @@ export default function FreeTransferPanel() {
 
     setSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not signed in");
+      // Refresh the token before calling the edge function to avoid stale/expired tokens after deploys/app switches.
+      let { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr || !session) {
+        const { data: { session: refreshed }, error: refreshErr } = await supabase.auth.refreshSession();
+        if (refreshErr || !refreshed) throw new Error("Not signed in");
+        session = refreshed;
+      }
+      if (!session.access_token) throw new Error("Not signed in");
 
       const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/create-free-transfer`, {
         method: "POST",
@@ -326,8 +332,12 @@ export default function FreeTransferPanel() {
 
   async function checkStatus(depositId: string) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+        session = refreshed ?? null;
+      }
+      if (!session?.access_token) return;
       const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/check-free-transfer`, {
         method: "POST",
         headers: {
@@ -424,8 +434,13 @@ export default function FreeTransferPanel() {
         .subscribe();
       channelRef.current = ch;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not signed in");
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+        if (!refreshed) throw new Error("Not signed in");
+        session = refreshed;
+      }
+      if (!session.access_token) throw new Error("Not signed in");
 
       const { ok, data } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/trigger-email-check`, {
         method: "POST",
