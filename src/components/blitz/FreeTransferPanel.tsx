@@ -720,16 +720,16 @@ export default function FreeTransferPanel() {
             <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4 flex gap-3">
               <Info className="w-5 h-5 text-emerald-400 shrink-0" />
               <p className="text-sm text-emerald-100/80">
-                Make <strong>exact amount</strong> from your <strong>{override ? overrideBankName : profile.ft_bank_name}</strong> bank to this account. Once done, come back and click <strong>I have made payment</strong>.
+                Send the <strong>EXACT amount including the kobo</strong> (e.g. {nairaExact(deposit.amount)}) from your <strong>{override ? overrideBankName : profile.ft_bank_name}</strong> bank. The kobo is unique to <em>your</em> deposit — without it we can't credit you.
               </p>
             </div>
 
             <div className="rounded-2xl bg-secondary/30 border border-emerald-500/20 p-5 space-y-4">
               <div className="text-center">
                 <div className="text-xs text-muted-foreground">Send exactly</div>
-                <div className="text-3xl font-bold text-emerald-400">{naira(deposit.amount)}</div>
+                <div className="text-3xl font-bold text-emerald-400">{nairaExact(deposit.amount)}</div>
                 {deposit.fee > 0 ? (
-                  <div className="text-xs text-orange-300/80 mt-1">1% fee applies ({naira(deposit.fee)})</div>
+                  <div className="text-xs text-orange-300/80 mt-1">1% fee applies ({nairaExact(deposit.fee)})</div>
                 ) : (
                   <div className="text-xs text-emerald-300/80 mt-1">Free deposit</div>
                 )}
