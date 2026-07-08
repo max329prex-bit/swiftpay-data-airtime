@@ -15,7 +15,6 @@ import { Gift } from "lucide-react";
 
 interface VAResult {
   success: boolean;
-  type: "static" | "dynamic";
   needs_kyc?: boolean;
   account_number: string;
   account_name: string;
@@ -37,13 +36,12 @@ const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
 async function callTopup(
   accessToken: string,
-  type: "static" | "dynamic",
   kyc?: KYCPayload
 ): Promise<VAResult> {
   const res = await fetch(`${SUPA_URL}/functions/v1/payvessel-topup`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ type, ...kyc })
+    body: JSON.stringify({ type: "static", ...kyc })
   });
   const raw = await res.text();
   try { return JSON.parse(raw); }
@@ -54,7 +52,7 @@ export default function Wallet() {
   const { balance, reserved, available, refresh } = useWallet();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"static" | "dynamic" | "free">("free");
+  const [tab, setTab] = useState<"static" | "free">("free");
 
   // Static VA state
   const [staticVA, setStaticVA]        = useState<VAResult | null>(null);
@@ -73,14 +71,6 @@ export default function Wallet() {
   const [kycSubmitting, setKycSubmit]   = useState(false);
   const [kycError, setKycError]         = useState<string | null>(null);
 
-  // Dynamic VA state
-  const [dynamicVA, setDynamicVA]        = useState<VAResult | null>(null);
-  const [dynamicLoading, setDynLoad]     = useState(false);
-  const [dynamicError, setDynamicError]  = useState<string | null>(null);
-  const [copiedDynamic, setCopiedDynamic] = useState(false);
-  const [countdown, setCountdown]        = useState<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // Real-time wallet update
   useEffect(() => {
     const ch = supabase.channel("wallet-live")
@@ -89,12 +79,11 @@ export default function Wallet() {
         if (n?.type === "wallet_fund" && n?.status === "success") {
           refresh();
           toast.success("Deposit confirmed! Balance updated.");
-          if (dynamicVA) { setDynamicVA(null); clearCountdown(); }
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [refresh, dynamicVA]);
+  }, [refresh]);
 
   // Load static VA on mount
   useEffect(() => { fetchStatic(); }, []);
@@ -116,24 +105,6 @@ export default function Wallet() {
     }
     loadProfile();
   }, [showKYC, user, kycLoaded]);
-
-  function clearCountdown() {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setCountdown(null);
-  }
-
-  function startCountdown(expiresAt: string) {
-    clearCountdown();
-    const update = () => {
-      const secs = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-      setCountdown(secs);
-      if (secs <= 0) { clearCountdown(); setDynamicVA(null); toast.info("Instant account expired."); }
-    };
-    update();
-    timerRef.current = setInterval(update, 1000);
-  }
-
-  useEffect(() => () => clearCountdown(), []);
 
   const fetchStatic = useCallback(async (silent = false) => {
     if (!silent) setStaticLoad(true);
@@ -202,36 +173,10 @@ export default function Wallet() {
     } finally { setKycSubmit(false); }
   }, [kycName, kycPhone, kycNIN, kycBVN]);
 
-  const fetchDynamic = useCallback(async () => {
-    setDynLoad(true);
-    setDynamicError(null);
-    clearCountdown();
-    setDynamicVA(null);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not signed in");
-      const data = await callTopup(session.access_token, "dynamic");
-      if (!data.success) throw new Error(data.error || "Could not create instant account");
-      setDynamicVA(data);
-      if (data.expires_at) startCountdown(data.expires_at);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Something went wrong";
-      setDynamicError(msg);
-      toast.error(msg);
-    } finally { setDynLoad(false); }
-  }, []);
-
-  async function copyText(text: string, which: "static" | "dynamic") {
+  async function copyText(text: string) {
     await navigator.clipboard.writeText(text);
-    if (which === "static") { setCopiedStatic(true); setTimeout(() => setCopiedStatic(false), 2500); }
-    else { setCopiedDynamic(true); setTimeout(() => setCopiedDynamic(false), 2500); }
+    setCopiedStatic(true); setTimeout(() => setCopiedStatic(false), 2500);
     toast.success("Copied!");
-  }
-
-  function fmtCountdown(s: number | null) {
-    if (s === null) return "";
-    const m = Math.floor(s / 60), sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, "0")}`;
   }
 
   const AccountCard = ({ va, copied, onCopy, onRefresh, showRefresh = false }:
@@ -499,7 +444,7 @@ export default function Wallet() {
             {/* Account card */}
             {!staticLoading && staticVA && (
               <AccountCard va={staticVA} copied={copiedStatic}
-                onCopy={() => copyText(staticVA.account_number, "static")} />
+                onCopy={() => copyText(staticVA.account_number)} />
             )}
 
             {staticVA && (
