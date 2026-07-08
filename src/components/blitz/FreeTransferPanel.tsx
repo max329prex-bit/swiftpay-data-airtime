@@ -155,7 +155,7 @@ export default function FreeTransferPanel() {
       console.error("FreeTransfer: could not load pending deposit", depErr);
     }
 
-    const p = profileData ?? {};
+    const p: FreeTransferProfile = (profileData as FreeTransferProfile | null) ?? {};
     setProfile(p);
     if (p.ft_bank_name) setSetupBankName(p.ft_bank_name);
     if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
