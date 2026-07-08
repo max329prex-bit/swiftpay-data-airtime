@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ImapFlow } from "npm:imapflow@1.0.164";
+import PostalMime from "npm:postal-mime@2.4.3";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -76,10 +77,17 @@ async function scanOpayEmails() {
           continue;
         }
 
-        const body = msg.source?.toString() ?? "";
+        const rawBody = msg.source?.toString() ?? "";
+        let body = rawBody;
+        try {
+          const mime = await PostalMime.parse(msg.source as Uint8Array);
+          body = mime.text ?? (mime.html ? stripHtml(mime.html) : rawBody);
+        } catch (parseErr) {
+          console.warn(`[scan-opay-emails] postal-mime parse failed for uid ${uid}: ${parseErr}`);
+        }
         const parsed = parseOpayEmail(body);
         if (!parsed.amount || !parsed.senderName || !parsed.transactionNumber) {
-          skipped.push({ uid, reason: "parse_failed", snippet: body.slice(0, 120) });
+          skipped.push({ uid, reason: "parse_failed", snippet: body.slice(0, 200) });
           continue;
         }
 
@@ -117,14 +125,15 @@ async function scanOpayEmails() {
           const nameOk = nameMatches(parsed.senderName, dep.account_name);
           const bankOk = parsed.bankName ? bankMatches(parsed.bankName, dep.bank_name) : false;
           const acctOk = parsed.senderAccount ? accountMatches(parsed.senderAccount, dep.account_number) : false;
-          if (nameOk && (bankOk || acctOk)) {
+          // Match by name + (bank or account), OR by bank + account number together.
+          if ((nameOk && (bankOk || acctOk)) || (bankOk && acctOk)) {
             matched = dep;
             break;
           }
         }
 
         if (!matched) {
-          skipped.push({ uid, reason: "no_name_or_account_match", transaction_number: parsed.transactionNumber, amount: parsed.amount, sender: parsed.senderName });
+          skipped.push({ uid, reason: "no_name_or_account_match", transaction_number: parsed.transactionNumber, amount: parsed.amount, sender: parsed.senderName, bank: parsed.bankName, account: parsed.senderAccount });
           continue;
         }
 
@@ -184,6 +193,18 @@ async function scanOpayEmails() {
   }
 
   return { success: true, processed: processed.length, deposits: processed, skipped: skipped.length, skip_reasons: skipped };
+}
+
+function stripHtml(html: string) {
+  return html
+    .replace(/<style[^>]*>.*?<\/style>/gis, "")
+    .replace(/<script[^>]*>.*?<\/script>/gis, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#160;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseOpayEmail(body: string) {
