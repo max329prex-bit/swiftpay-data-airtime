@@ -107,7 +107,11 @@ async function scanOpayEmails(targetDepositId?: string | null) {
         continue;
       }
       try {
-        const searchCriteria: any = { since };
+        // Only search unread OPay emails. Once an email has been inspected it is
+        // either left unread (no match) or marked read after a successful match.
+        // This prevents already-credited or already-read emails from being
+        // re-evaluated against new deposits.
+        const searchCriteria: any = { unseen: true, since };
         const allUids = await client.search(searchCriteria);
         const uids = allUids.slice(-maxMessages); // newest messages only
         console.log(`[scan-opay-emails] folder=${folder} messages since ${since.toISOString()}: ${allUids.length}, scanning ${uids.length}`);
