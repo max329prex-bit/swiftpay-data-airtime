@@ -35,6 +35,18 @@ jobs:
             GMAIL_APP_PASSWORD="${{ secrets.GMAIL_APP_PASSWORD }}" \
             OPAY_SENDER="${{ secrets.OPAY_SENDER }}"
 
+      - name: Repair migration history
+        if: github.ref == 'refs/heads/main'
+        run: |
+          supabase link --project-ref $SUPABASE_PROJECT_ID
+          # Remote has versions that were renamed locally; mark them reverted.
+          supabase migration repair --status reverted 20260506103135 20260506103524 20260507220520 20260511232320 20260626225207 || true
+          # Mark every local migration as applied so only new migrations are pushed.
+          for f in supabase/migrations/*.sql; do
+            v=$(basename "$f" | cut -d'_' -f1)
+            supabase migration repair --status applied "$v" || true
+          done
+
       - name: Apply Migrations (dev only)
         if: github.ref == 'refs/heads/main'
         run: |
