@@ -24,9 +24,8 @@ serve(async (req) => {
   const auth = req.headers.get("authorization") ?? "";
   const cronSecret = req.headers.get("x-cron-secret") ?? "";
   const expectedCron = Deno.env.get("CRON_SECRET") ?? "";
-  const fallbackCron = "cron-blitzpay-scan-emails-2026";
   const isServiceAuth = auth.includes(SUPABASE_SVC);
-  const isCron = (expectedCron && cronSecret === expectedCron) || cronSecret === fallbackCron;
+  const isCron = expectedCron && cronSecret === expectedCron;
   if (!isServiceAuth && !isCron) {
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: CORS });
   }
@@ -141,8 +140,14 @@ async function scanOpayEmails() {
               const nameOk = nameMatches(parsed.senderName, dep.account_name);
               const bankOk = parsed.bankName ? bankMatches(parsed.bankName, dep.bank_name) : false;
               const acctOk = parsed.senderAccount ? accountMatches(parsed.senderAccount, dep.account_number) : false;
-              // Match by name + (bank or account), OR by bank + account number together.
-              if ((nameOk && (bankOk || acctOk)) || (bankOk && acctOk)) {
+              // When the email gives a sender account number, require it + bank to match.
+              // Only fall back to name+bank when the account is masked/redacted.
+              if (parsed.senderAccount) {
+                if (acctOk && bankOk) {
+                  matched = dep;
+                  break;
+                }
+              } else if (nameOk && bankOk) {
                 matched = dep;
                 break;
               }
@@ -265,13 +270,21 @@ function bankMatches(a: string, b: string): boolean {
 
 function accountMatches(masked: string, stored: string): boolean {
   const s = stored.replace(/\D/g, "");
-  const m = masked.replace(/[\s]/g, "");
+  const m = masked.replace(/[\s]/g, "").replace(/\D/g, "");
   if (s.length < 6) return false;
-  const parts = m.split(/\*+/);
+  const parts = m.split(/\*+/).filter(Boolean);
+  if (parts.length === 1) {
+    return s === m;
+  }
   if (parts.length >= 2) {
-    const pre = parts[0], suf = parts[parts.length - 1];
-    if (pre && s.startsWith(pre)) return true;
-    if (suf && s.endsWith(suf)) return true;
+    const pre = parts[0];
+    const suf = parts[parts.length - 1];
+    // When both prefix and suffix are present, require both to match.
+    if (pre && suf) {
+      return s.startsWith(pre) && s.endsWith(suf);
+    }
+    if (pre) return s.startsWith(pre);
+    if (suf) return s.endsWith(suf);
   }
   return s.slice(-4) === m.slice(-4);
 }

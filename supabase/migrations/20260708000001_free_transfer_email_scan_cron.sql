@@ -1,19 +1,8 @@
 -- Migration: background email scan for Free Transfer verification
 -- Run date: 2026-07-08
--- Scans the OPay Gmail inbox every minute so deposits are verified as soon as the email arrives.
+-- NOTE: The cron job is set up outside this migration so the CRON_SECRET is not committed.
+-- Use the Supabase CLI or dashboard to schedule a minute-cron that calls the
+-- scan-opay-emails edge function with the x-cron-secret header set to the value of CRON_SECRET.
 
--- Remove existing job if it exists so this migration is idempotent.
+-- Remove any legacy job that used the hardcoded fallback secret.
 SELECT cron.unschedule('blitzpay-scan-opay-emails');
-
--- Schedule a new scan every minute using the CRON_SECRET env var.
-SELECT cron.schedule(
-  'blitzpay-scan-opay-emails',
-  '* * * * *',
-  $
-    SELECT net.http_post(
-      url := 'https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/scan-opay-emails',
-      headers := '{"Content-Type": "application/json", "x-cron-secret": "cron-blitzpay-scan-emails-2026"}'::jsonb,
-      body := '{}'::jsonb
-    )
-  $
-);
