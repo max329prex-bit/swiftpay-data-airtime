@@ -109,5 +109,11 @@ export function useNotifications(): {
     );
   }
 
-  return { notifications, unreadCount, markRead, loading };
+  async function markAllRead() {
+    if (!user) return;
+    await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  }
+
+  return { notifications, unreadCount, markRead, markAllRead, loading };
 }

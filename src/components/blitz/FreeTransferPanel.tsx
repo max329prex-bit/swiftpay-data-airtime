@@ -732,6 +732,13 @@ export default function FreeTransferPanel() {
 
         {step === "pay" && deposit && (
           <motion.div key="pay" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 flex gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+              <p className="text-sm text-amber-100/80">
+                <strong>After you send the money, come back to this page and tap "I have made payment" so we can verify your deposit.</strong>
+              </p>
+            </div>
+
             <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4 flex gap-3">
               <Info className="w-5 h-5 text-emerald-400 shrink-0" />
               <p className="text-sm text-emerald-100/80">

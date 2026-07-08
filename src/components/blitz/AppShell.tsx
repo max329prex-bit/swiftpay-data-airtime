@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "./Logo";
 import { BoltLoader, SplashScreen } from "./BoltLoader";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useBroadcast } from "@/hooks/useBroadcast";
+import { useBroadcast, useNotifications } from "@/hooks/useBroadcast";
 import { naira } from "@/lib/networks";
 import { motion, AnimatePresence } from "framer-motion";
 import Index from "../../pages/Index.tsx";
@@ -62,6 +62,7 @@ export function AppShell() {
   const [chatBusy, setChatBusy] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const broadcast = useBroadcast();
+  const { notifications: dbNotifs, markAllRead: markAllDbRead } = useNotifications();
   usePushNotifications();
 
   useEffect(() => {
@@ -129,11 +130,27 @@ export function AppShell() {
     });
   }, [broadcast, broadcastDismissed]);
 
+  // Merge DB notifications (support-ticket responses, etc.) into the local panel
+  useEffect(() => {
+    if (!user) return;
+    const dbMapped: Notif[] = dbNotifs.map(n => ({
+      id: n.id,
+      title: n.title || "Support",
+      body: n.message,
+      read: n.is_read,
+    }));
+    setNotifs(prev => {
+      const local = prev.filter(n => !dbMapped.some(d => d.id === n.id));
+      return [...local, ...dbMapped];
+    });
+  }, [user, dbNotifs]);
+
   const unread = notifs.filter(n => !n.read).length;
 
-  function markAllRead() {
+  async function markAllRead() {
     notifs.forEach(n => localStorage.setItem(`bp_nr_${n.id}`, "1"));
     setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+    await markAllDbRead();
   }
 
   useEffect(() => {

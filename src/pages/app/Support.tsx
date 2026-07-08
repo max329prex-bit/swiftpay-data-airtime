@@ -4,7 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Mail, CheckCircle2, AlertTriangle, Loader2, Send } from "lucide-react";
+import { MessageCircle, Mail, CheckCircle2, AlertTriangle, Loader2, Send, Ticket } from "lucide-react";
+
+type TicketRow = {
+  id: string;
+  ticket_ref: string;
+  intent: string;
+  status: string;
+  message: string | null;
+  admin_response: string | null;
+  responded_at: string | null;
+  created_at: string;
+};
 
 export default function Support() {
   const { user } = useAuth();
@@ -13,6 +24,8 @@ export default function Support() {
   const [submitting, setSubmitting] = useState(false);
   const [ticketRef, setTicketRef] = useState<string | null>(null);
   const [hasDegradedPlans, setHasDegradedPlans] = useState(false);
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -26,7 +39,20 @@ export default function Support() {
           setHasDegradedPlans(true);
         }
       });
+    loadTickets();
   }, [user]);
+
+  async function loadTickets() {
+    if (!user) return;
+    setLoadingTickets(true);
+    const { data } = await supabase.from("support_tickets")
+      .select("id, ticket_ref, intent, status, message, admin_response, responded_at, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setTickets((data as TicketRow[]) ?? []);
+    setLoadingTickets(false);
+  }
 
   async function submitTicket() {
     if (!message.trim() || !user) return;
@@ -48,6 +74,8 @@ export default function Support() {
           body: `New support ticket from ${user.email || "user"}:\n\n${message.trim()}\n\nTicket Ref: ${(data as Record<string, string>).ticket_ref}\nUser ID: ${user.id}`,
         },
       }).catch(() => { /* email is best-effort */ });
+
+      loadTickets();
 
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to submit ticket");
@@ -75,6 +103,34 @@ export default function Support() {
             <strong>Service Notice:</strong> Some plans are temporarily paused. Funds are safe. Avoid retrying — we're on it.
           </div>
         </motion.div>
+      )}
+
+      {/* My tickets */}
+      {!loadingTickets && tickets.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">My tickets</h2>
+          {tickets.map(t => (
+            <div key={t.id} className="glass rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Ticket className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-mono font-semibold">{t.ticket_ref}</span>
+                </div>
+                <span className={"text-[10px] px-2 py-0.5 rounded-full capitalize " + (t.status === "resolved" ? "bg-green-500/10 text-green-400" : t.status === "in_progress" ? "bg-yellow-500/10 text-yellow-400" : "bg-red-500/10 text-red-400")}>
+                  {t.status.replace(/_/g, " ")}
+                </span>
+              </div>
+              <div className="text-sm break-words">{t.message}</div>
+              {t.admin_response && (
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-emerald-400 mb-1">Admin response</div>
+                  <div className="text-sm text-emerald-100/80 break-words">{t.admin_response}</div>
+                  {t.responded_at && <div className="text-[10px] text-muted-foreground mt-1">{new Date(t.responded_at).toLocaleString()}</div>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       <AnimatePresence mode="wait">
