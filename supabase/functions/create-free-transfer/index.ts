@@ -49,13 +49,13 @@ serve(async (req) => {
 
     const svc = createClient(SUPABASE_URL, SUPABASE_SVC);
 
-    // Expire any existing pending deposits for this user so a user can only
-    // have one active deposit at a time. This reduces confusion and avoids
-    // stale deposits being matched by a later transfer.
+    // Expire any existing reserved or pending sessions for this user so a user
+    // can only have one active deposit at a time. This reduces confusion and
+    // avoids stale sessions being matched by a later transfer.
     await svc.from("free_transfer_deposits")
       .update({ status: "expired" })
       .eq("user_id", user.id)
-      .eq("status", "pending")
+      .in("status", ["reserved", "pending"])
       .gt("expires_at", new Date().toISOString());
 
     // Pick a UNIQUE kobo-suffixed amount so this deposit can never be
@@ -102,7 +102,9 @@ serve(async (req) => {
       }), { status: 429, headers: CORS });
     }
 
-    // Create new pending deposit
+    // Create a reserved payment session. The amount is held, but the deposit
+    // is not yet visible to the email scanner. It becomes 'pending' only
+    // after the user taps "I have made payment".
     const { data: dep, error: depErr } = await svc
       .from("free_transfer_deposits")
       .insert({
@@ -111,6 +113,7 @@ serve(async (req) => {
         bank_name:      bank_name.trim().toUpperCase(),
         account_name:   account_name.trim().toUpperCase(),
         account_number: account_number.replace(/\D/g, ""),
+        status:         "reserved",
       })
       .select("id, expires_at, amount")
       .single();

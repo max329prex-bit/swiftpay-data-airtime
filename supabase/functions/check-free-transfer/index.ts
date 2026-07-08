@@ -49,12 +49,13 @@ serve(async (req) => {
     }
 
     // Auto-expire
-    if (dep.status === "pending" && new Date(dep.expires_at) < new Date()) {
+    if ((dep.status === "pending" || dep.status === "reserved") && new Date(dep.expires_at) < new Date()) {
       await svc.from("free_transfer_deposits").update({ status: "expired" }).eq("id", deposit_id);
       dep.status = "expired";
     }
 
     const messages: Record<string, string> = {
+      reserved: "Waiting for you to confirm payment. Please tap \"I have made payment\" when done.",
       pending:  "Verifying your payment... This usually takes under 2 minutes.",
       verified: `Deposit successful! ₦${Number(dep.credited_amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })} has been added to your wallet.`,
       expired:  "This deposit has expired (12 hours). Please contact support with your transfer screenshot.",

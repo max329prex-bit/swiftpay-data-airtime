@@ -122,7 +122,7 @@ export default function FreeTransferPanel() {
   const loadDefaultsAndDeposit = useCallback(async () => {
     if (!user) return;
 
-    const [{ data: profileData, error: profileErr }, { data: pendingDeps, error: depErr }] = await Promise.all([
+    const [{ data: profileData, error: profileErr }, { data: reservedDeps, error: depErr }] = await Promise.all([
       supabase
         .from("profiles")
         .select("ft_bank_name, ft_account_name, ft_account_number")
@@ -132,7 +132,7 @@ export default function FreeTransferPanel() {
         .from("free_transfer_deposits")
         .select("id, amount, status, expires_at")
         .eq("user_id", user.id)
-        .eq("status", "pending")
+        .eq("status", "reserved")
         .gt("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false })
         .limit(1),
@@ -145,7 +145,7 @@ export default function FreeTransferPanel() {
       return;
     }
     if (depErr) {
-      console.error("FreeTransfer: could not load pending deposit", depErr);
+      console.error("FreeTransfer: could not load reserved deposit", depErr);
     }
 
     const p: FreeTransferProfile = (profileData as FreeTransferProfile | null) ?? {};
@@ -154,11 +154,11 @@ export default function FreeTransferPanel() {
     if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
     if (p.ft_account_number) setSetupAccountNumber(p.ft_account_number);
 
-    const dep = pendingDeps?.[0];
+    const dep = reservedDeps?.[0];
     if (dep) {
-      // Only restore the pay screen when the database confirms this user still
-      // has a pending deposit. This prevents the same-browser multi-account
-      // case where a cached pay screen from another login could be shown.
+      // Only restore the pay screen from a reserved session owned by the
+      // current user. This prevents the same-browser multi-account leak where
+      // a cached pay screen from another login could be shown.
       const fee = dep.amount >= 500 ? 0 : Math.round(dep.amount * 0.01 * 100) / 100;
       const restored: FreeTransferDeposit = {
         deposit_id: dep.id,
@@ -174,7 +174,7 @@ export default function FreeTransferPanel() {
       return;
     }
 
-    // No pending deposit in DB: clear any stale cached pay screen for this user
+    // No reserved session in DB: clear any stale cached pay screen for this user
     // and show the normal setup/amount flow.
     clearDeposit(user.id);
     setDeposit(null);
@@ -456,10 +456,41 @@ export default function FreeTransferPanel() {
     if (!deposit || !user) return;
 
     setStep("checking");
-    setStatusMsg("Checking for your payment…");
+    setStatusMsg("Confirming your payment…");
     clearAll();
 
     try {
+      // 1. Confirm the reserved session first. This transitions it to 'pending',
+      //    creates the verifying transaction, and clears the cached session.
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+        if (!refreshed) throw new Error("Not signed in");
+        session = refreshed;
+      }
+      if (!session.access_token) throw new Error("Not signed in");
+
+      const { ok: confirmOk, data: confirmData } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/confirm-free-transfer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ deposit_id: deposit.deposit_id }),
+      }));
+      if (!confirmOk || confirmData.error) throw new Error(confirmData.error || "Could not confirm payment");
+      if (confirmData.status === "expired") {
+        clearDeposit(user?.id);
+        setStep("expired");
+        setStatusMsg(confirmData.message);
+        return;
+      }
+
+      // The cached pay screen is no longer a reserved session; clear it so a
+      // logout or account switch on a shared browser never resurrects it.
+      clearDeposit(user?.id);
+      setStatusMsg(confirmData.message || "Checking for your payment…");
+
       // Subscribe to realtime first so we don't miss the status update.
       const ch = supabase.channel(`free-transfer-${deposit.deposit_id}`)
         .on("postgres_changes", {
@@ -483,14 +514,6 @@ export default function FreeTransferPanel() {
         })
         .subscribe();
       channelRef.current = ch;
-
-      let { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-        if (!refreshed) throw new Error("Not signed in");
-        session = refreshed;
-      }
-      if (!session.access_token) throw new Error("Not signed in");
 
       const trigger = async () => {
         let { data: { session } } = await supabase.auth.getSession();

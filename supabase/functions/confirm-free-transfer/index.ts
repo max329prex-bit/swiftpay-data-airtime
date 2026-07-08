@@ -37,19 +37,16 @@ serve(async (req) => {
 
     const svc = createClient(SUPABASE_URL, SUPABASE_SVC);
 
-    // Verify deposit belongs to this user and is still pending
+    // Verify the reserved session belongs to this user and is still active.
     const { data: dep, error: depErr } = await svc
       .from("free_transfer_deposits")
       .select("id, user_id, status, amount, expires_at")
       .eq("id", deposit_id)
+      .eq("user_id", user.id)
       .single();
 
     if (depErr || !dep) {
       return new Response(JSON.stringify({ error: "Deposit not found" }), { status: 404, headers: CORS });
-    }
-
-    if (dep.user_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: CORS });
     }
 
     if (new Date(dep.expires_at) < new Date()) {
@@ -57,45 +54,66 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: false,
         status: "expired",
-        message: "This deposit has expired. Please contact support with your transfer screenshot.",
+        message: "This deposit has expired. Please create a new one.",
       }), { headers: CORS });
     }
 
-    if (dep.status !== "pending") {
+    if (dep.status !== "reserved") {
       return new Response(JSON.stringify({
-        success: dep.status === "verified",
+        success: dep.status === "verified" || dep.status === "pending",
         status: dep.status,
         message: dep.status === "verified"
           ? "This deposit is already verified."
-          : "This deposit is no longer pending.",
+          : dep.status === "pending"
+            ? "This deposit is already being checked."
+            : "This deposit can no longer be confirmed.",
       }), { headers: CORS });
     }
 
-    // Trigger the IMAP scanner directly
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/scan-opay-emails`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${SUPABASE_SVC}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({}),
-      signal: AbortSignal.timeout(60000),
-    });
+    // Transition to pending: this is the moment the user claims to have paid.
+    const { error: updateErr } = await svc
+      .from("free_transfer_deposits")
+      .update({ status: "pending" })
+      .eq("id", deposit_id)
+      .eq("status", "reserved"); // guard against races
 
-    let scanResult: any = {};
-    try { scanResult = await resp.json(); } catch { /* ignore */ }
+    if (updateErr) {
+      return new Response(JSON.stringify({ error: "Could not confirm deposit: " + updateErr.message }), { status: 500, headers: CORS });
+    }
+
+    // Create the verifying transaction so the user sees it in History immediately.
+    const fee = dep.amount >= 500 ? 0 : Math.round(dep.amount * 0.01 * 100) / 100;
+    const net = dep.amount - fee;
+    const ref = `FT-${deposit_id}`;
+    const { error: txErr } = await svc.from("transactions").upsert({
+      user_id: dep.user_id,
+      type: "wallet_fund",
+      amount: net,
+      reference: ref,
+      status: "verifying",
+      meta: {
+        provider: "free_transfer",
+        gross_amount: dep.amount,
+        fee,
+        net_amount: net,
+        deposit_id,
+      },
+    }, { onConflict: "reference" });
+
+    if (txErr) {
+      console.error("confirm-free-transfer: transaction upsert failed", txErr);
+      return new Response(JSON.stringify({ error: "Could not record pending transaction" }), { status: 500, headers: CORS });
+    }
 
     return new Response(JSON.stringify({
-      success: resp.ok && scanResult?.success !== false,
-      status: "triggered",
-      emails_processed: scanResult?.processed ?? 0,
-      message: resp.ok
-        ? "Checking for your payment now. This usually takes a few seconds."
-        : "Could not reach the email checker. Please wait for the automatic check.",
+      success: true,
+      status: "pending",
+      deposit_id,
+      message: "Payment confirmed. Checking for your transfer now...",
     }), { headers: CORS });
 
   } catch (err) {
-    console.error("trigger-email-check:", err);
+    console.error("confirm-free-transfer:", err);
     return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: CORS });
   }
 });
