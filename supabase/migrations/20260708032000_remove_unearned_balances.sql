@@ -27,7 +27,7 @@ BEGIN
       user_id, type, amount, reference, status, meta
     ) VALUES (
       uid,
-      'wallet_fund',
+      'adjustment',
       -bal,
       'ADJ-' || uid::text || '-' || ts,
       'success',
