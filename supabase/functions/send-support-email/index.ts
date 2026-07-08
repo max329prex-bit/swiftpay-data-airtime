@@ -16,16 +16,23 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     const isServiceRole = SUPA_SVC && authHeader === `Bearer ${SUPA_SVC}`;
+    let userEmail: string | null = null;
     if (!isServiceRole) {
       const uc = createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: authHeader } } });
       const { data: { user }, error: authErr } = await uc.auth.getUser();
       if (authErr || !user) {
         return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
       }
+      userEmail = user.email ?? null;
     }
 
     const { from, subject, body, to } = await req.json();
-    const recipient = to || Deno.env.get("SUPPORT_EMAIL") || "blitzpaysup@gmail.com";
+    const supportEmail = Deno.env.get("SUPPORT_EMAIL") || "blitzpaysup@gmail.com";
+    // Non-service-role callers (end users) may only send to the fixed support inbox.
+    const recipient = isServiceRole ? (to || supportEmail) : supportEmail;
+    // Always send from the verified support address; user email is shown in the body/subject.
+    const senderEmail = "support@blitzpay.ng";
+    const bodyWithSender = userEmail ? `${body || ""}\n\n— User email: ${userEmail}` : (body || "");
 
     // Send via Brevo transactional email API
     const BREVO_KEY = Deno.env.get("BREVO_API_KEY") ?? "";
@@ -37,10 +44,10 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sender: { name: "BlitzPay Support", email: from || "support@blitzpay.ng" },
+          sender: { name: "BlitzPay Support", email: senderEmail },
           to: [{ email: recipient }],
           subject: subject || "BlitzPay Support",
-          textContent: body || "",
+          textContent: bodyWithSender,
         }),
         signal: AbortSignal.timeout(15000),
       });
@@ -62,7 +69,7 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: TG_CHAT,
-          text: `✉️ *BlitzPay Support Ticket*\n\nFrom: ${from || "unknown"}\nSubject: ${subject || "Support"}\n\n${body?.slice(0, 800) || ""}`,
+          text: `✉️ *BlitzPay Support Ticket*\n\nFrom: ${senderEmail}${userEmail ? ` (${userEmail})` : ""}\nSubject: ${subject || "Support"}\n\n${bodyWithSender?.slice(0, 800) || ""}`,
           parse_mode: "Markdown",
         }),
       });

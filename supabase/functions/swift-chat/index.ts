@@ -127,6 +127,7 @@ serve(async (req) => {
 
     let sysPrompt = BASE_SYS;
     let userId: string | null = null;
+    let userEmail: string | null = null;
     let ticketRef: string | null = null;
 
     const authHeader = req.headers.get("Authorization");
@@ -136,6 +137,7 @@ serve(async (req) => {
         const { data: { user } } = await uc.auth.getUser();
         if (user) {
           userId = user.id;
+          userEmail = user.email ?? null;
           const { data: wallet } = await uc.from("wallets").select("balance, refund_balance").eq("user_id", user.id).maybeSingle();
           const { data: txs } = await uc.from("transactions")
             .select("type, network, amount, status, reference, created_at")
@@ -221,7 +223,7 @@ serve(async (req) => {
               body: JSON.stringify({
                 from: "support@blitzpay.ng",
                 subject: `BlitzPay AI Ticket - ${tRef}`,
-                body: `New support ticket created by Blitzi.\n\nUser ID: ${userId}\nIntent: ${intent}\nTicket Ref: ${tRef}\n\nMessage:\n${message}`,
+                body: `New support ticket created by Blitzi.\n\nUser ID: ${userId}${userEmail ? `\nUser email: ${userEmail}` : ""}\nIntent: ${intent}\nTicket Ref: ${tRef}\n\nMessage:\n${message}`,
               }),
               signal: AbortSignal.timeout(15000),
             });
