@@ -75,7 +75,7 @@ export default function Wallet() {
   useEffect(() => {
     const ch = supabase.channel("wallet-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, (p) => {
-        const n = p.new as any;
+        const n = p.new as { type?: string; status?: string };
         if (n?.type === "wallet_fund" && n?.status === "success") {
           refresh();
           toast.success("Deposit confirmed! Balance updated.");
@@ -84,9 +84,6 @@ export default function Wallet() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [refresh]);
-
-  // Load static VA on mount
-  useEffect(() => { fetchStatic(); }, []);
 
   // Auto-fill KYC form with user data when KYC is shown
   useEffect(() => {
@@ -112,7 +109,7 @@ export default function Wallet() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in");
-      const data = await callTopup(session.access_token, "static");
+      const data = await callTopup(session.access_token);
       if (data.needs_kyc) {
         setShowKYC(true);
         return;
@@ -131,6 +128,9 @@ export default function Wallet() {
       if (!silent && !msg.startsWith("KYC_REQUIRED:")) toast.error(msg);
     } finally { setStaticLoad(false); }
   }, []);
+
+  // Load static VA on mount
+  useEffect(() => { fetchStatic(); }, [fetchStatic]);
 
   const submitKYC = useCallback(async () => {
     const name  = kycName.trim();
@@ -156,7 +156,7 @@ export default function Wallet() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not signed in");
-      const data = await callTopup(session.access_token, "static", {
+      const data = await callTopup(session.access_token, {
         full_name: name, phone, nin, bvn: bvn || undefined
       });
       if (data.needs_kyc) {
@@ -311,7 +311,7 @@ export default function Wallet() {
                     className="w-full h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-medium flex items-center justify-center gap-2 hover:bg-amber-500/30 transition">
                     Go to Settings → Verification
                   </button>
-                  <p className="text-[10px] text-muted-foreground/60 text-center">Your instant account tab still works while you set this up</p>
+                  <p className="text-[10px] text-muted-foreground/60 text-center">The Free Transfer tab still works while you set this up</p>
                 </div>
               ) : (
                 <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-5 space-y-3">
