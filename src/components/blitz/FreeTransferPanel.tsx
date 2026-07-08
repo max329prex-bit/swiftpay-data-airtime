@@ -73,63 +73,75 @@ export default function FreeTransferPanel() {
   const pollRef = useRef<number | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  useEffect(() => {
+  const loadDefaultsAndDeposit = useCallback(async () => {
     if (!user) return;
 
-    async function load() {
-      const [{ data: profileData, error: profileErr }, { data: pendingDeps }] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("ft_bank_name, ft_account_name, ft_account_number")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-        supabase
-          .from("free_transfer_deposits")
-          .select("id, amount, status, expires_at")
-          .eq("user_id", user.id)
-          .eq("status", "pending")
-          .gt("expires_at", new Date().toISOString())
-          .order("created_at", { ascending: false })
-          .limit(1),
-      ]);
+    const [{ data: profileData, error: profileErr }, { data: pendingDeps, error: depErr }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("ft_bank_name, ft_account_name, ft_account_number")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("free_transfer_deposits")
+        .select("id, amount, status, expires_at")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1),
+    ]);
 
-      setLoading(false);
+    setLoading(false);
 
-      if (profileErr) {
-        toast.error("Could not load your saved bank details");
-        return;
-      }
-
-      const p = profileData ?? {};
-      setProfile(p);
-      if (p.ft_bank_name) setSetupBankName(p.ft_bank_name);
-      if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
-      if (p.ft_account_number) setSetupAccountNumber(p.ft_account_number);
-
-      const dep = pendingDeps?.[0];
-      if (dep) {
-        const fee = dep.amount >= 500 ? 0 : Math.round(dep.amount * 0.01 * 100) / 100;
-        setDeposit({
-          deposit_id: dep.id,
-          amount: dep.amount,
-          fee,
-          net_amount: dep.amount - fee,
-          expires_at: dep.expires_at,
-          pay_to: BLITZPAY_ACCOUNT,
-        });
-        setStep("pay");
-        return;
-      }
-
-      if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
-        setStep("amount");
-      } else {
-        setStep("setup");
-      }
+    if (profileErr) {
+      toast.error("Could not load your saved bank details");
+      return;
+    }
+    if (depErr) {
+      console.error("FreeTransfer: could not load pending deposit", depErr);
     }
 
-    load();
+    const p = profileData ?? {};
+    setProfile(p);
+    if (p.ft_bank_name) setSetupBankName(p.ft_bank_name);
+    if (p.ft_account_name) setSetupAccountName(p.ft_account_name);
+    if (p.ft_account_number) setSetupAccountNumber(p.ft_account_number);
+
+    const dep = pendingDeps?.[0];
+    if (dep) {
+      const fee = dep.amount >= 500 ? 0 : Math.round(dep.amount * 0.01 * 100) / 100;
+      setDeposit({
+        deposit_id: dep.id,
+        amount: dep.amount,
+        fee,
+        net_amount: dep.amount - fee,
+        expires_at: dep.expires_at,
+        pay_to: BLITZPAY_ACCOUNT,
+      });
+      setStep("pay");
+      return;
+    }
+
+    if (p.ft_bank_name && p.ft_account_name && p.ft_account_number) {
+      setStep("amount");
+    } else {
+      setStep("setup");
+    }
   }, [user]);
+
+  // Load on mount and whenever the app returns to the foreground (mobile app switch / browser tab back).
+  useEffect(() => {
+    loadDefaultsAndDeposit();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        loadDefaultsAndDeposit();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadDefaultsAndDeposit]);
 
   const clearAll = useCallback(() => {
     if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
