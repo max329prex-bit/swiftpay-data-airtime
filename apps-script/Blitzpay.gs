@@ -1,6 +1,7 @@
 const SUPABASE_WEBHOOK_URL = 'https://tljnhlhzyntotadxoypz.supabase.co/functions/v1/opay-email-webhook';
 const OPAY_SENDERS = ['no-reply@opay.com', 'noreply@opay.com', 'opay@opay.com', 'notifications@opay.com'];
 const OPAY_SUBJECTS = ['credit alert', 'debit alert', 'transfer', 'received', 'payment'];
+const BLITZPAY_ACCOUNTS = ['6554098879', '6616057979'];
 
 function doPost(e) {
   ensureTrigger();
@@ -131,23 +132,38 @@ function parseOpayEmail(subject, body) {
     accountDigits = digitsMatch[1];
   }
 
+  let receiptAccount = '';
+  const receiptMatch = text.match(/(?:to|recipient|receipt|credited to|into|account number)[\s:]*(\d{10,11})/i);
+  if (receiptMatch) {
+    receiptAccount = receiptMatch[1];
+  }
+
   return {
     amount: amount,
     sender_name: senderName,
     bank_name: bankName,
     account_digits: accountDigits,
+    receipt_account: receiptAccount,
     raw_subject: subject.slice(0, 200),
     raw_body: body.slice(0, 500)
   };
 }
 
 function sendToWebhook(parsed, secret) {
+  // Ignore emails that are not transfers into a BlitzPay account.
+  const rcpt = String(parsed.receipt_account || '').replace(/\D/g, '');
+  if (rcpt && !BLITZPAY_ACCOUNTS.some(a => rcpt.includes(a))) {
+    Logger.log('Skipping: not a BlitzPay receipt account: ' + rcpt);
+    return;
+  }
+
   const payload = {
     secret: secret,
     amount: parsed.amount,
     sender_name: parsed.sender_name,
     bank_name: parsed.bank_name,
-    account_digits: parsed.account_digits,
+    sender_account: parsed.account_digits,
+    receipt_account: parsed.receipt_account,
     raw_subject: parsed.raw_subject,
     raw_body: parsed.raw_body
   };

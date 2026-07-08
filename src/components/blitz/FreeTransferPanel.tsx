@@ -202,6 +202,21 @@ export default function FreeTransferPanel() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [loadDefaultsAndDeposit]);
 
+  // Defensive: if the user logs out or switches accounts, clear the pay screen
+  // so a subsequent user never sees a previous user's deposit details.
+  const prevUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    const current = user?.id ?? null;
+    if (prevUserRef.current && prevUserRef.current !== current) {
+      clearDeposit(prevUserRef.current);
+      if (!current) {
+        setDeposit(null);
+        setStep("setup");
+      }
+    }
+    prevUserRef.current = current;
+  }, [user]);
+
   const clearAll = useCallback(() => {
     if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
     if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }

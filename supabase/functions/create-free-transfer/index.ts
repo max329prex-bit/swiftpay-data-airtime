@@ -49,35 +49,56 @@ serve(async (req) => {
 
     const svc = createClient(SUPABASE_URL, SUPABASE_SVC);
 
-    // Expire any existing pending deposits for this user
+    // Expire any existing pending deposits for this user so a user can only
+    // have one active deposit at a time. This reduces confusion and avoids
+    // stale deposits being matched by a later transfer.
     await svc.from("free_transfer_deposits")
       .update({ status: "expired" })
       .eq("user_id", user.id)
       .eq("status", "pending")
-      .lt("expires_at", new Date().toISOString());
+      .gt("expires_at", new Date().toISOString());
 
     // Pick a UNIQUE kobo-suffixed amount so this deposit can never be
     // confused with a concurrent deposit of the same round amount.
     // Example: 150 → 150.07. Try up to 60 times to find one that
-    // does not clash with any other pending deposit.
+    // does not clash with any other pending deposit AND has not been used by
+    // another user in any past or present deposit. This prevents a late transfer
+    // from ever being matched to the wrong user.
     const requested = Math.floor(Number(amount));
     let uniqueAmount = requested;
     let found = false;
     for (let i = 0; i < 60; i++) {
       const kobo = Math.floor(Math.random() * 99) + 1; // 1..99 kobo
       const candidate = Math.round((requested + kobo / 100) * 100) / 100;
-      const { data: clash } = await svc
+
+      // 1. No other user must have a currently pending deposit with this amount.
+      const { data: pendingClash } = await svc
         .from("free_transfer_deposits")
         .select("id")
         .eq("status", "pending")
         .eq("amount", candidate)
         .gt("expires_at", new Date().toISOString())
+        .neq("user_id", user.id)
         .maybeSingle();
-      if (!clash) { uniqueAmount = candidate; found = true; break; }
+      if (pendingClash) continue;
+
+      // 2. No other user must have ever used this amount (verified, expired, failed).
+      //    The same user may reuse their own expired amount, so exclude them.
+      const { data: historicalClash } = await svc
+        .from("free_transfer_deposits")
+        .select("id")
+        .eq("amount", candidate)
+        .neq("user_id", user.id)
+        .maybeSingle();
+      if (historicalClash) continue;
+
+      uniqueAmount = candidate;
+      found = true;
+      break;
     }
     if (!found) {
       return new Response(JSON.stringify({
-        error: "Too many concurrent deposits for this amount. Please try again in a minute.",
+        error: "Too many concurrent deposits for this amount. Please try again in a minute or use a different amount.",
       }), { status: 429, headers: CORS });
     }
 
