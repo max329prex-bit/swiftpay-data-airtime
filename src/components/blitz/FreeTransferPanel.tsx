@@ -184,6 +184,20 @@ export default function FreeTransferPanel() {
 
   useEffect(() => () => clearAll(), [clearAll]);
 
+  // After a successful deposit, automatically return to the amount screen so the
+  // user can make another transfer without manually tapping "Make another deposit".
+  useEffect(() => {
+    if (step !== "success") return;
+    const timer = window.setTimeout(() => {
+      clearDeposit();
+      setDeposit(null);
+      setAmount("");
+      setStatusMsg("");
+      setStep("amount");
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [step]);
+
   async function copyText(text: string, which: "acct" | "name") {
     await navigator.clipboard.writeText(text);
     if (which === "acct") { setCopiedAcct(true); setTimeout(() => setCopiedAcct(false), 2500); }
