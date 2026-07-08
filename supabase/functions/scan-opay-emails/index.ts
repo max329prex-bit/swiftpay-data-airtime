@@ -61,9 +61,12 @@ async function scanOpayEmails() {
     lock = await client.getMailboxLock("INBOX");
 
     const since = new Date(Date.now() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
-    const searchCriteria = { unseen: true, since };
+    // Scan ALL emails from the last 7 days, not just unread ones. The opay_used_emails
+    // table already prevents double-crediting, so opening the email on a phone cannot
+    // hide the payment from us.
+    const searchCriteria = { since };
     const uids = await client.search(searchCriteria);
-    console.log(`[scan-opay-emails] unread messages since ${since.toISOString()}: ${uids.length}`);
+    console.log(`[scan-opay-emails] messages since ${since.toISOString()}: ${uids.length}`);
 
     for (const uid of uids) {
       try {
