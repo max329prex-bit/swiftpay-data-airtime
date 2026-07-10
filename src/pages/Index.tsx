@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Zap, Wifi, ShieldCheck, Sparkles, Wallet, Gift, Lock, Download, Check, Menu, X, Tv, Lightbulb, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import heroGirl from "@/assets/hero-girl.jpg";
 
 const NETWORKS = [
@@ -126,9 +126,47 @@ function HeroVisual() {
   );
 }
 
+const APK_URL = "https://github.com/max329prex-bit/swiftpay-data-airtime/releases/download/v1.0.0-apk/blitzpay.apk";
+
+function DownloadAppPopup() {
+  const [show, setShow] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setShow(false), 5000);
+    return () => clearTimeout(t);
+  }, []);
+  if (!show) return null;
+  return (
+    <div className="fixed top-3 left-1/2 z-[100] -translate-x-1/2 w-[92%] max-w-md animate-in fade-in slide-in-from-top-4 duration-300">
+      <a
+        href={APK_URL}
+        download
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md hover:bg-white transition"
+      >
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-white">
+          <Download className="h-4 w-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-slate-900">Download BlitzPay App</div>
+          <div className="text-[11px] text-slate-500 truncate">Tap here to install the Android APK</div>
+        </div>
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShow(false); }}
+          className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </a>
+    </div>
+  );
+}
+
 export default function Index() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
+      <DownloadAppPopup />
       <SiteNav />
 
       {/* HERO */}
