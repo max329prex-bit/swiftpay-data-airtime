@@ -54,6 +54,7 @@ export function AppShell() {
   const [showSplash, setShowSplash] = useState(true);
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [broadcastDismissed, setBroadcastDismissed] = useState(false);
+  const [showAppBanner, setShowAppBanner] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([
@@ -70,6 +71,20 @@ export function AppShell() {
     window.addEventListener("open-blitzi-chat", handleOpenChat);
     return () => window.removeEventListener("open-blitzi-chat", handleOpenChat);
   }, []);
+
+  // Show "Download App" banner once per day, 10 seconds after load
+  useEffect(() => {
+    if (!user) return;
+    const key = "bp_app_banner_last";
+    const last = localStorage.getItem(key);
+    const now = Date.now();
+    if (last && now - parseInt(last) < 24 * 60 * 60 * 1000) return; // once per day
+    const timer = setTimeout(() => {
+      setShowAppBanner(true);
+      localStorage.setItem(key, String(now));
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [user]);
 
   // Guest users stay on /app and see the landing page (Index)
   // No redirect to /auth — the landing page serves as the guest experience
