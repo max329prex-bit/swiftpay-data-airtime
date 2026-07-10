@@ -98,6 +98,7 @@ export default function FreeTransferPanel() {
   const [copiedAcct, setCopiedAcct] = useState(false);
   const [copiedName, setCopiedName] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingElapsed, setCheckingElapsed] = useState(0);
   const [statusMsg, setStatusMsg] = useState("");
   const [pollFailures, setPollFailures] = useState(0);
 
@@ -548,6 +549,13 @@ export default function FreeTransferPanel() {
     }
   }
 
+  // Track elapsed seconds while in "checking" state to show helpful hints
+  useEffect(() => {
+    if (step !== "checking") { setCheckingElapsed(0); return; }
+    const t = window.setInterval(() => setCheckingElapsed(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [step]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -808,6 +816,18 @@ export default function FreeTransferPanel() {
             <Loader2 className="w-10 h-10 animate-spin text-emerald-400" />
             <div className="text-lg font-semibold">Verifying your payment</div>
             <p className="text-sm text-muted-foreground">{statusMsg}</p>
+            <AnimatePresence>
+              {checkingElapsed >= 30 && checkingElapsed < 90 && (
+                <motion.p key="hint1" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-amber-400/90 mt-1">
+                  ⏱ Usually takes 1–2 minutes — please keep this page open.
+                </motion.p>
+              )}
+              {checkingElapsed >= 90 && (
+                <motion.div key="hint2" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2 mt-1">
+                  <p className="text-xs text-amber-300 font-medium">Taking longer than usual — if your wallet isn't credited within the next minute, please refresh this page and check your balance.</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 
