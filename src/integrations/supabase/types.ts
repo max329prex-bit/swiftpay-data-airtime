@@ -1006,6 +1006,7 @@ export type Database = {
       support_tickets: {
         Row: {
           admin_notes: string | null
+          admin_response: string | null
           assigned_to: string | null
           created_at: string
           id: string
@@ -1013,6 +1014,7 @@ export type Database = {
           message: string | null
           related_transaction_id: string | null
           resolved_at: string | null
+          responded_at: string | null
           status: string
           ticket_ref: string
           updated_at: string
@@ -1020,6 +1022,7 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          admin_response?: string | null
           assigned_to?: string | null
           created_at?: string
           id?: string
@@ -1027,6 +1030,7 @@ export type Database = {
           message?: string | null
           related_transaction_id?: string | null
           resolved_at?: string | null
+          responded_at?: string | null
           status?: string
           ticket_ref?: string
           updated_at?: string
@@ -1034,6 +1038,7 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          admin_response?: string | null
           assigned_to?: string | null
           created_at?: string
           id?: string
@@ -1041,6 +1046,7 @@ export type Database = {
           message?: string | null
           related_transaction_id?: string | null
           resolved_at?: string | null
+          responded_at?: string | null
           status?: string
           ticket_ref?: string
           updated_at?: string
@@ -2123,6 +2129,7 @@ export type Database = {
         | "electricity"
         | "cable"
         | "wallet_fund"
+        | "adjustment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2284,6 +2291,7 @@ export const Constants = {
         "electricity",
         "cable",
         "wallet_fund",
+        "adjustment",
       ],
     },
   },
