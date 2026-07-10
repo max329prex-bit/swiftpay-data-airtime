@@ -41,6 +41,7 @@ export function useNotifications(): {
   notifications: Notification[];
   unreadCount: number;
   markRead: (id: string) => Promise<void>;
+  markAllRead: () => Promise<void>;
   loading: boolean;
 } {
   const { user } = useAuth();
