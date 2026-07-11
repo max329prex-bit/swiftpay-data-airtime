@@ -835,7 +835,7 @@ export default function FreeTransferPanel() {
             <p className="text-sm text-muted-foreground">{statusMsg}</p>
             <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 mt-1">
               <p className="text-xs text-amber-300 font-medium">
-                If this screen does not update to “verified”, refresh your dashboard in a minute or two — your wallet will be credited automatically.
+                If this screen does not update to “verified”, refresh the page or your wallet in a minute or two — your wallet will already be credited.
               </p>
             </div>
             <AnimatePresence>
