@@ -1,20 +1,33 @@
-# Two focused changes
+# Fix Free Transfer manual verification
 
-## 1. Add ₦10,000 to handicapino@gmail.com only
-- Look up the user id for `handicapino@gmail.com` (id `8ce97dda-3731-47fc-b699-eada4efdd117`).
-- Add ₦10,000 to that user's wallet balance.
-- Log a matching `wallet_fund` transaction (status `success`, reference `ADMIN-CREDIT-<timestamp>`, meta note "admin manual credit") so the wallet and history stay in sync.
-- No other user is touched.
+## Root cause
 
-## 2. Mask the transaction PIN as dots (••••)
-Currently PIN digits show as plain numbers while typing. Change the PIN entry so each digit shows as a dot / asterisk, like a password field.
+`confirm-free-transfer` awaits an inline `fetch` to `scan-opay-emails` with a 15s AbortController timeout. The IMAP scan often takes longer than that (Deno cold start + IMAP fetch of 6+ messages), so the edge function either aborts, hits the platform timeout, or the client drops the connection — the browser surfaces this as **"Failed to fetch"**.
 
-Files to update:
-- `src/pages/app/PinSetup.tsx` — the create + confirm PIN screens (uses `InputOTPSlot`; render each slot as a masked dot when filled).
-- Anywhere else the transaction PIN is entered during a purchase / schedule flow. I'll grep for other `set_transaction_pin` / `verify_transaction_pin` / PIN input usages (e.g. purchase confirm modals in `Airtime.tsx`, `Data.tsx`, `Cable.tsx`, `Electricity.tsx`, `ScheduleNew.tsx`) and apply the same masking there.
+The scan itself still runs (and/or the 5-minute cron catches it) — which is why a refresh 1–2 minutes later shows the wallet credited.
 
-Approach: keep the underlying value as the real digits (so RPCs still receive the 4-digit PIN), but render the visible character as `•` when the slot is filled. Numeric keyboard on mobile stays intact.
+## Fix (minimal, keeps cron untouched)
 
-## Not doing (confirming intent)
-- No changes to the free-transfer flow, email scanner, or any other user's balance.
-- No global balance reconciliation.
+### 1. `supabase/functions/confirm-free-transfer/index.ts`
+- Stop `await`ing the inline scan. Kick it off fire-and-forget with `EdgeRuntime.waitUntil(...)` (or just an unawaited promise) so the HTTP response returns as soon as the deposit is transitioned to `pending` and the `verifying` transaction row is upserted.
+- Return `{ success: true, status: "pending", deposit_id, message: "Payment confirmed. Checking for your transfer..." }` immediately — no more 15s inline scan blocking the response.
+- Keep every other branch (expired / already verified / already pending) unchanged.
+
+Result: the endpoint responds in well under a second, so "Failed to fetch" from timeout goes away. Frontend polling + realtime + the existing `trigger-email-check` retry loop pick up the credit as soon as the scan finds the email (which the cron also independently guarantees).
+
+### 2. `src/components/blitz/FreeTransferPanel.tsx` — "refresh after ~10s" hint
+Per the user's request: at 10 seconds elapsed in the `checking` step, show a message telling them they can refresh if it isn't verified within a minute or two. Adjust the existing elapsed-time hints:
+- `checkingElapsed >= 10 && < 60`: "Still checking… if this isn't verified in a minute or two, you can refresh the page — your wallet will already be credited."
+- `checkingElapsed >= 60`: keep/repurpose the existing amber "refresh this page and check your balance" box.
+- Remove the 30s hint (superseded by the 10s one).
+
+No other UI or business-logic changes. Cron, matching, crediting, and `opay-email-webhook` are untouched.
+
+## Files changed
+
+- `supabase/functions/confirm-free-transfer/index.ts` — drop inline await on scan, return immediately.
+- `src/components/blitz/FreeTransferPanel.tsx` — earlier "you can refresh" hint at 10s.
+
+## Not doing
+
+- No new queue table, no retry rewrites, no changes to `scan-opay-emails`, `opay-email-webhook`, `trigger-email-check`, or the GitHub Actions cron.
