@@ -482,11 +482,9 @@ export default function FreeTransferPanel() {
       // logout or account switch on a shared browser never resurrects it.
       setStatusMsg(confirmData.message || "Checking for your payment…");
 
-      // Subscribe to realtime first so we don't miss the status update.
-      // We watch BOTH the transactions row and the free_transfer_deposits row:
-      // the edge function can credit the wallet via the RPC and mark the deposit
-      // verified, and we want the UI to reflect that immediately regardless of
-      // which write happens last.
+      // Subscribe to realtime so we can tell the user when the backend has
+      // verified the payment, but keep them on the checking screen so the
+      // "refresh your dashboard" guidance stays visible.
       const ch = supabase.channel(`free-transfer-${deposit.deposit_id}`)
         .on("postgres_changes", {
           event: "*",
@@ -496,13 +494,9 @@ export default function FreeTransferPanel() {
         }, (payload) => {
           const tx = payload.new as any;
           if (tx?.status === "success") {
-            setStep("success");
-            setStatusMsg(`Deposit successful! ${naira(tx.amount)} has been added to your wallet.`);
-            clearAll();
+            setStatusMsg(`Verified! ${naira(tx.amount)} has been added to your wallet. Refresh your dashboard to see the update.`);
           } else if (tx?.status === "failed") {
-            setStep("failed");
             setStatusMsg("Verification failed. Please contact support.");
-            clearAll();
           }
         })
         .on("postgres_changes", {
@@ -513,13 +507,9 @@ export default function FreeTransferPanel() {
         }, (payload) => {
           const dep = payload.new as any;
           if (dep?.status === "verified") {
-            setStep("success");
-            setStatusMsg(`Deposit successful! ${naira(dep.credited_amount ?? dep.amount)} has been added to your wallet.`);
-            clearAll();
+            setStatusMsg(`Verified! ${naira(dep.credited_amount ?? dep.amount)} has been added to your wallet. Refresh your dashboard to see the update.`);
           } else if (dep?.status === "failed" || dep?.status === "expired") {
-            setStep(dep.status);
             setStatusMsg(dep.status === "failed" ? "Verification failed. Please contact support." : "This deposit has expired.");
-            clearAll();
           }
         })
         .subscribe();
@@ -843,12 +833,12 @@ export default function FreeTransferPanel() {
             <Loader2 className="w-10 h-10 animate-spin text-emerald-400" />
             <div className="text-lg font-semibold">Verifying your payment</div>
             <p className="text-sm text-muted-foreground">{statusMsg}</p>
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 mt-1">
+              <p className="text-xs text-amber-300 font-medium">
+                If this screen does not update to “verified”, refresh your dashboard in a minute or two — your wallet will be credited automatically.
+              </p>
+            </div>
             <AnimatePresence>
-              {checkingElapsed >= 10 && checkingElapsed < 60 && (
-                <motion.p key="hint1" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-amber-400/90 mt-1">
-                  Still checking… if this isn't verified in a minute or two, you can refresh the page — your wallet will already be credited.
-                </motion.p>
-              )}
               {checkingElapsed >= 60 && (
                 <motion.div key="hint2" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2 mt-1">
                   <p className="text-xs text-amber-300 font-medium">Taking longer than usual — if your wallet isn't credited within the next minute, please refresh this page and check your balance.</p>
