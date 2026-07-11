@@ -835,13 +835,13 @@ export default function FreeTransferPanel() {
             <p className="text-sm text-muted-foreground">{statusMsg}</p>
             <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 mt-1">
               <p className="text-xs text-amber-300 font-medium">
-                If this screen does not update to “verified”, refresh the page or your wallet in a minute or two — your wallet will already be credited.
+                If this screen does not update to “verified”, refresh the page or your wallet in a minute or two. Your wallet will already be credited.
               </p>
             </div>
             <AnimatePresence>
               {checkingElapsed >= 60 && (
                 <motion.div key="hint2" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2 mt-1">
-                  <p className="text-xs text-amber-300 font-medium">Taking longer than usual — if your wallet isn't credited within the next minute, please refresh this page and check your balance.</p>
+                  <p className="text-xs text-amber-300 font-medium">Taking longer than usual. If your wallet isn't credited within the next minute, please refresh this page and check your balance.</p>
                 </motion.div>
               )}
             </AnimatePresence>
