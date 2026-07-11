@@ -125,58 +125,34 @@ serve(async (req) => {
       },
     }, { onConflict: "reference" });
 
-    // Immediately scan for this specific deposit so the user doesn't wait for cron.
-    let scanResult: any = { target_matched: false, error: null };
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const scanResp = await fetch(`${SUPABASE_URL}/functions/v1/scan-opay-emails`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${CRON_SECRET}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ deposit_id }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (scanResp.ok) {
-        scanResult = await scanResp.json();
-      } else {
-        const txt = await scanResp.text().catch(() => "unknown");
-        scanResult = { target_matched: false, error: `scan returned ${scanResp.status}: ${txt.slice(0, 200)}` };
-      }
-    } catch (scanErr) {
-      scanResult = { target_matched: false, error: formatError(scanErr) };
-    }
+    // Fire-and-forget: kick the scan without blocking the HTTP response so
+    // the client never sees a "Failed to fetch" from a long IMAP scan.
+    // The frontend polls check-free-transfer + realtime + the trigger-email-check
+    // retry loop, and the 5-minute cron is a backstop.
+    const scanPromise = fetch(`${SUPABASE_URL}/functions/v1/scan-opay-emails`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${CRON_SECRET}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ deposit_id }),
+    }).then(async (r) => {
+      try { await r.text(); } catch { /* ignore */ }
+    }).catch((err) => {
+      console.error("confirm-free-transfer: background scan failed:", formatError(err));
+    });
 
-    // Re-fetch deposit status to return the latest state.
-    const { data: finalDep } = await svc
-      .from("free_transfer_deposits")
-      .select("status, credited_amount, matched_at")
-      .eq("id", deposit_id)
-      .single();
-
-    const finalStatus = finalDep?.status ?? "pending";
-    const credited = finalDep?.credited_amount ?? null;
-
-    if (finalStatus === "verified") {
-      return new Response(JSON.stringify({
-        success: true,
-        status: "verified",
-        deposit_id,
-        credited,
-        message: `Transfer confirmed. ₦${credited} credited successfully.`,
-        scan: scanResult,
-      }), { headers: CORS });
+    // @ts-ignore -- EdgeRuntime is provided by Supabase's edge runtime.
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(scanPromise);
     }
 
     return new Response(JSON.stringify({
       success: true,
       status: "pending",
       deposit_id,
-      message: "Payment confirmed. Still checking for your transfer...",
-      scan: scanResult,
+      message: "Payment confirmed. Checking for your transfer...",
     }), { headers: CORS });
 
   } catch (err) {
