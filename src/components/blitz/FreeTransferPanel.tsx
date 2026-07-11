@@ -817,12 +817,12 @@ export default function FreeTransferPanel() {
             <div className="text-lg font-semibold">Verifying your payment</div>
             <p className="text-sm text-muted-foreground">{statusMsg}</p>
             <AnimatePresence>
-              {checkingElapsed >= 30 && checkingElapsed < 90 && (
+              {checkingElapsed >= 10 && checkingElapsed < 60 && (
                 <motion.p key="hint1" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-amber-400/90 mt-1">
-                  ⏱ Usually takes 1–2 minutes — please keep this page open.
+                  Still checking… if this isn't verified in a minute or two, you can refresh the page — your wallet will already be credited.
                 </motion.p>
               )}
-              {checkingElapsed >= 90 && (
+              {checkingElapsed >= 60 && (
                 <motion.div key="hint2" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2 mt-1">
                   <p className="text-xs text-amber-300 font-medium">Taking longer than usual — if your wallet isn't credited within the next minute, please refresh this page and check your balance.</p>
                 </motion.div>
