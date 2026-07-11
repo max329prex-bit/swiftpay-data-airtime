@@ -211,18 +211,9 @@ export default function FreeTransferPanel() {
     }
   }, [deposit, user?.id]);
 
-  // After a successful deposit, automatically return to the amount screen so the
-  // user can make another transfer without manually tapping "Make another deposit".
-  useEffect(() => {
-    if (step !== "success") return;
-    const timer = window.setTimeout(() => {
-      setDeposit(null);
-      setAmount("");
-      setStatusMsg("");
-      setStep("amount");
-    }, 2500);
-    return () => window.clearTimeout(timer);
-  }, [step, user?.id]);
+  // Keep the success screen visible until the user explicitly chooses to make
+  // another deposit. The old 2.5-second auto-dismiss was hiding the verified
+  // state before users could see it, making it look like the flow never finished.
 
   async function copyText(text: string, which: "acct" | "name") {
     await navigator.clipboard.writeText(text);
@@ -457,15 +448,30 @@ export default function FreeTransferPanel() {
       }
       if (!session.access_token) throw new Error("Not signed in");
 
-      const { ok: confirmOk, data: confirmData } = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/confirm-free-transfer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ deposit_id: deposit.deposit_id }),
-      }));
-      if (!confirmOk || confirmData.error) throw new Error(getErrorMessage(confirmData.error) || "Could not confirm payment");
+      // Confirm the reserved session. Retry once on network/timeout errors
+      // because the first click often hits a cold edge function.
+      let confirmRes: { ok: boolean; data: any } | null = null;
+      let confirmError: any = null;
+      for (let i = 0; i < 2; i++) {
+        try {
+          confirmRes = await parseJsonResponse(await fetch(`${SUPA_URL}/functions/v1/confirm-free-transfer`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ deposit_id: deposit.deposit_id }),
+          }));
+          if (confirmRes.ok && !confirmRes.data.error) { confirmError = null; break; }
+          confirmError = confirmRes.data?.error ?? "Could not confirm payment";
+          if (i === 0) await new Promise(r => setTimeout(r, 800));
+        } catch (e) {
+          confirmError = e;
+          if (i === 0) await new Promise(r => setTimeout(r, 800));
+        }
+      }
+      if (confirmError || !confirmRes) throw new Error(getErrorMessage(confirmError) || "Could not confirm payment");
+      const confirmData = confirmRes.data;
       if (confirmData.status === "expired") {
         setStep("expired");
         setStatusMsg(confirmData.message);
@@ -477,6 +483,10 @@ export default function FreeTransferPanel() {
       setStatusMsg(confirmData.message || "Checking for your payment…");
 
       // Subscribe to realtime first so we don't miss the status update.
+      // We watch BOTH the transactions row and the free_transfer_deposits row:
+      // the edge function can credit the wallet via the RPC and mark the deposit
+      // verified, and we want the UI to reflect that immediately regardless of
+      // which write happens last.
       const ch = supabase.channel(`free-transfer-${deposit.deposit_id}`)
         .on("postgres_changes", {
           event: "*",
@@ -492,6 +502,23 @@ export default function FreeTransferPanel() {
           } else if (tx?.status === "failed") {
             setStep("failed");
             setStatusMsg("Verification failed. Please contact support.");
+            clearAll();
+          }
+        })
+        .on("postgres_changes", {
+          event: "UPDATE",
+          schema: "public",
+          table: "free_transfer_deposits",
+          filter: `id=eq.${deposit.deposit_id}`,
+        }, (payload) => {
+          const dep = payload.new as any;
+          if (dep?.status === "verified") {
+            setStep("success");
+            setStatusMsg(`Deposit successful! ${naira(dep.credited_amount ?? dep.amount)} has been added to your wallet.`);
+            clearAll();
+          } else if (dep?.status === "failed" || dep?.status === "expired") {
+            setStep(dep.status);
+            setStatusMsg(dep.status === "failed" ? "Verification failed. Please contact support." : "This deposit has expired.");
             clearAll();
           }
         })

@@ -128,7 +128,8 @@ serve(async (req) => {
     // Fire-and-forget: kick the scan without blocking the HTTP response so
     // the client never sees a "Failed to fetch" from a long IMAP scan.
     // The frontend polls check-free-transfer + realtime + the trigger-email-check
-    // retry loop, and the 5-minute cron is a backstop.
+    // retry loop, and the 5-minute cron is a backstop. We cap the background
+    // kick-off at 5s so the confirm edge function itself always returns quickly.
     const scanPromise = fetch(`${SUPABASE_URL}/functions/v1/scan-opay-emails`, {
       method: "POST",
       headers: {
@@ -136,10 +137,12 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ deposit_id }),
+      signal: AbortSignal.timeout(5000),
     }).then(async (r) => {
       try { await r.text(); } catch { /* ignore */ }
     }).catch((err) => {
-      console.error("confirm-free-transfer: background scan failed:", formatError(err));
+      // Timeout or network failure is fine here; the retry loop/cron will retry.
+      console.error("confirm-free-transfer: background scan kick-off failed:", formatError(err));
     });
 
     // @ts-ignore -- EdgeRuntime is provided by Supabase's edge runtime.
