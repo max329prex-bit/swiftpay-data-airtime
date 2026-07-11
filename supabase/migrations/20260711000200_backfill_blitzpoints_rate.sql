@@ -3,5 +3,5 @@
 -- but existing rows need to be updated so users see the correct claim amount immediately.
 
 UPDATE public.packages
-SET bp_value = GREATEST(1, FLOOR(sell_price / 250))
-WHERE sell_price > 0;
+SET bp_value = GREATEST(1, FLOOR(price / 250))
+WHERE price > 0;
