@@ -77,6 +77,7 @@ serve(async (req) => {
       _amount: amount, _reference: null,
       _meta: { ...meta, api_key_id: keyId, api_discount: "2%", via: "api" }
     });
+    // API purchases bypass the app claim UI, so they do NOT earn BlitzPoints.
     if (!tx) return json({ success: false, error: "Transaction failed" }, 500);
     const ref = tx.reference;
 

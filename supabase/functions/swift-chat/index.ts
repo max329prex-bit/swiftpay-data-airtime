@@ -30,7 +30,7 @@ What you know about BlitzPay:
 - Wallet: funded via PayVessel virtual bank account (bank transfer). User deposits directly to their assigned account number. A 1% processing fee is deducted. Balance reflects within minutes after transfer.
 - Airtime: MTN, Airtel, Glo, 9Mobile. Min â¦50. Network auto-detected from phone prefix.
 - Data bundles: daily, weekly, monthly plans. Blitz Prime shows best value (â¦/GB) per network.
-- BlitzPoints: earn 2 pts per â¦250 on DATA purchases only. 100 pts = 1GB free data reward. Airtime does NOT earn BlitzPoints.
+- BlitzPoints: users must tap the "Claim BlitzPoints" button on the purchase summary/PIN screen to earn points. If they don't tap it, they get no points. Earn 1 BP per ₦250 spent on DATA and AIRTIME. First successful data purchase gets a one-time 50 BP bonus. 100 BP = 1GB free data reward.
 - Electricity: select DISCO (Ikeja, Eko, Abuja, etc.) â Prepaid/Postpaid â enter meter number â verify â pay.
 - Cable TV: DStv, GOtv, StarTimes â smartcard/IUC number â verify â pick package â pay.
 - Transaction PIN: 4-digit PIN required for every purchase. Set/change in Settings.

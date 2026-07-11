@@ -7,7 +7,7 @@ import { detectNetwork, naira, NETWORKS, NetworkId } from "@/lib/networks";
 import { useWallet } from "@/hooks/useWallet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, X, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, X, Loader2, Gift } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const NET_COLORS: Record<NetworkId, string> = { MTN: "bg-yellow-400 text-black", AIRTEL: "bg-red-600 text-white", GLO: "bg-green-600 text-white", "9MOBILE": "bg-green-500 text-white" };
@@ -23,6 +23,7 @@ export default function Airtime() {
   const [pin, setPin] = useState("");
   const [step, setStep] = useState<Step>("form");
   const [busy, setBusy] = useState(false);
+  const [claimBp, setClaimBp] = useState(true);
   const { balance, refresh } = useWallet();
   const nav = useNavigate();
   const net = NETWORKS.find(n => n.id === network)!;
@@ -41,8 +42,9 @@ export default function Airtime() {
     setStep("verifying");
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
-        body: { type: "airtime", network, phone, amount, pin },
+        body: { type: "airtime", network, phone, amount, pin, claim_bp: claimBp },
       });
+      if (data?.bp_earned) toast.success(`+${data.bp_earned} BlitzPoints earned!`);
       if (error) throw error;
       const receiptId = data?.id || data?.reference;
       if (!receiptId) {
@@ -160,6 +162,27 @@ export default function Airtime() {
                   </div>
                 ))}
               </div>
+              {/* BlitzPoints claim */}
+              <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-3 mb-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-primary" />
+                    <div className="text-sm font-semibold">Claim BlitzPoints</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setClaimBp(v => !v)}
+                    className={`relative h-6 w-11 rounded-full transition ${claimBp ? "bg-primary" : "bg-white/20"}`}
+                    aria-label="Toggle BlitzPoints claim"
+                  >
+                    <span className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition ${claimBp ? "translate-x-5" : "translate-x-0"}`} />
+                  </button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {claimBp ? `You will earn ${Math.max(1, Math.floor(amount / 250))} BP on this purchase.` : "You won’t earn any BlitzPoints for this purchase."}
+                </div>
+              </div>
+
               <div className="space-y-4 text-center">
                 <div className="text-sm font-semibold">Enter Account Pin To Authorize</div>
                 <div className="flex justify-center">

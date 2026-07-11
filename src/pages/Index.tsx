@@ -20,7 +20,7 @@ const SERVICES = [
 
 const FEATURES = [
   { icon: Zap, title: "Instant delivery", desc: "Most transactions complete in under 5 seconds, 24/7." },
-  { icon: Gift, title: "Earn BlitzPoints", desc: "Get 5 BlitzPoints for every ₦250 you spend on airtime or data." },
+  { icon: Gift, title: "Earn BlitzPoints", desc: "Get 1 BlitzPoint for every ₦250 you spend on airtime or data — claim it on the purchase screen." },
   { icon: Sparkles, title: "Redeem 1GB free", desc: "Swap 100 BlitzPoints for a free 1GB data bundle, any network." },
   { icon: ShieldCheck, title: "PIN-protected", desc: "Every transaction is locked behind a 4-digit transaction PIN." },
   { icon: Wallet, title: "One secure wallet", desc: "Fund once, pay anything. No re-entering card details." },
@@ -35,7 +35,7 @@ const STEPS = [
 
 const FAQS = [
   { q: "Is BlitzPay free to use?", a: "Yes. Creating an account, funding your wallet, and buying airtime or data costs nothing extra. You only pay the face value of what you're buying." },
-  { q: "What are BlitzPoints?", a: "Our built-in rewards. You earn 5 BlitzPoints for every ₦250 you spend on airtime or data. When you hit 100 points, you can redeem a free 1GB data bundle on any network." },
+  { q: "What are BlitzPoints?", a: "Our built-in rewards. You earn 1 BlitzPoint for every ₦250 you spend on airtime or data, and you must tap the 'Claim BlitzPoints' button on the purchase summary screen to collect it. When you hit 100 points, you can redeem a free 1GB data bundle on any network." },
   { q: "Which networks and services are supported?", a: "All four major Nigerian networks — MTN, Glo, Airtel and 9mobile — for airtime and data, plus electricity (all major DISCOs) and cable TV (DStv, GOtv, Startimes)." },
   { q: "How long does delivery take?", a: "Airtime and data are typically delivered in under 5 seconds. Electricity tokens arrive within 30 seconds." },
   { q: "Is my money safe?", a: "Every transaction is locked behind a 4-digit PIN, your session is encrypted, and your data is protected with row-level security. We never store your card details." },
@@ -106,7 +106,7 @@ function HeroVisual() {
               </span>
               <div>
                 <div className="text-xs font-semibold text-slate-900">MTN Airtime · ₦1,000</div>
-                <div className="text-[10px] text-slate-500">Delivered in 3s · +20 BlitzPoints</div>
+                <div className="text-[10px] text-slate-500">Delivered in 3s · +4 BlitzPoints</div>
               </div>
             </div>
             <Check className="h-5 w-5 rounded-full bg-emerald-500 p-1 text-white" />
@@ -291,10 +291,10 @@ export default function Index() {
                 <Gift className="h-3.5 w-3.5" /> BlitzPoints rewards
               </div>
               <h2 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Spend airtime.<br />Earn free data.</h2>
-              <p className="mt-4 max-w-md text-slate-500">Every ₦250 you spend on airtime or data earns you 5 BlitzPoints — automatically. Stack 100 points and redeem them for a free 1GB data bundle on any network. No fine print.</p>
+              <p className="mt-4 max-w-md text-slate-500">Every ₦250 you spend on airtime or data earns you 1 BlitzPoint — just tap "Claim BlitzPoint" on the purchase summary screen. Stack 100 points and redeem them for a free 1GB data bundle on any network. No fine print.</p>
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 {[
-                  { v: "₦250", l: "= 5 points" },
+                  { v: "₦250", l: "= 1 point" },
                   { v: "100 pts", l: "= 1GB free" },
                   { v: "Any", l: "network" },
                 ].map((s) => (
@@ -322,9 +322,9 @@ export default function Index() {
                 <div className="mt-2 text-xs text-blue-200">13 points away from a free 1GB bundle</div>
                 <div className="mt-6 space-y-2">
                   {[
-                    { l: "MTN Airtime · ₦1,000", p: "+20" },
-                    { l: "Glo Data 2GB · ₦1,500", p: "+30" },
-                    { l: "Airtel Airtime · ₦500", p: "+10" },
+                    { l: "MTN Airtime · ₦1,000", p: "+4" },
+                    { l: "Glo Data 2GB · ₦1,500", p: "+6" },
+                    { l: "Airtel Airtime · ₦500", p: "+2" },
                   ].map((r) => (
                     <div key={r.l} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-xs">
                       <span className="text-blue-100">{r.l}</span>

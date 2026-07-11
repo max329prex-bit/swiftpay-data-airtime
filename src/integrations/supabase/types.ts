@@ -1505,6 +1505,10 @@ export type Database = {
         Args: { _schedule_id: string }
         Returns: undefined
       }
+      award_swift_points: {
+        Args: { _points: number; _reason?: string; _user_id: string }
+        Returns: number
+      }
       api_purchase_data: {
         Args: {
           _api_key: string
@@ -1908,6 +1912,7 @@ export type Database = {
       has_transaction_pin: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_admin_session: { Args: { _token: string }; Returns: boolean }
+      is_first_data_purchase: { Args: { _user_id: string }; Returns: boolean }
       is_tx_pending: { Args: { _tx_id: string }; Returns: boolean }
       list_api_keys: { Args: { _user_id: string }; Returns: Json }
       mark_bundle_available: {

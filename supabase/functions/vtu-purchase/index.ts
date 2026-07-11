@@ -220,6 +220,33 @@ async function gsubzAirtime(network: string, phone: string, amount: number): Pro
   return gsubzBuyRaw({ serviceID, api: GSUBZ_KEY, amount: String(amount), phone });
 }
 
+function calcBp(amount: number): number {
+  return Math.max(0, Math.floor(amount / 250));
+}
+async function awardBp(
+  admin: ReturnType<typeof createClient>,
+  uid: string,
+  amount: number,
+  type: string,
+  claimFirstData: boolean
+): Promise<{ base: number; bonus: number }> {
+  const base = type === "data" || type === "airtime" ? calcBp(amount) : 0;
+  let bonus = 0;
+  if (base <= 0) return { base: 0, bonus: 0 };
+  try {
+    await admin.rpc("award_swift_points", { _user_id: uid, _points: base, _reason: `${type} purchase claim` });
+  } catch { /* ignore award failures */ }
+  if (type === "data" && claimFirstData) {
+    try {
+      const { data: isFirst } = await admin.rpc("is_first_data_purchase", { _user_id: uid });
+      if (isFirst) {
+        bonus = 50;
+        await admin.rpc("award_swift_points", { _user_id: uid, _points: bonus, _reason: "First data purchase bonus" });
+      }
+    } catch { /* ignore bonus failures */ }
+  }
+  return { base, bonus };
+}
 async function isGsubzHealthy(admin: ReturnType<typeof createClient>): Promise<boolean> {
   try {
     const since = new Date(Date.now() - GSUBZ_HOUR_WINDOW_MS).toISOString();
@@ -271,10 +298,12 @@ serve(async (req) => {
     if (ae || !user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json();
-    const { type, network, phone, amount, package_code, provider_code, pin, bundle, provider, meta = {}, meter_number, meter_type, packageCode } = body;
+    const { type, network, phone, amount, package_code, provider_code, pin, bundle, provider, meta = {}, meter_number, meter_type, packageCode, claim_bp, claim_first_purchase_bonus } = body;
     const pkgCode = package_code || bundle || packageCode || "";
     const prvCode = provider_code || provider || "";
     const sellPrice = Number(amount || 0);
+    const shouldClaim = claim_bp === true;
+    const claimFirstData = shouldClaim && type === "data" && claim_first_purchase_bonus === true;
 
     if (type === "airtime" && sellPrice < GSUBZ_MIN_AIRTIME) {
       return json({ success: false, error: `GSubz airtime minimum is ₦${GSUBZ_MIN_AIRTIME}. Please enter ₦${GSUBZ_MIN_AIRTIME} or more.`, code: "AMOUNT_BELOW_MIN", balance_credited: false }, 200);
@@ -444,8 +473,21 @@ serve(async (req) => {
     }
 
     if (pkgCode) { try { await admin.rpc("mark_bundle_available", { _package_code: pkgCode, _provider_code: usedProvider || prvCode || "gsubz", _network: network }); } catch {} }
+
+    let bpAward: { base: number; bonus: number } = { base: 0, bonus: 0 };
+    if (shouldClaim && (type === "data" || type === "airtime")) {
+      bpAward = await awardBp(admin, user.id, sellPrice, type, claimFirstData);
+    }
+
     const resp: Record<string, unknown> = { success: true, reference: (committedTx as Record<string, unknown>)?.reference || txReference, status: "success" };
     if (pendingTxId) resp.id = pendingTxId;
+    if (bpAward.base > 0) {
+      resp.bp_earned = bpAward.base + bpAward.bonus;
+      resp.bp_breakdown = { base: bpAward.base, bonus: bpAward.bonus };
+      txMeta.bp_earned = bpAward.base + bpAward.bonus;
+      txMeta.bp_breakdown = { base: bpAward.base, bonus: bpAward.bonus };
+      try { await admin.from("transactions").update({ meta: txMeta }).eq("id", pendingTxId); } catch {}
+    }
     return json(resp);
 
   } catch (e) {

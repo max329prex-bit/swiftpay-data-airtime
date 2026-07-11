@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { detectNetwork, naira, NETWORKS, NetworkId } from "@/lib/networks";
 import { useWallet } from "@/hooks/useWallet";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, X, Zap, Loader2, ShieldAlert, UserCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, X, Zap, Loader2, ShieldAlert, UserCheck, Gift } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type Step = "network" | "form" | "pin" | "verifying";
@@ -149,7 +150,11 @@ export default function Data() {
   const [hideGiftPlans, setHideGiftPlans] = useState(false);
   const [allPlans, setAllPlans] = useState<Record<string, Plan[]>>({});
   const [loadingPlans, setLoadingPlans] = useState(true);
+  const [claimBp, setClaimBp] = useState(true);
+  const [claimFirstBonus, setClaimFirstBonus] = useState(true);
+  const [firstPurchaseEligible, setFirstPurchaseEligible] = useState(false);
   const { balance, refresh } = useWallet();
+  const { user } = useAuth();
   const nav = useNavigate();
   const net = NETWORKS.find(n => n.id === network)!;
   const ctaRef = useRef<HTMLDivElement>(null);
@@ -207,7 +212,7 @@ export default function Data() {
             available: true,
             coming_soon: false,
             success_rate: 92,
-            bp_value: Math.max(1, Math.floor(price / 250) * 5),
+            bp_value: Math.max(1, Math.floor(price / 250)),
             tier: dataType.includes("sme") || dataType.includes("sme2") ? "stable" : "promo",
             requires_non_owing_line: true,
           });
@@ -279,7 +284,16 @@ export default function Data() {
     setPlan(null);
   }, [phone]);
 
-  useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); setHideGiftPlans(false); }, [network]);
+  useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); setHideGiftPlans(false); setClaimBp(true); setClaimFirstBonus(true); }, [network]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.rpc("is_first_data_purchase", { _user_id: user.id }).then(({ data }) => {
+      setFirstPurchaseEligible(!!data);
+    }).catch(() => setFirstPurchaseEligible(false));
+  }, [user]);
+
+  useEffect(() => { setClaimBp(true); setClaimFirstBonus(true); }, [plan]);
 
   const netPlans = allPlans[network] ?? [];
   const primePlans = netPlans.filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
@@ -297,8 +311,14 @@ export default function Data() {
     setStep("verifying");
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
-        body: { type: "data", network: plan.network, phone, amount: plan.sell_price, pin, bundle: plan.id, provider: plan.provider_code },
+        body: {
+          type: "data", network: plan.network, phone, amount: plan.sell_price, pin,
+          bundle: plan.id, provider: plan.provider_code,
+          claim_bp: claimBp,
+          claim_first_purchase_bonus: firstPurchaseEligible && claimFirstBonus,
+        },
       });
+      if (data?.bp_earned) toast.success(`+${data.bp_earned} BlitzPoints earned!`);
       if (error) throw error;
       const receiptId = data?.id || data?.reference;
       if (!receiptId) {
@@ -644,6 +664,44 @@ export default function Data() {
                       </div>
                     </div>
                   )}
+
+              {/* BlitzPoints claim */}
+              <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-3 mt-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-primary" />
+                    <div className="text-sm font-semibold">Claim BlitzPoints</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setClaimBp(v => !v)}
+                    className={`relative h-6 w-11 rounded-full transition ${claimBp ? "bg-primary" : "bg-white/20"}`}
+                    aria-label="Toggle BlitzPoints claim"
+                  >
+                    <span className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition ${claimBp ? "translate-x-5" : "translate-x-0"}`} />
+                  </button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {claimBp ? `You will earn ${plan.bp_value} BP on this purchase.` : "You won’t earn any BlitzPoints for this purchase."}
+                </div>
+                {firstPurchaseEligible && claimBp && (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-amber-200">
+                        <span className="font-semibold">First data purchase bonus:</span> +50 BP
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setClaimFirstBonus(v => !v)}
+                        className={`relative h-5 w-9 rounded-full transition ${claimFirstBonus ? "bg-amber-500" : "bg-white/20"}`}
+                        aria-label="Toggle first data purchase bonus"
+                      >
+                        <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition ${claimFirstBonus ? "translate-x-4" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-4 text-center">
                 <div className="text-sm font-semibold">Enter your 4-digit PIN</div>

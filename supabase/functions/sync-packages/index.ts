@@ -35,9 +35,9 @@ function parseValidity(n: string): string {
   const m = n.match(/(\d+\s*(?:Day|Days|Month|Months|Week|Weeks|Hour|Hours))/i);
   return m ? m[1] : "30 Days";
 }
-// BlitzPoints: 5 BP per ₦250 spent
+// BlitzPoints: 1 BP per ₦250 spent (manual claim on purchase summary screen)
 function calcBpValue(price: number): number {
-  return Math.max(1, Math.floor(price / 250) * 5);
+  return Math.max(1, Math.floor(price / 250));
 }
 // promo = awuf/gifting bundles (unstable, thin margin); stable = named carrier plans
 function calcTier(providerCode: string): string {
