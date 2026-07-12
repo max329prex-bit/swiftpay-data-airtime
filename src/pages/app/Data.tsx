@@ -288,9 +288,9 @@ export default function Data() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.rpc("is_first_data_purchase", { _user_id: user.id }).then(({ data }) => {
-      setFirstPurchaseEligible(!!data);
-    }).catch(() => setFirstPurchaseEligible(false));
+    supabase.rpc("is_first_data_purchase", { _user_id: user.id }).then(({ data, error }) => {
+      setFirstPurchaseEligible(!error && !!data);
+    });
   }, [user]);
 
   useEffect(() => { setClaimBp(false); setClaimFirstBonus(false); }, [plan]);
