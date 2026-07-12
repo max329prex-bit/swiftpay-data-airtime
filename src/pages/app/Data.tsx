@@ -150,8 +150,8 @@ export default function Data() {
   const [hideGiftPlans, setHideGiftPlans] = useState(false);
   const [allPlans, setAllPlans] = useState<Record<string, Plan[]>>({});
   const [loadingPlans, setLoadingPlans] = useState(true);
-  const [claimBp, setClaimBp] = useState(true);
-  const [claimFirstBonus, setClaimFirstBonus] = useState(true);
+  const [claimBp, setClaimBp] = useState(false);
+  const [claimFirstBonus, setClaimFirstBonus] = useState(false);
   const [firstPurchaseEligible, setFirstPurchaseEligible] = useState(false);
   const { balance, refresh } = useWallet();
   const { user } = useAuth();
@@ -284,7 +284,7 @@ export default function Data() {
     setPlan(null);
   }, [phone]);
 
-  useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); setHideGiftPlans(false); setClaimBp(true); setClaimFirstBonus(true); }, [network]);
+  useEffect(() => { setPlan(null); setShowMore(false); setDuration("daily"); setHideGiftPlans(false); setClaimBp(false); setClaimFirstBonus(false); }, [network]);
 
   useEffect(() => {
     if (!user) return;
@@ -293,7 +293,7 @@ export default function Data() {
     }).catch(() => setFirstPurchaseEligible(false));
   }, [user]);
 
-  useEffect(() => { setClaimBp(true); setClaimFirstBonus(true); }, [plan]);
+  useEffect(() => { setClaimBp(false); setClaimFirstBonus(false); }, [plan]);
 
   const netPlans = allPlans[network] ?? [];
   const primePlans = netPlans.filter(p => p.is_prime && p.available).sort((a, b) => a.pricePerGb - b.pricePerGb);
