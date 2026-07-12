@@ -1505,10 +1505,6 @@ export type Database = {
         Args: { _schedule_id: string }
         Returns: undefined
       }
-      award_swift_points: {
-        Args: { _points: number; _reason?: string; _user_id: string }
-        Returns: number
-      }
       api_purchase_data: {
         Args: {
           _api_key: string
@@ -1517,6 +1513,10 @@ export type Database = {
           _phone: string
         }
         Returns: Json
+      }
+      award_swift_points: {
+        Args: { _points: number; _reason?: string; _user_id: string }
+        Returns: number
       }
       cancel_schedule: { Args: { _id: string }; Returns: undefined }
       commit_transaction: {
