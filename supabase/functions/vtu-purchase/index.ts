@@ -1,12 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-secret" };
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-secret, x-user-id, x-api-key-id" };
 const SUPA_URL    = Deno.env.get("SUPABASE_URL")!;
 const SUPA_ANON   = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPA_SVC    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TG_BOT      = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TG_CHAT     = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
+const ADMIN_SECRET = Deno.env.get("ADMIN_SECRET") ?? "";
 const BSPLUG_BASE   = "https://bsplug.net/api";
 const BSPLUG_TOKEN  = Deno.env.get("BSPLUG_TOKEN") ?? "";
 const IACAFE_BASE   = "https://iacafe.com.ng/devapi/v1";
@@ -273,6 +274,11 @@ serve(async (req) => {
   const auth = req.headers.get("Authorization");
   if (!auth) return json({ error: "Unauthorized" }, 401);
 
+  const adminSecret = req.headers.get("x-admin-secret");
+  const apiUserId = req.headers.get("x-user-id");
+  const apiKeyId = req.headers.get("x-api-key-id");
+  const isAdmin = !!ADMIN_SECRET && adminSecret === ADMIN_SECRET;
+
   const admin = createClient(SUPA_URL, SUPA_SVC);
   let reservationId: string | null = null;
   let pendingTxId: string | null = null;
@@ -293,16 +299,29 @@ serve(async (req) => {
   }
 
   try {
-    const uc = createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: auth } } });
-    const { data: { user }, error: ae } = await uc.auth.getUser();
-    if (ae || !user) return json({ error: "Unauthorized" }, 401);
+    let userId: string;
+    let uc: ReturnType<typeof createClient> | null = null;
+
+    if (isAdmin) {
+      if (!apiUserId) return json({ error: "Missing x-user-id" }, 400);
+      userId = apiUserId;
+    } else {
+      uc = createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: auth } } });
+      const { data: { user }, error: ae } = await uc.auth.getUser();
+      if (ae || !user) return json({ error: "Unauthorized" }, 401);
+      userId = userId;
+    }
 
     const body = await req.json();
-    const { type, network, phone, amount, package_code, provider_code, pin, bundle, provider, meta = {}, meter_number, meter_type, packageCode, claim_bp, claim_first_purchase_bonus } = body;
+    const { type, network, phone, amount, package_code, provider_code, pin, bundle, provider, meta = {}, meter_number, meter_type, packageCode, claim_bp, claim_first_purchase_bonus, discount_percent } = body;
     const pkgCode = package_code || bundle || packageCode || "";
     const prvCode = provider_code || provider || "";
     const sellPrice = Number(amount || 0);
-    const shouldClaim = claim_bp === true;
+    const discountPercent = isAdmin ? Math.max(0, Math.min(100, Number(discount_percent || 0))) : 0;
+    const chargeAmount = discountPercent > 0
+      ? Math.round(sellPrice * (1 - discountPercent / 100) * 100) / 100
+      : sellPrice;
+    const shouldClaim = !isAdmin && claim_bp === true;
     const claimFirstData = shouldClaim && type === "data" && claim_first_purchase_bonus === true;
 
     if (type === "airtime" && sellPrice < GSUBZ_MIN_AIRTIME) {
@@ -344,24 +363,32 @@ serve(async (req) => {
       }
     }
 
-    const { data: pv, error: pe } = await uc.rpc("verify_transaction_pin", { _pin: pin });
-    if (pe || !pv) return json({ error: "Incorrect PIN" }, 403);
+    if (!isAdmin) {
+      if (!uc) return json({ error: "Unauthorized" }, 401);
+      const { data: pv, error: pe } = await uc.rpc("verify_transaction_pin", { _pin: pin });
+      if (pe || !pv) return json({ error: "Incorrect PIN" }, 403);
+    }
 
-    if (await fraudCheck(admin, user.id)) {
-      await tg(`⚠️ *BlitzPay Fraud Alert*\nUser ${user.id} — 5+ failures in 2min`);
+    if (!isAdmin && await fraudCheck(admin, userId)) {
+      await tg(`⚠️ *BlitzPay Fraud Alert*\nUser ${userId} — 5+ failures in 2min`);
       return json({ error: "Too many failed attempts. Wait a few minutes." }, 429);
     }
 
     const ref = genRef();
     const txMeta: Record<string, unknown> = { ...meta, provider_code: prvCode || "", package_code: pkgCode || "" };
+    if (isAdmin) {
+      txMeta.via = "api";
+      if (apiKeyId) txMeta.api_key_id = apiKeyId;
+      txMeta.discount_percent = discountPercent;
+    }
 
     const { data: pendingTx, error: pendingErr } = await admin.rpc("debit_and_create_transaction", {
-      _user_id: user.id, _type: type, _network: network || prvCode || "",
+      _user_id: userId, _type: type, _network: network || prvCode || "",
       _phone: type === "electricity" ? (meter_number || phone || "") : (phone || ""),
-      _amount: sellPrice, _reference: ref, _meta: txMeta,
+      _amount: chargeAmount, _reference: ref, _meta: txMeta,
     });
     if (pendingErr || !pendingTx) {
-      await tg(`🚨 *Critical: debit+pending creation failed*\nUser: ${user.id}\n₦${sellPrice} ${type}\n${pendingErr?.message || ""}`);
+      await tg(`🚨 *Critical: debit+pending creation failed*\nUser: ${userId}\n₦${sellPrice} ${type}\n${pendingErr?.message || ""}`);
       return json({ success: false, error: "Could not initiate purchase. Please try again.", code: "INIT_FAILED", balance_credited: false, reference: ref }, 200);
     }
     pendingTxId = (pendingTx as Record<string, unknown>).id as string;
@@ -370,7 +397,7 @@ serve(async (req) => {
     const tProv = treasuryKey(type, prvCode || "");
     try {
       const { data: rid, error: re } = await admin.rpc("reserve_provider_liquidity", {
-        _provider: tProv, _amount: sellPrice, _uid: user.id, _tx_ref: ref
+        _provider: tProv, _amount: sellPrice, _uid: userId, _tx_ref: ref
       });
       if (re) {
         const m = re.message || "";
@@ -411,7 +438,7 @@ serve(async (req) => {
             else if (pr.converted_to_airtime) {
               await failAndRefund(pr.msg || "Customer has outstanding data loan");
               await releaseReservation("failed");
-              await tg(`⚠️ *IACafe Owing Line (fallback)*\nUser: ${user.id}\nPhone: ${phone}\nPlan: ${pkgCode}\n₦${sellPrice} converted to airtime. Refunded.`);
+              await tg(`⚠️ *IACafe Owing Line (fallback)*\nUser: ${userId}\nPhone: ${phone}\nPlan: ${pkgCode}\n₦${sellPrice} converted to airtime. Refunded.`);
               return json({ success: false, error: pr.msg || "This line has an outstanding data loan.", code: "OWING_LINE", balance_credited: true, id: pendingTxId }, 200);
             }
           }
@@ -468,7 +495,7 @@ serve(async (req) => {
       _tx_id: pendingTxId, _provider_reference: pr.ref || ref, _meta: txMeta,
     });
     if (commitErr) {
-      await tg(`🚨 *CRITICAL: commit failed after delivery*\nUser: ${user.id}\nTx: ${pendingTxId}\n₦${sellPrice} ${type}`);
+      await tg(`🚨 *CRITICAL: commit failed after delivery*\nUser: ${userId}\nTx: ${pendingTxId}\n₦${sellPrice} ${type}`);
       return json({ success: true, warning: "Purchase delivered but status update delayed.", id: pendingTxId, reference: txReference, status: "pending" }, 200);
     }
 
@@ -476,12 +503,16 @@ serve(async (req) => {
 
     let bpAward: { base: number; bonus: number } = { base: 0, bonus: 0 };
     if (shouldClaim && (type === "data" || type === "airtime")) {
-      bpAward = await awardBp(admin, user.id, sellPrice, type, claimFirstData);
+      bpAward = await awardBp(admin, userId, sellPrice, type, claimFirstData);
     }
 
     const resp: Record<string, unknown> = { success: true, reference: (committedTx as Record<string, unknown>)?.reference || txReference, status: "success" };
     if (pendingTxId) resp.id = pendingTxId;
-    if (bpAward.base > 0) {
+    if (isAdmin) {
+      resp.amount_charged = chargeAmount;
+      resp.amount_full = sellPrice;
+    }
+    if (!isAdmin && bpAward.base > 0) {
       resp.bp_earned = bpAward.base + bpAward.bonus;
       resp.bp_breakdown = { base: bpAward.base, bonus: bpAward.bonus };
       txMeta.bp_earned = bpAward.base + bpAward.bonus;
