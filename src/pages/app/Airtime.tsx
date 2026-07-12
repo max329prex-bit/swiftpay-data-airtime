@@ -23,7 +23,7 @@ export default function Airtime() {
   const [pin, setPin] = useState("");
   const [step, setStep] = useState<Step>("form");
   const [busy, setBusy] = useState(false);
-  const [claimBp, setClaimBp] = useState(true);
+  const [claimBp, setClaimBp] = useState(false);
   const { balance, refresh } = useWallet();
   const nav = useNavigate();
   const net = NETWORKS.find(n => n.id === network)!;
