@@ -15,6 +15,12 @@ function discountForType(type: string): number {
   return 0; // cable/electricity: full price, no discount advertised
 }
 
+function chargeAmountFor(amount: number, discountPercent: number): number {
+  return discountPercent > 0
+    ? Math.round(amount * (1 - discountPercent / 100) * 100) / 100
+    : amount;
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
@@ -32,9 +38,11 @@ serve(async (req) => {
     const { data: keyData } = await supa.rpc("verify_api_key", { _api_key: apiKey });
     if (!keyData?.[0]) return json({ success: false, error: "Invalid API key" }, 401);
 
-    const userId = keyData[0].user_id;
-    const keyId = keyData[0].key_id;
-    await supa.rpc("update_api_key_last_used", { _key_id: keyId });
+    const keyInfo = keyData[0] as Record<string, any>;
+    const userId = String(keyInfo.user_id || "");
+    const keyId = String(keyInfo.api_key_id || "");
+    if (!userId) return json({ success: false, error: "Invalid API key" }, 401);
+    if (keyId) await supa.rpc("update_api_key_last_used", { _key_id: keyId });
 
     let network = body.network || "";
     let phone = body.phone || "";
@@ -58,20 +66,23 @@ serve(async (req) => {
       return json({ success: false, error: "Unsupported type. Use data, airtime, electricity, or cable" }, 400);
     }
 
+    const discountPercent = discountForType(type);
     const vtuBody: Record<string, unknown> = {
       type, network, phone, amount,
-      discount_percent: discountForType(type),
+      discount_percent: discountPercent,
       meta: { via: "api", api_key_id: keyId },
     };
 
+    let dataPkg: Record<string, any> | null = null;
     if (type === "data") {
       const { data: pkg } = await supa.from("packages").select("package_code,provider_code,price").eq("id", packageId).single();
       if (!pkg) return json({ success: false, error: "Invalid package_id" }, 400);
-      if (Math.abs(Number(pkg.price) - amount) > 0.01) {
-        return json({ success: false, error: `Amount must match package price ₦${pkg.price}` }, 400);
+      dataPkg = pkg as Record<string, any>;
+      if (Math.abs(Number(dataPkg.price) - amount) > 0.01) {
+        return json({ success: false, error: `Amount must match package price ₦${dataPkg.price}` }, 400);
       }
-      vtuBody.package_code = pkg.package_code;
-      vtuBody.provider_code = pkg.provider_code;
+      vtuBody.package_code = dataPkg.package_code;
+      vtuBody.provider_code = dataPkg.provider_code;
     } else if (type === "cable") {
       vtuBody.provider_code = providerCode;
       vtuBody.smartcard = smartcard;
@@ -93,7 +104,33 @@ serve(async (req) => {
       body: JSON.stringify(vtuBody),
     });
 
-    const vtuData = await vtuRes.json().catch(() => ({ success: false, error: "Could not parse BlitzPay response" }));
+    const vtuData = await vtuRes.json().catch(() => ({ success: false, error: "Could not parse BlitzPay response" })) as Record<string, any>;
+
+    // Log the API purchase attempt
+    if (vtuData.reference) {
+      const now = new Date().toISOString();
+      const logStatus = vtuData.success === true ? "success" : (vtuData.balance_credited === true ? "failed" : "pending");
+      const logPhone = type === "electricity" ? meterNumber : (type === "cable" ? smartcard : phone);
+      const logNetwork = type === "electricity" || type === "cable" ? providerCode : network;
+      const logProviderCode = dataPkg?.provider_code || providerCode || (type === "airtime" ? "gsubz" : "");
+      const logAmount = vtuData.amount_charged ?? chargeAmountFor(amount, discountPercent);
+      await supa.from("api_purchases").insert({
+        api_key_id: keyId || null,
+        user_id: userId,
+        type,
+        network: logNetwork || "",
+        phone: logPhone || "",
+        amount: logAmount,
+        package_id: packageId || null,
+        status: logStatus,
+        reference: vtuData.reference,
+        provider_code: logProviderCode || null,
+        meta: { via: "api", amount_full: amount, api_key_id: keyId },
+        updated_at: now,
+        resolved_at: logStatus !== "pending" ? now : null,
+      }).catch(e => console.error("api_purchases insert failed:", e));
+    }
+
     if (!vtuRes.ok) {
       return json({ success: false, error: vtuData.error || "BlitzPay engine error", code: vtuData.code || "ENGINE_ERROR" }, 500);
     }

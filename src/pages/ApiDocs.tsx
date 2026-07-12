@@ -70,7 +70,7 @@ const ENDPOINTS: Endpoint[] = [
     method: "POST",
     path: "/api-purchase",
     title: "Purchase",
-    description: "Buy data, airtime, electricity, or cable TV. Wallet debited, transaction created, and our provider delivers in real-time.",
+    description: "Buy data, airtime, electricity, or cable TV. Routed through the BlitzPay engine. Discounts: 2% on data, 1.5% on airtime.",
     auth: "x-api-key",
     params: [
       { name: "type", type: "string", required: true, desc: "'data' | 'airtime' | 'electricity' | 'cable'" },
@@ -83,7 +83,7 @@ const ENDPOINTS: Endpoint[] = [
       { name: "package_code", type: "string", required: false, desc: "Package code from /api-services (for cable)" },
       { name: "amount", type: "number", required: true, desc: "Purchase amount in NGN" },
     ],
-    response: { success: true, transaction: { id: "uuid", reference: "BP-2026-XXXX", status: "processing", network: "MTN", phone: "08012345678", amount: 9000, provider: "partner" }, message: "Purchase is being processed. Check status with GET /api-transaction/:reference" },
+    response: { success: true, reference: "SP-XXXX", status: "success", id: "uuid", amount_charged: 98.5, amount_full: 100 },
     example: `curl -X POST \\\n  -H "x-api-key: bp_abc123..." \\\n  -H "Content-Type: application/json" \\\n  -d '{"type":"airtime","network":"MTN","phone":"08012345678","amount":1000}' \\\n  ${BASE_URL}/api-purchase`,
   },
   {
@@ -146,7 +146,7 @@ export default function ApiDocs() {
           </h1>
           <p className="text-muted-foreground max-w-lg mx-auto text-sm leading-relaxed">
             Integrate data bundles, airtime, and utility payments directly into your app.
-            JSON-only, key-based auth, 2% discount on all API purchases.
+            JSON-only, key-based auth, 2% discount on data and 1.5% on airtime.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-5">
             <span className="glass px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5">
@@ -156,7 +156,7 @@ export default function ApiDocs() {
               <Key className="h-3.5 w-3.5 text-purple-400" /> x-api-key Auth
             </span>
             <span className="glass px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-amber-400" /> 2% Discount
+              <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Discounts
             </span>
           </div>
         </motion.div>

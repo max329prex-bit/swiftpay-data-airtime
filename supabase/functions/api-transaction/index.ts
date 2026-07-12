@@ -14,7 +14,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
       const supa = createClient(SUPA_URL, SUPA_SVC, { auth: { autoRefreshToken: false, persistSession: false } });
       const { data: keyData } = await supa.rpc("verify_api_key", { _api_key: apiKey });
       if (!keyData?.[0]) return json({ success: false, error: "Invalid API key" }, 401);
-      const userId = keyData[0].user_id, keyId = keyData[0].key_id;
+      const userId = keyData[0].user_id, keyId = keyData[0].api_key_id;
       await supa.rpc("update_api_key_last_used", { _key_id: keyId });
       const { data: tx } = await supa.from("transactions").select("id,status,reference,network,phone,amount,provider_reference,meta,created_at,updated_at").eq("reference", ref).eq("user_id", userId).single();
       if (!tx) return json({ success: false, error: "Transaction not found" }, 404);

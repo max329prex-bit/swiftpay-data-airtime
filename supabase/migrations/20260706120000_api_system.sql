@@ -68,7 +68,7 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION public.verify_api_key(_api_key TEXT)
-RETURNS TABLE (user_id UUID, key_id UUID, is_active BOOLEAN, rate_limit INTEGER)
+RETURNS TABLE (user_id UUID, api_key_id UUID, is_active BOOLEAN, rate_limit INTEGER)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   _hash TEXT := digest(_api_key, 'sha256')::text;
