@@ -15,12 +15,12 @@ const SERVICES = [
   { icon: Phone, title: "Airtime", desc: "Instant top-up on MTN, Glo, Airtel and 9mobile.", to: "/auth?mode=signup" },
   { icon: Wifi, title: "Data bundles", desc: "From daily plans to monthly mega-bundles, all networks.", to: "/auth?mode=signup" },
   { icon: Lightbulb, title: "Electricity", desc: "Pay any DISCO and get your token in seconds.", to: "/auth?mode=signup" },
-  { icon: Tv, title: "Cable TV", desc: "DStv, GOtv and Startimes — no queues, no stress.", to: "/auth?mode=signup" },
+  { icon: Tv, title: "Cable TV", desc: "DStv, GOtv and Startimes. No queues, no stress.", to: "/auth?mode=signup" },
 ];
 
 const FEATURES = [
   { icon: Zap, title: "Instant delivery", desc: "Most transactions complete in under 5 seconds, 24/7." },
-  { icon: Gift, title: "Earn BlitzPoints", desc: "Get 1 BlitzPoint for every ₦250 you spend on airtime or data — claim it on the purchase screen." },
+  { icon: Gift, title: "Earn BlitzPoints", desc: "Get 1 BlitzPoint for every ₦250 you spend on airtime or data. Claim it on the purchase screen." },
   { icon: Sparkles, title: "Redeem 1GB free", desc: "Swap 100 BlitzPoints for a free 1GB data bundle, any network." },
   { icon: ShieldCheck, title: "PIN-protected", desc: "Every transaction is locked behind a 4-digit transaction PIN." },
   { icon: Wallet, title: "One secure wallet", desc: "Fund once, pay anything. No re-entering card details." },
@@ -30,13 +30,13 @@ const FEATURES = [
 const STEPS = [
   { n: "01", t: "Sign up free", d: "Create your BlitzPay account with email in 30 seconds." },
   { n: "02", t: "Fund your wallet", d: "Top up securely. Your balance is ready instantly." },
-  { n: "03", t: "Pay & earn points", d: "Buy airtime, data or pay a bill — and earn BlitzPoints as you go." },
+  { n: "03", t: "Pay & earn points", d: "Buy airtime, data or pay a bill and earn BlitzPoints as you go." },
 ];
 
 const FAQS = [
   { q: "Is BlitzPay free to use?", a: "Yes. Creating an account, funding your wallet, and buying airtime or data costs nothing extra. You only pay the face value of what you're buying." },
   { q: "What are BlitzPoints?", a: "Our built-in rewards. You earn 1 BlitzPoint for every ₦250 you spend on airtime or data, and you must tap the 'Claim BlitzPoints' button on the purchase summary screen to collect it. When you hit 100 points, you can redeem a free 1GB data bundle on any network." },
-  { q: "Which networks and services are supported?", a: "All four major Nigerian networks — MTN, Glo, Airtel and 9mobile — for airtime and data, plus electricity (all major DISCOs) and cable TV (DStv, GOtv, Startimes)." },
+  { q: "Which networks and services are supported?", a: "All four major Nigerian networks (MTN, Glo, Airtel and 9mobile) for airtime and data, plus electricity (all major DISCOs) and cable TV (DStv, GOtv, Startimes)." },
   { q: "How long does delivery take?", a: "Airtime and data are typically delivered in under 5 seconds. Electricity tokens arrive within 30 seconds." },
   { q: "Is my money safe?", a: "Every transaction is locked behind a 4-digit PIN, your session is encrypted, and your data is protected with row-level security. We never store your card details." },
 ];
@@ -185,7 +185,7 @@ export default function Index() {
               Built for Nigeria · Live now
             </div>
             <h1 className="mt-6 text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl text-slate-900">
-              Airtime, data<br />& bills —<br />
+              Airtime, data<br />& bills<br />
               <span className="text-blue-600">paid in a swipe.</span>
             </h1>
             <p className="mt-6 max-w-lg text-lg text-slate-500">
@@ -291,7 +291,7 @@ export default function Index() {
                 <Gift className="h-3.5 w-3.5" /> BlitzPoints rewards
               </div>
               <h2 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl text-slate-900">Spend airtime.<br />Earn free data.</h2>
-              <p className="mt-4 max-w-md text-slate-500">Every ₦250 you spend on airtime or data earns you 1 BlitzPoint — just tap "Claim BlitzPoint" on the purchase summary screen. Stack 100 points and redeem them for a free 1GB data bundle on any network. No fine print.</p>
+              <p className="mt-4 max-w-md text-slate-500">Every ₦250 you spend on airtime or data earns you 1 BlitzPoint. Just tap "Claim BlitzPoint" on the purchase summary screen. Stack 100 points and redeem them for a free 1GB data bundle on any network. No fine print.</p>
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 {[
                   { v: "₦250", l: "= 1 point" },
