@@ -1062,6 +1062,18 @@ export type Database = {
           },
         ]
       }
+      test_table_xyz: {
+        Row: {
+          id: string
+        }
+        Insert: {
+          id: string
+        }
+        Update: {
+          id?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           aidapay_hash: string | null
