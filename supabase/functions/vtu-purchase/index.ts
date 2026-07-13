@@ -309,7 +309,7 @@ serve(async (req) => {
       uc = createClient(SUPA_URL, SUPA_ANON, { global: { headers: { Authorization: auth } } });
       const { data: { user }, error: ae } = await uc.auth.getUser();
       if (ae || !user) return json({ error: "Unauthorized" }, 401);
-      userId = userId;
+      userId = user.id;
     }
 
     const body = await req.json();

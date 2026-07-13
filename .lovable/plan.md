@@ -1,33 +1,36 @@
-# Fix Free Transfer manual verification
+# Fix: All in-app purchases failing (data / airtime / cable / electricity)
 
 ## Root cause
 
-`confirm-free-transfer` awaits an inline `fetch` to `scan-opay-emails` with a 15s AbortController timeout. The IMAP scan often takes longer than that (Deno cold start + IMAP fetch of 6+ messages), so the edge function either aborts, hits the platform timeout, or the client drops the connection — the browser surfaces this as **"Failed to fetch"**.
+In `supabase/functions/vtu-purchase/index.ts` the non-admin (regular app) branch has a self-assignment bug:
 
-The scan itself still runs (and/or the 5-minute cron catches it) — which is why a refresh 1–2 minutes later shows the wallet credited.
+```ts
+let userId: string;
+if (isAdmin) {
+  userId = apiUserId;
+} else {
+  const { data: { user } } = await uc.auth.getUser();
+  userId = userId;   // ← should be user.id
+}
+```
 
-## Fix (minimal, keeps cron untouched)
+Because `userId` stays `undefined`, `debit_and_create_transaction` is called with `_user_id: undefined`, the RPC returns nothing, the function replies with `INIT_FAILED`, and the client shows a generic error. No row is inserted into `transactions`, which matches what the DB shows: last real transaction was 21:37, nothing since despite the user's attempts.
 
-### 1. `supabase/functions/confirm-free-transfer/index.ts`
-- Stop `await`ing the inline scan. Kick it off fire-and-forget with `EdgeRuntime.waitUntil(...)` (or just an unawaited promise) so the HTTP response returns as soon as the deposit is transitioned to `pending` and the `verifying` transaction row is upserted.
-- Return `{ success: true, status: "pending", deposit_id, message: "Payment confirmed. Checking for your transfer..." }` immediately — no more 15s inline scan blocking the response.
-- Keep every other branch (expired / already verified / already pending) unchanged.
+The API path (`isAdmin` = true) is unaffected — it correctly sets `userId = apiUserId`. So this is not a provider outage, it's a code bug affecting every in-app purchase type.
 
-Result: the endpoint responds in well under a second, so "Failed to fetch" from timeout goes away. Frontend polling + realtime + the existing `trigger-email-check` retry loop pick up the credit as soon as the scan finds the email (which the cron also independently guarantees).
+## Fix
 
-### 2. `src/components/blitz/FreeTransferPanel.tsx` — "refresh after ~10s" hint
-Per the user's request: at 10 seconds elapsed in the `checking` step, show a message telling them they can refresh if it isn't verified within a minute or two. Adjust the existing elapsed-time hints:
-- `checkingElapsed >= 10 && < 60`: "Still checking… if this isn't verified in a minute or two, you can refresh the page — your wallet will already be credited."
-- `checkingElapsed >= 60`: keep/repurpose the existing amber "refresh this page and check your balance" box.
-- Remove the 30s hint (superseded by the 10s one).
+One-line change in `supabase/functions/vtu-purchase/index.ts`:
 
-No other UI or business-logic changes. Cron, matching, crediting, and `opay-email-webhook` are untouched.
+```
+-      userId = userId;
++      userId = user.id;
+```
 
-## Files changed
+That restores data, airtime, cable, and electricity purchases for all normal (non-API) users. No migration, no other file changes needed.
 
-- `supabase/functions/confirm-free-transfer/index.ts` — drop inline await on scan, return immediately.
-- `src/components/blitz/FreeTransferPanel.tsx` — earlier "you can refresh" hint at 10s.
+## Verification after deploy
 
-## Not doing
-
-- No new queue table, no retry rewrites, no changes to `scan-opay-emails`, `opay-email-webhook`, `trigger-email-check`, or the GitHub Actions cron.
+1. Attempt MTN ₦250 1GB data purchase from the app.
+2. Confirm a new row lands in `transactions` with `status = success` (or a real provider error, not `INIT_FAILED`).
+3. Repeat with a ₦100 airtime purchase to confirm the fix isn't type-specific.
