@@ -114,7 +114,7 @@ serve(async (req) => {
       const logNetwork = type === "electricity" || type === "cable" ? providerCode : network;
       const logProviderCode = dataPkg?.provider_code || providerCode || (type === "airtime" ? "gsubz" : "");
       const logAmount = vtuData.amount_charged ?? chargeAmountFor(amount, discountPercent);
-      await supa.from("api_purchases").insert({
+      const { error: logErr } = await supa.from("api_purchases").insert({
         api_key_id: keyId || null,
         user_id: userId,
         type,
@@ -128,7 +128,8 @@ serve(async (req) => {
         meta: { via: "api", amount_full: amount, api_key_id: keyId },
         updated_at: now,
         resolved_at: logStatus !== "pending" ? now : null,
-      }).catch(e => console.error("api_purchases insert failed:", e));
+      });
+      if (logErr) console.error("api_purchases insert failed:", logErr.message);
     }
 
     if (!vtuRes.ok) {
