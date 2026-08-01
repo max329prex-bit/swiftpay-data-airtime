@@ -37,7 +37,10 @@ export default function Airtime() {
   async function pay() {
     if (pin.length < 4) return toast.error("Enter 4-digit PIN");
     if (amount < MIN_AMOUNT) return toast.error(`Min ${naira(MIN_AMOUNT)}`);
-    if (amount > balance) return toast.error("Insufficient balance");
+    const wallet = await refresh();
+    if (amount > (wallet?.available ?? wallet?.balance ?? 0)) {
+      return toast.error("Insufficient balance");
+    }
     setBusy(true);
     setStep("verifying");
     try {
