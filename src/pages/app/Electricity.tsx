@@ -111,7 +111,10 @@ export default function Electricity() {
     if (!provider) return;
     if (pin.length < 4) return toast.error("Enter 4-digit PIN");
     if (amount < 1000) return toast.error("Min \u20a61,000");
-    if (amount > balance) return toast.error("Insufficient balance");
+    const wallet = await refresh();
+    if (amount > (wallet?.available ?? wallet?.balance ?? 0)) {
+      return toast.error("Insufficient balance");
+    }
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
@@ -136,6 +139,7 @@ export default function Electricity() {
     } catch (e: any) {
       toast.error(e.message || "Payment failed");
     } finally {
+      await refresh();
       setBusy(false);
     }
   }
