@@ -38,7 +38,7 @@ function isGsubzFailureByText(text: string): boolean {
 function treasuryKey(type: string, prvCode: string): string {
   if (type === "data" && prvCode === "iacafe")          return "iacafe";
   if (type === "data" && prvCode?.startsWith("bsplug")) return "bsplug";
-  if (type === "data" && prvCode === "gsubz")           return "iacafe";
+  if (type === "data" && prvCode === "gsubz")           return "gsubz";
   if (type === "electricity")                           return "iacafe";
   return "gsubz";
 }
