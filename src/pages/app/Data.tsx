@@ -343,7 +343,10 @@ export default function Data() {
       }
       toast.error(msg);
       setStep("form");
-    } finally { setBusy(false); }
+    } finally {
+        await refresh();
+        setBusy(false);
+      }
   }
 
   // ── Fullscreen verifying overlay ──
