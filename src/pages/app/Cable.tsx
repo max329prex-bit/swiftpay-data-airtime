@@ -56,7 +56,10 @@ export default function Cable() {
   async function pay() {
     if (!pkg) return;
     if (pin.length < 4) return toast.error("Enter 4-digit PIN");
-    if (pkg.price > balance) return toast.error("Insufficient balance");
+    const wallet = await refresh();
+    if (pkg.price > (wallet?.available ?? wallet?.balance ?? 0)) {
+      return toast.error("Insufficient balance");
+    }
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("vtu-purchase", {
@@ -76,7 +79,10 @@ export default function Cable() {
       refresh();
       nav(`/app/receipt/${receiptId}`);
     } catch (e: any) { toast.error(e.message ?? "Failed"); }
-    finally { setBusy(false); }
+    finally {
+      await refresh();
+      setBusy(false);
+    }
   }
 
   return (
