@@ -11,9 +11,12 @@ export function useWallet() {
   const refresh = useCallback(async () => {
     if (!user) { setBalance(0); setReserved(0); setLoading(false); return; }
     const { data } = await supabase.from("wallets").select("balance, reserved_balance").eq("user_id", user.id).maybeSingle();
-    setBalance(Number(data?.balance ?? 0));
-    setReserved(Number((data as any)?.reserved_balance ?? 0));
-    setLoading(false);
+      const nextBalance = Number(data?.balance ?? 0);
+      const nextReserved = Number((data as any)?.reserved_balance ?? 0);
+      setBalance(nextBalance);
+      setReserved(nextReserved);
+      setLoading(false);
+      return { balance: nextBalance, reserved: nextReserved, available: Math.max(0, nextBalance - nextReserved) };
   }, [user]);
 
   useEffect(() => { refresh(); }, [refresh]);
