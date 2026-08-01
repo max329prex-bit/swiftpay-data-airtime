@@ -306,7 +306,10 @@ export default function Data() {
   async function pay() {
     if (!plan) return;
     if (pin.length < 4) return toast.error("Enter 4-digit PIN");
-    if (plan.sell_price > balance) return toast.error("Insufficient balance");
+    const wallet = await refresh();
+    if (plan.sell_price > (wallet?.available ?? wallet?.balance ?? 0)) {
+      return toast.error("Insufficient balance");
+    }
     setBusy(true);
     setStep("verifying");
     try {
@@ -319,6 +322,7 @@ export default function Data() {
         },
       });
       if (data?.bp_earned) toast.success(`+${data.bp_earned} BlitzPoints earned!`);
+      await refresh();
       if (error) throw error;
       const receiptId = data?.id || data?.reference;
       if (!receiptId) {
