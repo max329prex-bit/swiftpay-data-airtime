@@ -58,7 +58,10 @@ export default function Airtime() {
     } catch (e: any) {
       toast.error(e.message ?? "Failed");
       setStep("form");
-    } finally { setBusy(false); }
+    } finally {
+        await refresh();
+        setBusy(false);
+      }
   }
 
   // ── Fullscreen verifying overlay ──
