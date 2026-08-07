@@ -209,13 +209,21 @@ export function AppShell() {
 
   return (
     <div className="relative mx-auto min-h-screen max-w-md pb-28">
-      <header className="sticky top-0 z-20 backdrop-blur-xl bg-background/70 border-b border-white/5">
+      <header className="sticky top-0 z-20 border-b border-[hsl(var(--hairline))] bg-background/72 backdrop-blur-2xl">
         <div className="flex items-center justify-between px-5 pt-4 pb-3">
-          <Logo />
-          <button onClick={() => setShowNotifs(true)} className="relative grid h-9 w-9 place-items-center rounded-full glass">
-            <Bell className="h-4 w-4" />
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-primary text-[13px] font-bold text-white shadow-[var(--shadow-key)]">
+              {(user.email || "?").charAt(0).toUpperCase()}
+            </span>
+            <div className="leading-tight">
+              <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Welcome back</div>
+              <div className="max-w-[150px] truncate text-[13px] font-semibold">{(user.email || "").split("@")[0]}</div>
+            </div>
+          </div>
+          <button onClick={() => setShowNotifs(true)} className="press relative grid h-10 w-10 place-items-center rounded-full surface">
+            <Bell className="h-[17px] w-[17px]" />
             {unread > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground shadow">
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground ring-2 ring-background">
                 {unread > 9 ? "9+" : unread}
               </span>
             )}
@@ -250,15 +258,24 @@ export function AppShell() {
       </motion.button>
 
       <nav className="fixed bottom-4 left-1/2 z-30 w-[92%] max-w-sm -translate-x-1/2">
-        <div className="glass flex items-center justify-around rounded-3xl border border-white/10 px-2 py-2 shadow-glow backdrop-blur-2xl">
+        <div className="flex items-center gap-1 rounded-[26px] border border-[hsl(var(--hairline))] bg-background/80 p-1.5 shadow-[var(--shadow-elev-2)] backdrop-blur-2xl">
           {TABS.map(t => (
-            <NavLink key={t.to} to={t.to} end={t.end} className="group relative flex flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2">
+            <NavLink key={t.to} to={t.to} end={t.end} className="group relative flex flex-1 flex-col items-center rounded-[20px] px-1 py-2">
               {({ isActive }) => (
                 <>
-                  <span className={`grid h-9 w-9 place-items-center rounded-xl transition-all ${isActive ? "bg-gradient-primary text-white shadow-glow scale-110" : "text-muted-foreground group-hover:text-foreground"}`}>
-                    <t.icon className="h-4 w-4" />
+                  {isActive && (
+                    <motion.span
+                      layoutId="nav-pill"
+                      transition={{ type: "spring", stiffness: 480, damping: 38 }}
+                      className="absolute inset-0 rounded-[20px] bg-primary/12"
+                    />
+                  )}
+                  <span className={`relative z-10 transition-colors ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}>
+                    <t.icon className="h-[19px] w-[19px]" strokeWidth={isActive ? 2.4 : 1.9} />
                   </span>
-                  <span className={`text-[10px] font-semibold transition ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{t.label}</span>
+                  <span className={`relative z-10 mt-1 text-[9.5px] font-semibold tracking-wide transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                    {t.label}
+                  </span>
                 </>
               )}
             </NavLink>
