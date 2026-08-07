@@ -206,13 +206,13 @@ async function gsubzBuyRaw(params: Record<string, string>): Promise<PR> {
 }
 
 // ── Provider: GSubz (data bundle) ────────────────────────────────────────
-async function gsubzData(pkgCode: string, phone: string, reqId: string): Promise<PR> {
+async function gsubzData(pkgCode: string, phone: string, reqId: string, amount: number): Promise<PR> {
   const cleanCode = pkgCode.replace(/^GSZ-/, "");
   const parts = cleanCode.split("-");
   const planId = parts[parts.length - 1];
   const service = parts.length > 1 ? parts.slice(0, parts.length - 1).join("-").replace(/-/g, "_") : "";
   if (!planId || !service) return { success: false, msg: "Gsubz: invalid data plan code" };
-  return gsubzBuyRaw({ serviceID: service, plan: planId, api: GSUBZ_KEY, phone, requestID: reqId, amount: "" });
+  return gsubzBuyRaw({ serviceID: service, plan: planId, api: GSUBZ_KEY, phone, requestID: reqId, amount: String(amount || 0) });
 }
 
 // ── Provider: GSubz (airtime) ───────────────────────────────────────────────────
@@ -420,7 +420,7 @@ serve(async (req) => {
       txMeta.gsubz_request_id = reqId;
       const gsubzHealthy = await isGsubzHealthy(admin);
       if (gsubzHealthy) {
-        pr = await gsubzData(pkgCode, phone, reqId);
+        pr = await gsubzData(pkgCode, phone, reqId, sellPrice);
         if (pr.success) { usedProvider = "gsubz"; txMeta.provider_used = "gsubz"; txMeta.gsubz_ref = pr.ref; }
       }
       if (!pr.success) {
