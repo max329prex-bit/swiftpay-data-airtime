@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Plus, Zap, Wifi, BatteryCharging, Tv, Sparkles, Gift, Mail, ChevronRight, CalendarClock } from "lucide-react";
+import { Eye, EyeOff, Plus, Zap, Wifi, BatteryCharging, Tv, Sparkles, Gift, Mail, ChevronRight, CalendarClock, ArrowUpRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useWallet } from "@/hooks/useWallet";
 import { useBlitzPoints } from "@/hooks/useBlitzPoints";
@@ -10,6 +10,7 @@ import { naira } from "@/lib/networks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Card, SectionHeader, ListRow, IconPlate, StatPill, Skeleton } from "@/components/blitz/ui/Surface";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [redeemPhone, setRedeemPhone] = useState("");
   const [redeemNet, setRedeemNet] = useState("MTN");
   const [busy, setBusy] = useState(false);
+  const [loadingTx, setLoadingTx] = useState(true);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function Dashboard() {
       .then(({ data }) => setName(data?.full_name ?? ""));
     supabase.from("transactions").select("*").eq("user_id", user.id)
       .order("created_at", { ascending: false }).limit(4)
-      .then(({ data }) => setRecent(data ?? []));
+      .then(({ data }) => { setRecent(data ?? []); setLoadingTx(false); });
   }, [user, balance]);
 
   // Auto-provision permanent deposit account on first login — silent, no UI.
