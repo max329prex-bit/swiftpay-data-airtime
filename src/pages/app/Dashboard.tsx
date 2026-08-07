@@ -84,170 +84,149 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-5">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="text-sm text-muted-foreground">Hi {first} 👋</div>
-        <div className="font-display text-2xl font-semibold">Let's get you topped up.</div>
-      </motion.div>
-
-      {/* Wallet card */}
-      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
-        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-accent/30 blur-2xl" />
-        <div className="relative flex items-start justify-between">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-widest text-white/70">Wallet balance</div>
-            <div className="mt-1 flex items-center gap-2">
-              <div className="font-display text-4xl font-bold text-white">{hide ? "₦ ••••••" : naira(balance)}</div>
-              <button onClick={toggleHide} className="text-white/70 hover:text-white">
-                {hide ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-              </button>
-            </div>
+    <div className="space-y-6">
+      {/* Balance card */}
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="relative overflow-hidden rounded-[28px] bg-gradient-primary p-6 shadow-[var(--shadow-key)]">
+        <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-white/20 blur-3xl" />
+        <div className="absolute -bottom-16 -left-12 h-44 w-44 rounded-full bg-accent/25 blur-3xl" />
+        <Zap className="absolute -right-4 bottom-0 h-32 w-32 text-white/[0.07]" fill="currentColor" strokeWidth={0} />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70">Available balance</div>
+            <button onClick={toggleHide} className="press grid h-8 w-8 place-items-center rounded-full bg-white/15 text-white/80 backdrop-blur">
+              {hide ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </button>
           </div>
-          <Link to="/app/wallet" className="grid h-10 w-10 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25">
-            <Plus className="h-4 w-4 text-white" />
-          </Link>
-        </div>
-        <div className="relative mt-6 text-xs text-white/80">Tap + to fund your wallet instantly.</div>
-      </motion.div>
-
-      {/* BlitzPoints card */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-        className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-accent/20 via-primary/10 to-background p-5">
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-accent/20 blur-2xl" />
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-accent" />
-              <div className="text-xs font-semibold uppercase tracking-widest text-accent">BlitzPoints</div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <div className="font-display text-3xl font-bold">{points}</div>
-              <div className="text-sm text-muted-foreground">/ 100 BP</div>
-            </div>
-            <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/10">
-              <motion.div initial={{ width: 0 }} animate={{ width: pct + "%" }} transition={{ duration: 0.8 }}
-                className="h-full rounded-full bg-gradient-to-r from-primary to-accent" />
-            </div>
-            <div className="mt-2 text-[11px] text-muted-foreground">
-              {points >= 100 ? "🎉 Reward unlocked! Redeem 1GB free." : `${100 - points} BP to your free 1GB data reward`}
-            </div>
+          <div className="mt-2 font-display text-[42px] font-bold leading-none tracking-tight text-white">
+            {hide ? "\u20A6 \u2022\u2022\u2022\u2022\u2022\u2022" : naira(balance)}
           </div>
-          <button onClick={() => setShowRedeem(true)} disabled={points < 100}
-            className={"flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[11px] font-semibold transition " +
-              (points >= 100 ? "bg-gradient-primary text-white shadow-glow hover:scale-105" : "bg-white/5 text-muted-foreground cursor-not-allowed")}>
-            <Gift className="h-5 w-5" />
-            Redeem
-          </button>
+          <div className="mt-1.5 text-[11px] text-white/70">Hi {first}, ready when you are.</div>
+          <div className="mt-6 grid grid-cols-2 gap-2.5">
+            <Link to="/app/wallet" className="press flex items-center justify-center gap-2 rounded-2xl bg-white/95 px-4 py-3 text-[13px] font-bold text-[hsl(258_60%_22%)]">
+              <Plus className="h-4 w-4" strokeWidth={2.6} /> Fund wallet
+            </Link>
+            <Link to="/app/history" className="press flex items-center justify-center gap-2 rounded-2xl bg-white/15 px-4 py-3 text-[13px] font-semibold text-white backdrop-blur">
+              <ArrowUpRight className="h-4 w-4" strokeWidth={2.4} /> Activity
+            </Link>
+          </div>
         </div>
       </motion.div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-4 gap-2">
-        {[
-          { i: Zap, l: "Airtime", to: "/app/airtime" },
-          { i: Wifi, l: "Data", to: "/app/data" },
-          { i: BatteryCharging, l: "Electric", to: "/app/electricity" },
-          { i: Tv, l: "Cable TV", to: "/app/cable" },
-        ].map(a => (
-          <Link key={a.l} to={a.to} className="glass flex flex-col items-center gap-2 rounded-2xl p-3 hover:border-primary/40 transition">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-primary"><a.i className="h-4 w-4 text-white" /></span>
-            <span className="text-[11px] font-medium">{a.l}</span>
-          </Link>
-        ))}
+      <div>
+        <SectionHeader title="Pay for" />
+        <div className="grid grid-cols-4 gap-2.5">
+          {[
+            { i: Zap, l: "Airtime", to: "/app/airtime", c: "text-network-mtn bg-network-mtn/12" },
+            { i: Wifi, l: "Data", to: "/app/data", c: "text-primary bg-primary/12" },
+            { i: BatteryCharging, l: "Power", to: "/app/electricity", c: "text-accent bg-accent/12" },
+            { i: Tv, l: "Cable", to: "/app/cable", c: "text-network-airtel bg-network-airtel/12" },
+          ].map((a, idx) => (
+            <motion.div key={a.l} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * idx, duration: 0.4 }}>
+              <Link to={a.to} className="press surface flex flex-col items-center gap-2 rounded-2xl px-1 py-3.5">
+                <span className={"grid h-10 w-10 place-items-center rounded-[14px] " + a.c}><a.i className="h-[18px] w-[18px]" strokeWidth={2.2} /></span>
+                <span className="text-[10.5px] font-semibold">{a.l}</span>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
       </div>
 
-      {/* Support bar — links to support page */}
-      {/* BlitzData Scheduler entry */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-        <Link
-          to="/app/schedules"
-          className="relative overflow-hidden rounded-2xl border border-accent/20 bg-gradient-to-r from-primary/10 to-accent/10 p-4 flex items-center gap-3 hover:border-accent/40 transition group"
-        >
-          <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl bg-gradient-primary shadow-glow">
-            <CalendarClock className="h-5 w-5 text-white" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold flex items-center gap-2">
-              BlitzData Scheduler
-              <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-accent">New</span>
+      {/* BlitzPoints */}
+      <Card delay={0.08} className="overflow-hidden p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">BlitzPoints</span>
             </div>
-            <div className="text-xs text-muted-foreground">Auto-renew data & airtime on your schedule</div>
+            <div className="mt-1.5 flex items-baseline gap-1.5">
+              <span className="font-display text-[28px] font-bold leading-none">{points}</span>
+              <span className="text-[11px] text-muted-foreground">/ 100 BP</span>
+            </div>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition flex-shrink-0" />
-        </Link>
-      </motion.div>
+          <button onClick={() => setShowRedeem(true)} disabled={points < 100}
+            className={"press flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold transition " +
+              (points >= 100 ? "bg-gradient-primary text-white shadow-[var(--shadow-key)]" : "bg-foreground/[0.06] text-muted-foreground")}>
+            <Gift className="h-3.5 w-3.5" /> Redeem
+          </button>
+        </div>
+        <div className="mt-3.5 h-2 w-full overflow-hidden rounded-full bg-foreground/[0.08]">
+          <motion.div initial={{ width: 0 }} animate={{ width: pct + "%" }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            className="h-full rounded-full bg-gradient-primary" />
+        </div>
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          {points >= 100 ? "Reward unlocked. Redeem 1GB free data." : `${100 - points} BP to your free 1GB data reward`}
+        </div>
+      </Card>
 
-      {/* Support bar — links to support page */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-        <Link
-          to="/app/support"
-          className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 hover:bg-primary/10 transition group"
-        >
-          <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-primary/20 group-hover:bg-primary/30 transition">
-            <Mail className="h-5 w-5 text-primary" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold">Get instant support</div>
-            <div className="text-xs text-muted-foreground">Email or chat with Blitzi</div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition flex-shrink-0" />
-        </Link>
-      </motion.div>
+      {/* Feature rows */}
+      <Card delay={0.12} className="divide-y divide-[hsl(var(--hairline))] overflow-hidden">
+        <ListRow
+          onClick={() => nav("/app/schedules")}
+          icon={<IconPlate tint="gradient" size="lg"><CalendarClock className="h-[18px] w-[18px]" /></IconPlate>}
+          title="BlitzData Scheduler"
+          badge={<StatPill tone="info">New</StatPill>}
+          subtitle="Auto renew data and airtime on your schedule"
+        />
+        <ListRow
+          onClick={() => nav("/app/support")}
+          icon={<IconPlate tint="primary" size="lg"><Mail className="h-[18px] w-[18px]" /></IconPlate>}
+          title="Get instant support"
+          subtitle="Email or chat with Blitzi"
+        />
+      </Card>
 
       {/* Recent */}
       <div>
-        <div className="mb-3 flex items-center justify-between">
-          <div className="font-display text-base font-semibold">Recent activity</div>
-          <Link to="/app/history" className="text-xs text-primary">See all</Link>
-        </div>
-        {recent.length === 0 ? (
-          <div className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">No transactions yet — your first top-up will appear here.</div>
-        ) : (
+        <SectionHeader
+          title="Recent activity"
+          action={<Link to="/app/history" className="flex items-center gap-0.5 text-[11px] font-semibold text-primary">See all <ChevronRight className="h-3 w-3" /></Link>}
+        />
+        {loadingTx ? (
           <div className="space-y-2">
-            {recent.map(t => (
-              <div key={t.id} className="glass flex items-center justify-between rounded-2xl p-4">
-                <div>
-                  <div className="text-sm font-medium capitalize">{t.type.replace("_", " ")}{t.network ? ` · ${t.network}` : ""}</div>
-                  <div className="text-[11px] text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
-                </div>
-                {(() => {
-                    const isDeposit = t.type === "wallet_fund" || t.type === "wallet_topup";
-                    const isSuccess = t.status === "success";
-                    const displayAmt = isDeposit && t.meta?.net_credit
-                      ? naira(Number(t.meta.net_credit))
-                      : naira(Number(t.amount));
-                    const sign = isDeposit
-                      ? (isSuccess ? "+" : "")
-                      : "-";
-                    const isPending = ["pending", "processing", "verifying"].includes(t.status);
-                    const amtColor = isDeposit
-                      ? (isSuccess ? "text-green-400" : isPending ? "text-amber-400" : "text-muted-foreground")
-                      : (isSuccess ? "text-red-400" : "text-muted-foreground");
-                    const statusLabel = t.status !== "success"
-                      ? t.status === "refunded" ? "Refunded" : t.status.charAt(0).toUpperCase() + t.status.slice(1)
-                      : null;
-                    const statusColor = t.status === "failed" || t.status === "refunded"
-                      ? "text-destructive"
-                      : t.status === "processing" || t.status === "verifying" ? "text-blue-400"
-                      : "text-warning";
-                    return (
-                      <div className="text-right">
-                        <div className={`text-sm font-semibold ${amtColor}`}>
-                          {sign}{displayAmt}
-                        </div>
-                        {statusLabel && (
-                          <div className={`text-[10px] font-medium uppercase ${statusColor}`}>
-                            {statusLabel}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-              </div>
-            ))}
+            {[0, 1, 2].map(i => <Skeleton key={i} className="h-[62px] rounded-2xl" />)}
           </div>
+        ) : recent.length === 0 ? (
+          <Card className="p-8 text-center">
+            <IconPlate tint="muted" size="lg"><Zap className="h-[18px] w-[18px]" /></IconPlate>
+            <div className="mt-3 text-[13px] font-semibold">No transactions yet</div>
+            <div className="mt-1 text-[11.5px] text-muted-foreground">Your first top up will show up here.</div>
+          </Card>
+        ) : (
+          <Card className="divide-y divide-[hsl(var(--hairline))] overflow-hidden">
+            {recent.map(t => {
+              const isDeposit = t.type === "wallet_fund" || t.type === "wallet_topup";
+              const isSuccess = t.status === "success";
+              const displayAmt = isDeposit && t.meta?.net_credit ? naira(Number(t.meta.net_credit)) : naira(Number(t.amount));
+              const sign = isDeposit ? (isSuccess ? "+" : "") : "-";
+              const isPending = ["pending", "processing", "verifying"].includes(t.status);
+              const amtColor = isDeposit
+                ? (isSuccess ? "text-success" : isPending ? "text-warning" : "text-muted-foreground")
+                : (isSuccess ? "text-foreground" : "text-muted-foreground");
+              const statusLabel = !isSuccess
+                ? (t.status === "refunded" ? "Refunded" : t.status.charAt(0).toUpperCase() + t.status.slice(1))
+                : null;
+              const tone = t.status === "failed" || t.status === "refunded" ? "danger" : isPending ? "warning" : "muted";
+              const Ico = isDeposit ? Plus : t.type === "data" ? Wifi : t.type === "airtime" ? Zap : t.type === "cable" ? Tv : BatteryCharging;
+              return (
+                <ListRow
+                  key={t.id}
+                  onClick={() => nav("/app/history")}
+                  icon={<IconPlate tint={isDeposit ? "accent" : "primary"}><Ico className="h-4 w-4" strokeWidth={2.2} /></IconPlate>}
+                  title={<span className="capitalize">{t.type.replace("_", " ")}{t.network ? ` \u00b7 ${t.network}` : ""}</span>}
+                  subtitle={new Date(t.created_at).toLocaleString()}
+                  right={
+                    <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                      <span className={`text-[13.5px] font-bold ${amtColor}`}>{sign}{displayAmt}</span>
+                      {statusLabel && <StatPill tone={tone as any}>{statusLabel}</StatPill>}
+                    </div>
+                  }
+                />
+              );
+            })}
+          </Card>
         )}
       </div>
 
