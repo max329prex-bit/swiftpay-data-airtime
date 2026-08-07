@@ -182,7 +182,7 @@ export default function Wallet() {
   const AccountCard = ({ va, copied, onCopy, onRefresh, showRefresh = false }:
     { va: VAResult; copied: boolean; onCopy: () => void; onRefresh?: () => void; showRefresh?: boolean }) => (
     <motion.div key="va" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl bg-secondary/30 border border-primary/20 p-5 space-y-4">
+      className="surface space-y-4 rounded-[26px] border-primary/25 p-5">
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
           <Building2 className="w-4 h-4 text-primary" />
@@ -204,7 +204,7 @@ export default function Wallet() {
       </div>
 
       <button onClick={onCopy}
-        className="w-full rounded-xl bg-white/[0.04] border border-white/10 p-4 flex items-center justify-between group hover:bg-white/[0.07] active:scale-[0.98] transition">
+        className="w-full rounded-xl bg-foreground/[0.04] border border-[hsl(var(--hairline))] p-4 flex items-center justify-between group hover:bg-foreground/[0.07] active:scale-[0.98] transition">
         <div className="text-left">
           <div className="text-xs text-muted-foreground mb-1">Account Number</div>
           <div className="font-display text-2xl font-bold tracking-wider">{va.account_number}</div>
@@ -214,7 +214,7 @@ export default function Wallet() {
           : <Copy className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition shrink-0" />}
       </button>
 
-      <div className="rounded-xl bg-white/[0.03] border border-white/5 px-4 py-3">
+      <div className="rounded-xl bg-foreground/[0.03] border border-[hsl(var(--hairline))] px-4 py-3">
         <div className="text-xs text-muted-foreground mb-0.5">Account Name</div>
         <div className="text-sm font-semibold">{va.account_name}</div>
       </div>
@@ -224,15 +224,15 @@ export default function Wallet() {
   );
 
   return (
-    <div className="space-y-5 pb-10">
-      <h1 className="font-display text-2xl font-semibold">Deposit</h1>
+    <div className="space-y-6 pb-10">
+      <h1 className="font-display text-[26px] font-bold tracking-tight">Deposit</h1>
 
       {/* Balance */}
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
+        className="relative overflow-hidden rounded-[28px] bg-gradient-primary p-6 shadow-[var(--shadow-key)]">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
-        <div className="text-xs uppercase tracking-widest text-white/70">Wallet balance</div>
-        <div className="mt-1 font-display text-4xl font-bold text-white">{naira(balance)}</div>
+        <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70">Wallet balance</div>
+        <div className="mt-2 font-display text-[40px] font-bold leading-none tracking-tight text-white">{naira(balance)}</div>
         {reserved > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-3 text-white/90">
             <div className="rounded-xl bg-white/10 px-3 py-2">
@@ -248,22 +248,22 @@ export default function Wallet() {
       </motion.div>
 
       {/* Tab switcher */}
-      <div className="grid grid-cols-2 gap-1 rounded-2xl bg-secondary/20 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[hsl(var(--hairline))] bg-foreground/[0.04] p-1">
         <button onClick={() => setTab("free")}
-          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
-            ${tab === "free" ? "bg-emerald-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          className={`flex items-center justify-center gap-1.5 press rounded-xl py-2.5 text-[12px] font-semibold transition
+            ${tab === "free" ? "bg-accent text-accent-foreground shadow-[var(--shadow-elev-1)]" : "text-muted-foreground hover:text-foreground"}`}>
           <Gift className="w-4 h-4" /> Free Transfer
         </button>
         <button onClick={() => setTab("static")}
-          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-medium transition
-            ${tab === "static" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          className={`flex items-center justify-center gap-1.5 press rounded-xl py-2.5 text-[12px] font-semibold transition
+            ${tab === "static" ? "bg-gradient-primary text-white shadow-[var(--shadow-key)]" : "text-muted-foreground hover:text-foreground"}`}>
           <Lock className="w-4 h-4" /> Permanent
         </button>
       </div>
 
       {/* Info banner (hidden on Free tab — it has its own) */}
       {tab !== "free" && (
-        <div className="rounded-2xl bg-secondary/20 border border-white/5 p-4 flex gap-3 text-sm text-muted-foreground">
+        <div className="surface flex gap-3 rounded-2xl p-4 text-[12.5px] leading-relaxed text-muted-foreground">
           <Info className="w-4 h-4 mt-0.5 text-primary/70 shrink-0" />
           {tab === "static"
             ? <p>Your permanent account — transfer any amount anytime. Balance updates instantly. <span className="text-yellow-400/80 font-medium">1% deposit fee applies.</span></p>
@@ -288,7 +288,7 @@ export default function Wallet() {
 
             {/* Loading */}
             {staticLoading && (
-              <div className="rounded-2xl bg-secondary/30 border border-white/5 p-6 flex items-center justify-center gap-3 text-muted-foreground">
+              <div className="rounded-2xl surface p-6 flex items-center justify-center gap-3 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
                 <span className="text-sm">Loading your account…</span>
               </div>
@@ -360,7 +360,7 @@ export default function Wallet() {
                       placeholder="First Last Name"
                       value={kycName}
                       onChange={e => { setKycName(e.target.value); setKycError(null); }}
-                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition"
+                      className="w-full rounded-xl bg-foreground/[0.04] border border-[hsl(var(--hairline))] px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition"
                     />
                   </div>
 
@@ -387,7 +387,7 @@ export default function Wallet() {
                       placeholder="08012345678"
                       value={kycPhone}
                       onChange={e => { setKycPhone(e.target.value); setKycError(null); }}
-                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition"
+                      className="w-full rounded-xl bg-foreground/[0.04] border border-[hsl(var(--hairline))] px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition"
                     />
                   </div>
 
@@ -403,7 +403,7 @@ export default function Wallet() {
                       placeholder="11-digit NIN"
                       value={kycNIN}
                       onChange={e => { setKycNIN(e.target.value.replace(/\D/g, "")); setKycError(null); }}
-                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition font-mono"
+                      className="w-full rounded-xl bg-foreground/[0.04] border border-[hsl(var(--hairline))] px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition font-mono"
                     />
                   </div>
 
@@ -419,7 +419,7 @@ export default function Wallet() {
                       placeholder="11-digit BVN"
                       value={kycBVN}
                       onChange={e => { setKycBVN(e.target.value.replace(/\D/g, "")); setKycError(null); }}
-                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition font-mono"
+                      className="w-full rounded-xl bg-foreground/[0.04] border border-[hsl(var(--hairline))] px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition font-mono"
                     />
                   </div>
                 </div>
@@ -449,7 +449,7 @@ export default function Wallet() {
 
             {staticVA && (
               <button onClick={() => fetchStatic(true)}
-                className="w-full h-11 rounded-xl border border-white/10 text-sm text-muted-foreground flex items-center justify-center gap-2 hover:bg-white/5 transition">
+                className="w-full h-11 rounded-xl border border-[hsl(var(--hairline))] text-sm text-muted-foreground flex items-center justify-center gap-2 hover:bg-foreground/[0.05] transition">
                 <RefreshCw className="w-4 h-4" /> Refresh balance
               </button>
             )}
