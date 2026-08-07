@@ -173,7 +173,7 @@ export default function Electricity() {
       <div className="space-y-2">
         <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Provider</div>
         <button onClick={() => setShowProviders(!showProviders)}
-          className="glass flex w-full items-center justify-between rounded-2xl p-4">
+          className="surface flex w-full items-center justify-between rounded-2xl p-4">
           <div className="flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary"><Zap className="h-4 w-4 text-white" /></span>
             <span className="font-semibold text-sm">{provider.name}</span>
@@ -181,10 +181,10 @@ export default function Electricity() {
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showProviders ? "rotate-180" : ""}`} />
         </button>
         {showProviders && (
-          <div className="glass rounded-2xl overflow-hidden">
+          <div className="surface rounded-2xl overflow-hidden">
             {providers.map(p => (
               <button key={p.code} onClick={() => { setProvider(p); setShowProviders(false); setVerified(false); setCustomerName(""); setVerifySkipped(false); }}
-                className="flex w-full items-center gap-3 p-4 hover:bg-white/5 text-left">
+                className="flex w-full items-center gap-3 p-4 hover:bg-foreground/[0.05] text-left">
                 <span className="font-medium text-sm">{p.name}</span>
               </button>
             ))}
@@ -220,7 +220,7 @@ export default function Electricity() {
           <div className="grid grid-cols-3 gap-2">
             {QUICK_AMOUNTS.map(a => (
               <button key={a} onClick={() => setAmount(a)}
-                className={`rounded-2xl py-3 text-sm font-semibold transition ${amount === a ? "bg-primary/10 border border-primary text-primary shadow-glow" : "glass hover:bg-white/5"}`}>
+                className={`rounded-2xl py-3 text-sm font-semibold transition ${amount === a ? "bg-primary/10 border border-primary text-primary shadow-[var(--shadow-key)]" : "glass hover:bg-foreground/[0.05]"}`}>
                 {naira(a)}
               </button>
             ))}
@@ -247,7 +247,7 @@ export default function Electricity() {
               className="fixed inset-0 z-40 bg-black/60" onClick={() => setStep("form")} />
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#13171f] border-t border-white/10 p-6">
+              className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#13171f] border-t border-[hsl(var(--hairline))] p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-display text-lg font-bold">Authorization</h2>
                 <button onClick={() => setStep("form")} className="grid h-8 w-8 place-items-center rounded-full glass"><X className="h-4 w-4" /></button>
@@ -259,7 +259,7 @@ export default function Electricity() {
                   { label: "Customer", value: customerName },
                   { label: "Amount", value: naira(amount), bold: true },
                 ].map(row => (
-                  <div key={row.label} className="flex justify-between text-sm border-b border-white/5 pb-2">
+                  <div key={row.label} className="flex justify-between text-sm border-b border-[hsl(var(--hairline))] pb-2">
                     <span className="text-muted-foreground">{row.label}</span>
                     <span className={row.bold ? "text-accent font-bold" : "font-semibold"}>{row.value}</span>
                   </div>

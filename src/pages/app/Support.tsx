@@ -110,7 +110,7 @@ export default function Support() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">My tickets</h2>
           {tickets.map(t => (
-            <div key={t.id} className="glass rounded-2xl p-4 space-y-2">
+            <div key={t.id} className="surface rounded-2xl p-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Ticket className="w-4 h-4 text-primary" />
@@ -139,7 +139,7 @@ export default function Support() {
             className="space-y-3">
 
             <button onClick={openBlitziChat}
-              className="w-full flex items-center gap-4 rounded-2xl bg-gradient-primary p-5 text-left shadow-glow transition active:scale-[0.98]">
+              className="w-full flex items-center gap-4 rounded-2xl bg-gradient-primary p-5 text-left shadow-[var(--shadow-key)] transition active:scale-[0.98]">
               <div className="h-11 w-11 rounded-xl bg-white/20 grid place-items-center shrink-0">
                 <MessageCircle className="w-5 h-5 text-white" />
               </div>
@@ -150,7 +150,7 @@ export default function Support() {
             </button>
 
             <button onClick={() => setShowTicket(true)}
-              className="w-full flex items-center gap-4 rounded-2xl bg-secondary/40 border border-white/5 p-5 text-left transition hover:bg-secondary/60 active:scale-[0.98]">
+              className="w-full flex items-center gap-4 rounded-2xl bg-secondary/40 border border-[hsl(var(--hairline))] p-5 text-left transition hover:bg-secondary/60 active:scale-[0.98]">
               <div className="h-11 w-11 rounded-xl bg-primary/15 border border-primary/20 grid place-items-center shrink-0">
                 <Mail className="w-5 h-5 text-primary" />
               </div>
@@ -179,12 +179,12 @@ export default function Support() {
                 onChange={e => setMessage(e.target.value)}
                 placeholder="Tell us what happened — include your phone number, transaction reference, or any details that help..."
                 rows={5}
-                className="rounded-2xl bg-secondary/40 border-white/10 resize-none text-sm"
+                className="rounded-2xl bg-secondary/40 border-[hsl(var(--hairline))] resize-none text-sm"
               />
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowTicket(false)}
-                className="flex-1 h-12 rounded-2xl bg-secondary/40 border border-white/10 text-sm font-semibold transition hover:bg-secondary/60">
+                className="flex-1 h-12 rounded-2xl bg-secondary/40 border border-[hsl(var(--hairline))] text-sm font-semibold transition hover:bg-secondary/60">
                 Back
               </button>
               <button onClick={submitTicket} disabled={!message.trim() || submitting}
@@ -207,7 +207,7 @@ export default function Support() {
               <p className="text-xs text-muted-foreground mt-2">We'll get back to you within 24 hours.</p>
             </div>
             <button onClick={() => { setTicketRef(null); setShowTicket(false); setMessage(""); }}
-              className="h-11 px-6 rounded-xl bg-secondary/40 border border-white/10 text-sm font-semibold">
+              className="h-11 px-6 rounded-xl bg-secondary/40 border border-[hsl(var(--hairline))] text-sm font-semibold">
               Done
             </button>
           </motion.div>

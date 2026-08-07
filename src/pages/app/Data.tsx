@@ -84,10 +84,10 @@ function PlanCard({ plan, selected, onSelect }: { plan: Plan; selected: boolean;
   return (
     <button onClick={() => !blocked && onSelect(plan)} disabled={blocked} type="button"
       className={["relative flex flex-col items-center gap-0.5 rounded-2xl border p-3 text-center overflow-hidden transition",
-        blocked ? "opacity-50 cursor-not-allowed border-white/5 bg-white/[0.02]"
+        blocked ? "opacity-50 cursor-not-allowed border-[hsl(var(--hairline))] bg-white/[0.02]"
         : selected ? "border-primary bg-primary/10 shadow-[0_0_14px_rgba(139,92,246,0.25)]"
-        : "border-white/10 bg-white/[0.03] hover:bg-white/5 active:scale-95"].join(" ")}>
-      <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/5 rounded-t-2xl">
+        : "border-[hsl(var(--hairline))] bg-foreground/[0.03] hover:bg-foreground/[0.05] active:scale-95"].join(" ")}>
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-foreground/[0.05] rounded-t-2xl">
         <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${rate}%` }} />
       </div>
       <div className="font-display text-xl font-black leading-none mt-2 text-foreground">{plan.size}</div>
@@ -370,7 +370,7 @@ export default function Data() {
         </div>
         <div className="flex gap-1.5 mt-2">
           {["Processing", "Confirming", "Completing"].map((label, i) => (
-            <span key={i} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${i === 1 ? "bg-primary/20 text-primary border border-primary/30" : "bg-white/5 text-muted-foreground border border-white/10"}`}>
+            <span key={i} className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${i === 1 ? "bg-primary/20 text-primary border border-primary/30" : "bg-foreground/[0.05] text-muted-foreground border border-[hsl(var(--hairline))]"}`}>
               {label}
             </span>
           ))}
@@ -403,13 +403,13 @@ export default function Data() {
             return (
               <button key={n.id} onClick={() => { if (!isSupported) return; setNetwork(n.id as NetworkId); setStep("form"); }}
                 disabled={!isSupported} type="button"
-                className={["flex flex-col overflow-hidden rounded-3xl border transition",
-                  isSupported ? "border-white/10 hover:border-white/20 active:scale-95 cursor-pointer"
-                  : "border-white/5 opacity-50 cursor-not-allowed"].join(" ")}>
+                className={["flex flex-col overflow-hidden rounded-[26px] border transition",
+                  isSupported ? "border-[hsl(var(--hairline))] hover:border-white/20 active:scale-95 cursor-pointer"
+                  : "border-[hsl(var(--hairline))] opacity-50 cursor-not-allowed"].join(" ")}>
                 <div className={`${n.bg} flex items-center justify-center py-8`}>
                   <span className={`font-black text-2xl ${n.color}`}>{n.name}</span>
                 </div>
-                <div className="bg-white/[0.03] py-3 px-3 text-left">
+                <div className="bg-foreground/[0.03] py-3 px-3 text-left">
                   <div className="text-sm font-semibold">{n.name}</div>
                   <div className="text-[11px] text-muted-foreground">{isSupported ? `${count} plans` : "Coming soon"}</div>
                 </div>
@@ -476,7 +476,7 @@ export default function Data() {
               {(["daily", "weekly", "monthly"] as Duration[]).map(d => (
                 <button key={d} onClick={() => { setDuration(d); setShowMore(false); }} type="button"
                   className={["flex-1 rounded-xl py-2 text-xs font-bold capitalize transition",
-                    duration === d ? "bg-primary text-primary-foreground shadow-sm" : "bg-white/[0.04] text-muted-foreground hover:bg-white/[0.07]"].join(" ")}>
+                    duration === d ? "bg-primary text-primary-foreground shadow-sm" : "bg-foreground/[0.04] text-muted-foreground hover:bg-white/[0.07]"].join(" ")}>
                   {d}
                 </button>
               ))}
@@ -502,7 +502,7 @@ export default function Data() {
                       </div>
                       {tabPlans.filter(p => !p.requires_non_owing_line).length > 6 && (
                         <button onClick={() => setShowMore(v => !v)} type="button"
-                          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/[0.06] transition">
+                          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[hsl(var(--hairline))] bg-foreground/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-foreground/[0.06] transition">
                           {showMore ? <><ChevronUp className="h-3.5 w-3.5" /> Show Less</> : <><ChevronDown className="h-3.5 w-3.5" /> More Owing Plans ({tabPlans.filter(p => !p.requires_non_owing_line).length - 6})</>}
                         </button>
                       )}
@@ -546,7 +546,7 @@ export default function Data() {
 
                 {tabPlans.length > 6 && (
                   <button onClick={() => setShowMore(v => !v)} type="button"
-                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-white/[0.06] transition">
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[hsl(var(--hairline))] bg-foreground/[0.03] py-2.5 text-xs font-semibold text-muted-foreground hover:bg-foreground/[0.06] transition">
                     {showMore ? <><ChevronUp className="h-3.5 w-3.5" /> Show Less</> : <><ChevronDown className="h-3.5 w-3.5" /> More Plans ({tabPlans.length - 6})</>}
                   </button>
                 )}
@@ -557,7 +557,7 @@ export default function Data() {
           {plan && (
             <>
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 space-y-2">
+                className="rounded-2xl border border-[hsl(var(--hairline))] bg-foreground/[0.04] px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Success Rate</span>
                   <span className={`text-base font-black tabular-nums ${plan.success_rate >= 90 ? "text-green-400" : plan.success_rate >= 75 ? "text-amber-400" : "text-red-400"}`}>
@@ -575,7 +575,7 @@ export default function Data() {
                 </p>
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                className="glass flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
+                className="surface flex items-center justify-between rounded-2xl px-4 py-3 border border-primary/20">
                 <div className="text-xs text-muted-foreground">{plan.size}  |  {plan.validity}</div>
                 <div className="font-display text-base font-bold">{naira(plan.sell_price)}</div>
               </motion.div>
@@ -627,19 +627,19 @@ export default function Data() {
               className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={() => setStep("form")} />
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 26, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-white/10 p-6">
+              className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#0f1117] border-t border-[hsl(var(--hairline))] p-6">
               <div className="flex items-center justify-between mb-5">
                 <div><h2 className="font-display text-lg font-bold">Authorize Purchase</h2><p className="text-xs text-muted-foreground mt-0.5">Review and confirm below</p></div>
                 <button onClick={() => setStep("form")} className="grid h-8 w-8 place-items-center rounded-full glass"><X className="h-4 w-4" /></button>
               </div>
-              <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4 mb-5 space-y-2.5">
+              <div className="rounded-2xl bg-foreground/[0.04] border border-white/[0.08] p-4 mb-5 space-y-2.5">
                 {[
                   { label: "Product", value: `${net.name} Data \u2014 ${plan.size} (${plan.validity})` },
                   { label: "Recipient", value: phone, accent: true },
                   { label: "Amount", value: naira(plan.sell_price) },
                   { label: "Total Payable", value: naira(plan.sell_price), bold: true },
                 ].map(row => (
-                  <div key={row.label} className="flex justify-between text-sm border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                  <div key={row.label} className="flex justify-between text-sm border-b border-[hsl(var(--hairline))] pb-2 last:border-0 last:pb-0">
                     <span className="text-muted-foreground">{row.label}</span>
                     <span className={row.accent ? "text-primary font-semibold" : row.bold ? "text-accent font-bold" : "font-semibold"}>{row.value}</span>
                   </div>

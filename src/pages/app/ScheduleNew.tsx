@@ -148,7 +148,7 @@ export default function ScheduleNew() {
               <div className="flex flex-wrap gap-2">
                 {bens.map((b: any) => (
                   <button key={b.id} onClick={() => { setPhone(b.phone); setRecipientLabel(b.name ?? ""); }}
-                    className="text-xs px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/10">
+                    className="text-xs px-3 py-1.5 rounded-full border border-[hsl(var(--hairline))] bg-foreground/[0.04] hover:bg-foreground/[0.08]">
                     {b.name || b.phone}
                   </button>
                 ))}
@@ -171,7 +171,7 @@ export default function ScheduleNew() {
             <div className="grid grid-cols-2 gap-3">
               {plans.filter(p => !hideGiftPlans || !isGiftPlan(p.id)).map(p => (
                 <button key={p.id} onClick={() => setPlan(p)}
-                  className={`rounded-2xl p-3 border text-left transition ${plan?.id === p.id ? "border-primary bg-primary/10" : "border-white/10 bg-white/[0.03] hover:bg-white/5"}`}>
+                  className={`rounded-2xl p-3 border text-left transition ${plan?.id === p.id ? "border-primary bg-primary/10" : "border-[hsl(var(--hairline))] bg-foreground/[0.03] hover:bg-foreground/[0.05]"}`}>
                   <div className="font-display text-lg font-black">{p.size}</div>
                   <div className="text-[10px] text-muted-foreground">{p.validity}</div>
                   <div className="text-sm font-bold mt-1">{naira(p.sell_price)}</div>
@@ -207,7 +207,7 @@ export default function ScheduleNew() {
               <Calendar className="h-3 w-3" /> First run
             </label>
             <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)}
-              className="w-full h-14 rounded-2xl bg-secondary/40 border border-white/10 px-4 mt-1.5 text-sm focus:outline-none focus:border-primary/50" />
+              className="w-full h-14 rounded-2xl bg-secondary/40 border border-[hsl(var(--hairline))] px-4 mt-1.5 text-sm focus:outline-none focus:border-primary/50" />
             {!dateOk && <p className="text-[11px] text-red-400 mt-1">Must be at least 10 minutes in the future.</p>}
           </div>
           <div>
@@ -217,7 +217,7 @@ export default function ScheduleNew() {
             <div className="grid grid-cols-2 gap-2 mt-1.5">
               {FREQ_OPTIONS.map(o => (
                 <button key={o.id} onClick={() => setFreq(o.id)}
-                  className={`rounded-2xl p-3 border text-left transition ${freq === o.id ? "border-primary bg-primary/10" : "border-white/10 bg-white/[0.03] hover:bg-white/5"}`}>
+                  className={`rounded-2xl p-3 border text-left transition ${freq === o.id ? "border-primary bg-primary/10" : "border-[hsl(var(--hairline))] bg-foreground/[0.03] hover:bg-foreground/[0.05]"}`}>
                   <div className="text-sm font-semibold">{o.label}</div>
                   <div className="text-[10px] text-muted-foreground">{o.sub}</div>
                 </button>
@@ -233,7 +233,7 @@ export default function ScheduleNew() {
       {/* STEP 4: Confirm */}
       {step === "confirm" && plan && (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+          <div className="rounded-[26px] border border-[hsl(var(--hairline))] bg-foreground/[0.03] p-5 space-y-3">
             <div className="flex items-center gap-2 text-primary text-xs font-semibold">
               <Sparkles className="h-3.5 w-3.5" /> RESERVED IMMEDIATELY
             </div>

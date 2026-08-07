@@ -105,7 +105,7 @@ export default function Cable() {
             const active = provider.id === p.id;
             return (
               <button key={p.id} type="button" onClick={() => { setProvider(p); setPkg(null); }}
-                className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all ${active ? "border-primary bg-primary/10 shadow-glow" : "border-white/10 bg-white/[0.03]"}`}>
+                className={`flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all ${active ? "border-primary bg-primary/10 shadow-[var(--shadow-key)]" : "border-[hsl(var(--hairline))] bg-foreground/[0.03]"}`}>
                 <span className={`grid h-9 w-9 place-items-center rounded-xl ${CABLE_COLORS[p.id] ?? "bg-slate-600"} text-white text-[10px] font-bold`}>{p.id.slice(0, 3)}</span>
                 <span className="text-[10px] font-medium">{p.name}</span>
               </button>
@@ -133,7 +133,7 @@ export default function Cable() {
               const active = pkg?.id === p.id;
               return (
                 <button key={p.id} type="button" onClick={() => setPkg(p)}
-                  className={`flex w-full items-center justify-between rounded-2xl border p-4 transition ${active ? "border-primary bg-primary/10" : "border-white/10 bg-white/[0.03]"}`}>
+                  className={`flex w-full items-center justify-between rounded-2xl border p-4 transition ${active ? "border-primary bg-primary/10" : "border-[hsl(var(--hairline))] bg-foreground/[0.03]"}`}>
                   <span className="text-sm font-semibold">{p.name}</span>
                   <span className="font-display text-sm font-bold">{naira(p.price)}</span>
                 </button>
@@ -148,7 +148,7 @@ export default function Cable() {
       <AnimatePresence>
         {step === "pin" && pkg && <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40 bg-black/60" onClick={() => setStep("form")} />
-          <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#13171f] border-t border-white/10 p-6">
+          <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl bg-[#13171f] border-t border-[hsl(var(--hairline))] p-6">
             <div className="flex items-center justify-between mb-6"><h2 className="font-display text-lg font-bold">Authorize Payment</h2><button onClick={() => setStep("form")} className="grid h-8 w-8 place-items-center rounded-full glass"><X className="h-4 w-4" /></button></div>
             <div className="space-y-3 mb-6">
               {[
@@ -157,7 +157,7 @@ export default function Cable() {
                 { label: "Customer", value: customer },
                 { label: "Amount", value: naira(pkg.price), bold: true },
               ].map(row => (
-                <div key={row.label} className="flex justify-between text-sm border-b border-white/5 pb-2">
+                <div key={row.label} className="flex justify-between text-sm border-b border-[hsl(var(--hairline))] pb-2">
                   <span className="text-muted-foreground">{row.label}</span>
                   <span className={row.accent ? "text-primary font-semibold" : row.bold ? "text-accent font-bold" : "font-semibold"}>{row.value}</span>
                 </div>

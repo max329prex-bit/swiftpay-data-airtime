@@ -19,14 +19,14 @@ export default function History() {
       <h1 className="font-display text-2xl font-semibold">History</h1>
       {loading ? <div className="py-10 grid place-items-center"><BoltLoader size={56} label="Loading..." /></div> :
        items.length === 0 ? (
-        <div className="glass grid place-items-center gap-3 rounded-3xl p-10 text-center">
+        <div className="surface grid place-items-center gap-3 rounded-[26px] p-10 text-center">
           <Receipt className="h-8 w-8 text-muted-foreground" /><div className="text-sm text-muted-foreground">No transactions yet.</div>
         </div>
       ) : (
         <div className="space-y-2">
           {items.map(t => (
             <Link key={t.id} to={"/app/transaction/" + t.id}
-              className="glass flex items-center justify-between rounded-2xl p-4 hover:border-primary/30 transition-colors">
+              className="surface flex items-center justify-between rounded-2xl p-4 hover:border-primary/30 transition-colors">
               <div>
                 <div className="text-sm font-semibold capitalize">{t.type.replace("_"," ")}{t.network ? " - " + t.network : ""}</div>
                 <div className="text-[11px] text-muted-foreground">{t.phone || t.reference} - {new Date(t.created_at).toLocaleString()}</div>

@@ -157,7 +157,7 @@ export default function Receipt() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
-      <div className="glass rounded-3xl overflow-hidden border border-white/10">
+      <div className="surface rounded-[26px] overflow-hidden border border-[hsl(var(--hairline))]">
         <div className={`h-1.5 w-full ${tx.status === "success" ? "bg-gradient-primary" : tx.status === "failed" ? "bg-destructive" : "bg-warning"}`} />
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
@@ -188,7 +188,7 @@ export default function Receipt() {
 
           <div className="space-y-0">
             {rows.map((row) => (
-              <div key={row.label} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0">
+              <div key={row.label} className="flex justify-between items-center py-3 border-b border-[hsl(var(--hairline))] last:border-0">
                 <span className="text-xs text-muted-foreground">{row.label}</span>
                 <span className="text-xs font-semibold text-foreground text-right max-w-[60%]">{row.value}</span>
               </div>
@@ -205,7 +205,7 @@ export default function Receipt() {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Electricity Token</p>
-                <div className="glass rounded-xl px-4 py-3 border border-primary/20">
+                <div className="surface rounded-xl px-4 py-3 border border-primary/20">
                   <p className="font-mono text-center text-lg font-bold text-primary tracking-widest">{meterToken}</p>
                   {meta.meter_unit && (
                     <p className="text-center text-xs text-muted-foreground mt-1">{meta.meter_unit} units</p>
@@ -237,7 +237,7 @@ export default function Receipt() {
         </div>
       </div>
 
-      <button onClick={shareReceipt} className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-primary py-4 font-semibold text-white shadow-glow">
+      <button onClick={shareReceipt} className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-primary py-4 font-semibold text-white shadow-[var(--shadow-key)]">
         <Share2 className="h-4 w-4" />
         Share Receipt
       </button>

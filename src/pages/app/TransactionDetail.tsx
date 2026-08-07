@@ -49,7 +49,7 @@ function getTimelineIndex(status: string) {
 function CopyRow({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
+    <div className="flex items-center justify-between py-3 border-b border-[hsl(var(--hairline))] last:border-0">
       <span className="text-xs text-muted-foreground">{label}</span>
       <button
         onClick={() => {
@@ -106,7 +106,7 @@ export default function TransactionDetail() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
-      <div className={`glass rounded-3xl p-6 border ${statusBg(tx.status)}`}>
+      <div className={`glass rounded-[26px] p-6 border ${statusBg(tx.status)}`}>
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">
@@ -138,13 +138,13 @@ export default function TransactionDetail() {
       </div>
 
       {!isCredit && !isFailed && (
-        <div className="glass rounded-2xl p-5">
+        <div className="surface rounded-2xl p-5">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">Progress</p>
           <div className="flex items-center">
             {TIMELINE_STEPS.map((step, i) => (
               <div key={step.key} className="flex-1 flex items-center">
                 <div className="flex flex-col items-center flex-shrink-0">
-                  <div className={`h-7 w-7 rounded-full grid place-items-center text-xs font-bold transition-all ${i <= tIdx ? "bg-gradient-primary text-white shadow-glow" : "bg-white/10 text-muted-foreground"}`}>
+                  <div className={`h-7 w-7 rounded-full grid place-items-center text-xs font-bold transition-all ${i <= tIdx ? "bg-gradient-primary text-white shadow-[var(--shadow-key)]" : "bg-white/10 text-muted-foreground"}`}>
                     {i < tIdx ? <CheckCheck className="h-3.5 w-3.5" /> : i + 1}
                   </div>
                   <span className={`text-[9px] mt-1 text-center leading-tight ${i <= tIdx ? "text-foreground" : "text-muted-foreground"}`}>
@@ -167,14 +167,14 @@ export default function TransactionDetail() {
       )}
 
       {isFailed && tx.failure_reason && (
-        <div className="glass rounded-2xl p-4 border border-destructive/20">
+        <div className="surface rounded-2xl p-4 border border-destructive/20">
           <p className="text-xs font-semibold uppercase tracking-widest text-destructive mb-1">Failure Reason</p>
           <p className="text-sm text-muted-foreground">{tx.failure_reason}</p>
         </div>
       )}
 
-      <div className="glass rounded-2xl px-5 py-2">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground py-3 border-b border-white/5">References</p>
+      <div className="surface rounded-2xl px-5 py-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground py-3 border-b border-[hsl(var(--hairline))]">References</p>
         <CopyRow label="Transaction ID" value={tx.id} />
         <CopyRow label="Reference" value={tx.reference} />
         {tx.provider_reference && <CopyRow label="Provider Ref" value={tx.provider_reference} />}
@@ -185,7 +185,7 @@ export default function TransactionDetail() {
       <div className="grid grid-cols-2 gap-3">
         <Link
           to={`/app/receipt/${tx.id}`}
-          className="glass flex flex-col items-center gap-2 rounded-2xl p-4 hover:border-primary/30 transition-colors"
+          className="surface flex flex-col items-center gap-2 rounded-2xl p-4 hover:border-primary/30 transition-colors"
         >
           <Receipt className="h-5 w-5 text-accent" />
           <span className="text-xs font-semibold">View Receipt</span>
@@ -193,7 +193,7 @@ export default function TransactionDetail() {
         <Link
           to="/app/support"
           state={{ txRef: tx.reference, txId: tx.id }}
-          className="glass flex flex-col items-center gap-2 rounded-2xl p-4 hover:border-primary/30 transition-colors"
+          className="surface flex flex-col items-center gap-2 rounded-2xl p-4 hover:border-primary/30 transition-colors"
         >
           <LifeBuoy className="h-5 w-5 text-muted-foreground" />
           <span className="text-xs font-semibold">Get Support</span>
