@@ -25,7 +25,7 @@ export default function Success() {
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        className="glass rounded-3xl p-5 text-left">
+        className="surface rounded-[26px] p-5 text-left">
         <div className="flex items-center justify-between border-b border-border/50 pb-3">
           <span className="text-xs text-muted-foreground">Amount</span>
           <span className="font-display text-xl font-bold">{naira(amount)}</span>

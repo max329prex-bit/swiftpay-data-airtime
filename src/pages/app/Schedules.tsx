@@ -106,7 +106,7 @@ export default function Schedules() {
 
       {/* Wallet split — 3 lines */}
       <motion.div initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-        className="rounded-3xl bg-gradient-to-br from-primary/90 to-accent/90 p-5 text-white space-y-3 shadow-glow">
+        className="rounded-[26px] bg-gradient-to-br from-primary/90 to-accent/90 p-5 text-white space-y-3 shadow-[var(--shadow-key)]">
         <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-white/70">
           <Wallet className="h-3.5 w-3.5" /> Wallet split
         </div>
@@ -136,7 +136,7 @@ export default function Schedules() {
             {upcoming.map(s => {
               const d = new Date(s.next_run_at);
               return (
-                <div key={s.id} className="flex-shrink-0 w-32 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <div key={s.id} className="flex-shrink-0 w-32 rounded-2xl border border-[hsl(var(--hairline))] bg-foreground/[0.03] p-3">
                   <div className="font-display text-xl font-bold leading-none">{d.getDate()}</div>
                   <div className="text-[10px] text-muted-foreground uppercase">{d.toLocaleString("en", { month: "short", weekday: "short" })}</div>
                   <div className="mt-2 text-[11px] font-semibold truncate">{s.network} · {s.bundle_size ?? naira(s.amount)}</div>
@@ -152,7 +152,7 @@ export default function Schedules() {
       {loading ? (
         <div className="py-12 grid place-items-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
       ) : active.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+        <div className="rounded-[26px] border border-dashed border-[hsl(var(--hairline))] bg-white/[0.02] p-8 text-center">
           <CalendarClock className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
           <p className="font-semibold">No schedules yet</p>
           <p className="text-xs text-muted-foreground mt-1">Auto-renew data for yourself, family or friends.</p>
@@ -164,7 +164,7 @@ export default function Schedules() {
         <div className="space-y-3">
           {active.map(s => (
             <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+              className="rounded-2xl border border-[hsl(var(--hairline))] bg-foreground/[0.03] p-4 space-y-3">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -199,7 +199,7 @@ export default function Schedules() {
               <div className="flex gap-2">
                 {s.status === "active" ? (
                   <button onClick={() => act(s.id, "pause")} disabled={busyId === s.id}
-                    className="flex-1 h-9 rounded-xl bg-white/[0.05] border border-white/10 text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-white/10 transition">
+                    className="flex-1 h-9 rounded-xl bg-white/[0.05] border border-[hsl(var(--hairline))] text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-foreground/[0.08] transition">
                     <Pause className="h-3.5 w-3.5" /> Pause
                   </button>
                 ) : s.status === "paused" ? (
@@ -224,7 +224,7 @@ export default function Schedules() {
         </div>
       )}
 
-      <Link to="/app/history" className="glass mt-2 flex items-center justify-between rounded-2xl p-4">
+      <Link to="/app/history" className="surface mt-2 flex items-center justify-between rounded-2xl p-4">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-secondary/40"><CheckCircle2 className="h-4 w-4" /></span>
           <div>

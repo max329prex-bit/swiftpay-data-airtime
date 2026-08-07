@@ -29,7 +29,7 @@ export default function PinSetup() {
   return (
     <div className="relative grid min-h-screen place-items-center px-4">
       <div className="absolute inset-0 -z-10 bg-gradient-aurora" />
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md gloss-strong rounded-3xl p-8 shadow-card space-y-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md gloss-strong rounded-[26px] p-8 shadow-card space-y-6">
         <div className="flex justify-center">
           <span className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10">
             <ShieldCheck className="h-8 w-8 text-primary" />
