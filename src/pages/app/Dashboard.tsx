@@ -232,9 +232,9 @@ export default function Dashboard() {
 
       {showRedeem && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setShowRedeem(false)} />
+          <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={() => setShowRedeem(false)} />
           <motion.div initial={{ y: "100%" }} animate={{ y: 0 }}
-            className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md rounded-t-3xl border-t border-white/10 bg-[#13171f] p-6 space-y-4">
+            className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-md space-y-4 rounded-t-[28px] border-t border-[hsl(var(--hairline))] bg-[hsl(var(--surface-2))] p-6 shadow-[var(--shadow-elev-2)]">
             <div className="flex items-center gap-2">
               <Gift className="h-5 w-5 text-accent" />
               <h2 className="font-display text-lg font-bold">Redeem 1GB Free Data</h2>
@@ -245,7 +245,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-4 gap-2">
                 {["MTN","AIRTEL","GLO","9MOBILE"].map(n => (
                   <button key={n} onClick={() => setRedeemNet(n)}
-                    className={"rounded-xl px-2 py-2 text-xs font-semibold transition " + (redeemNet === n ? "bg-primary text-white" : "bg-white/5 text-muted-foreground")}>
+                    className={"press rounded-xl px-2 py-2 text-xs font-semibold transition " + (redeemNet === n ? "bg-gradient-primary text-white shadow-[var(--shadow-key)]" : "bg-foreground/[0.05] text-muted-foreground")}>
                     {n}
                   </button>
                 ))}
@@ -254,7 +254,7 @@ export default function Dashboard() {
             <div>
               <div className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Phone</div>
               <input value={redeemPhone} onChange={e => setRedeemPhone(e.target.value)} inputMode="tel" placeholder="08030000000"
-                className="h-12 w-full rounded-2xl bg-secondary/40 px-4 text-base outline-none border border-white/5" />
+                className="h-12 w-full rounded-2xl border border-[hsl(var(--hairline))] bg-foreground/[0.04] px-4 text-base outline-none focus:border-primary/50" />
             </div>
             <Button variant="hero" size="xl" className="w-full" disabled={busy} onClick={redeem}>
               {busy ? "Redeeming..." : "Confirm Redemption"}
