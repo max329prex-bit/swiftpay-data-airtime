@@ -98,8 +98,8 @@ export default function Settings() {
   const nextTheme = (theme === "dark" ? "light" : theme === "light" ? "system" : "dark") as "dark" | "light" | "system";
 
   return (
-    <div className="space-y-5 pb-6">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-primary p-6 shadow-glow">
+    <div className="space-y-6 pb-6">
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-primary p-6 shadow-[var(--shadow-key)]">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative flex items-center gap-4">
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/20 backdrop-blur font-display text-xl font-bold text-white">{initials}</div>
@@ -217,8 +217,8 @@ export default function Settings() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</div>
-      <div className="glass divide-y divide-white/5 rounded-2xl overflow-hidden">{children}</div>
+      <div className="mb-2.5 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</div>
+      <div className="surface divide-y divide-[hsl(var(--hairline))] overflow-hidden rounded-3xl">{children}</div>
     </div>
   );
 }
@@ -229,13 +229,13 @@ function Row({ icon: Icon, label, desc, children, onClick, chevron, danger }: {
 }) {
   const Comp: any = onClick ? "button" : "div";
   return (
-    <Comp onClick={onClick} className={`flex w-full items-center gap-3 p-4 text-left ${onClick ? "hover:bg-white/5 transition" : ""}`}>
-      <span className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl ${danger ? "bg-destructive/15 text-destructive" : "bg-white/[0.08] text-foreground"}`}>
+    <Comp onClick={onClick} className={`press flex w-full items-center gap-3.5 px-4 py-3.5 text-left ${onClick ? "active:bg-foreground/[0.04]" : ""}`}>
+      <span className={`grid h-10 w-10 flex-shrink-0 place-items-center rounded-[14px] ${danger ? "bg-destructive/12 text-destructive" : "bg-primary/10 text-primary"}`}>
         <Icon className="h-4 w-4" />
       </span>
       <div className="flex-1 min-w-0">
-        <div className={`text-sm font-medium ${danger ? "text-destructive" : ""}`}>{label}</div>
-        {desc && <div className="text-xs text-muted-foreground">{desc}</div>}
+        <div className={`text-[13.5px] font-semibold ${danger ? "text-destructive" : ""}`}>{label}</div>
+        {desc && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{desc}</div>}
       </div>
       {children}
       {chevron && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
